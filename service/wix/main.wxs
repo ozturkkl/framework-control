@@ -60,16 +60,16 @@
 
     <Product
         Id='*'
-        Name='framework-control-service'
+        Name='Framework Laptop Control Service'
         UpgradeCode='5DBB12AC-A119-41F9-A1FF-98447249AC33'
-        Manufacturer='Framework Control'
+        Manufacturer='Kemal Ozturk'
         Language='1033'
         Codepage='1252'
         Version='$(var.Version)'>
 
         <Package Id='*'
             Keywords='Installer'
-            Manufacturer='Framework Control'
+            Manufacturer='Kemal Ozturk'
             InstallerVersion='450'
             Languages='1033'
             Compressed='yes'
@@ -97,7 +97,7 @@
                         <ServiceInstall
                             Id='FrameworkControlServiceInstall'
                             Name='FrameworkControlService'
-                            DisplayName='Framework Control Service'
+                            DisplayName='Framework Laptop Control Service'
                             Description='Framework control HTTP bridge'
                             Start='auto'
                             Type='ownProcess'
@@ -188,16 +188,12 @@
         <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
 
         
-        <!--
-          Adding a URL to Add/Remove Programs control panel listing for the
-          application is a two step process:
-
-          1. Uncomment the following `Property` tag with the "ARPHELPLINK" Id
-             attribute value.
-          2. Change the value for `Value` attribute of the following
-             `Property` tag to a valid URL.
-        -->
-        <!--<Property Id='ARPHELPLINK' Value='ChangeMe'/>-->
+        <!-- Improve Add/Remove Programs (Apps & Features) metadata -->
+        <Property Id='ARPHELPLINK' Value='https://github.com/ozturkkl/framework-control' />
+        <Property Id='ARPURLINFOABOUT' Value='https://github.com/ozturkkl/framework-control/blob/main/README.md' />
+        <Property Id='ARPURLUPDATEINFO' Value='https://github.com/ozturkkl/framework-control/releases' />
+        <Property Id='ARPCONTACT' Value='https://www.linkedin.com/in/ozturkkl/' />
+        <Property Id='ARPCOMMENTS' Value='Framework Control local HTTP service bridge.' />
 
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>

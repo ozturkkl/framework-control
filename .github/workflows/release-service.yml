@@ -1,0 +1,88 @@
+name: Build and Release Service MSI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+    paths:
+      - 'service/**'
+      - '.github/workflows/release-service.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install WiX Toolset
+        run: choco install wixtoolset --no-progress -y
+
+      - name: Install cargo-wix
+        run: cargo install cargo-wix
+
+      - name: Build service (release)
+        run: cargo build --release
+
+      - name: Build MSI with cargo-wix
+        run: cargo wix --nocapture -v
+
+      - name: Locate MSI and read version
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path "target/wix" -Filter *.msi | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $msi) { throw "MSI not found in target/wix" }
+          echo "MSI_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $versionMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          if (-not $versionMatch) { throw "Version not found in Cargo.toml" }
+          $version = $versionMatch.Matches[0].Groups[1].Value
+          echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "STABLE_NAME=framework-control-service.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "VERSIONED_NAME=framework-control-service-$version-x86_64.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Generate SHA256
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash "$env:MSI_PATH" -Algorithm SHA256).Hash
+          $shaPath = "$env:RUNNER_TEMP/" + $env:STABLE_NAME + ".sha256"
+          Set-Content -Path $shaPath -Value $hash -NoNewline
+          echo "SHA_PATH=$shaPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Ensure gh CLI
+        run: gh --version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish rolling release (continuous) on push to main
+        if: startsWith(github.ref, 'refs/heads/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view continuous 2>$null || gh release create continuous -t "Framework Service (continuous)" -n "Automated build from main" --prerelease
+          gh release upload continuous "$env:MSI_PATH#$env:STABLE_NAME" --clobber
+          gh release upload continuous "$env:SHA_PATH#$env:STABLE_NAME.sha256" --clobber
+
+      - name: Publish versioned release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "$env:GITHUB_REF" -replace 'refs/tags/', ''
+          gh release create $tag -t "Framework Service $env:VERSION" -n "Automated release for version $env:VERSION" --latest || gh release edit $tag --latest
+          gh release upload $tag "$env:MSI_PATH#$env:STABLE_NAME" --clobber
+          gh release upload $tag "$env:MSI_PATH#$env:VERSIONED_NAME" --clobber
+          gh release upload $tag "$env:SHA_PATH#$env:STABLE_NAME.sha256" --clobber
+
+
