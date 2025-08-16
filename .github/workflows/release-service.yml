@@ -4,9 +4,8 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
-    paths:
-      - 'service/**'
-      - '.github/workflows/release-service.yml'
+  release:
+    types: [ published ]
   workflow_dispatch: {}
 
 permissions:
@@ -58,6 +57,14 @@ jobs:
           Set-Content -Path $shaPath -Value $hash -NoNewline
           echo "SHA_PATH=$shaPath" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      - name: Resolve release tag (for release event or tag push)
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          if (-not $tag) { $tag = "$env:GITHUB_REF" -replace 'refs/tags/', '' }
+          echo "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Ensure gh CLI
         run: gh --version
         env:
@@ -74,13 +81,14 @@ jobs:
           gh release upload continuous "$env:SHA_PATH#$env:STABLE_NAME.sha256" --clobber
 
       - name: Publish versioned release on tag
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = "$env:GITHUB_REF" -replace 'refs/tags/', ''
-          gh release create $tag -t "Framework Service $env:VERSION" -n "Automated release for version $env:VERSION" --latest || gh release edit $tag --latest
+          $tag = "$env:RELEASE_TAG"
+          if (-not $tag) { throw "RELEASE_TAG not resolved" }
+          gh release view $tag 2>$null || gh release create $tag -t "Framework Service $env:VERSION" -n "Automated release for version $env:VERSION" --latest
           gh release upload $tag "$env:MSI_PATH#$env:STABLE_NAME" --clobber
           gh release upload $tag "$env:MSI_PATH#$env:VERSIONED_NAME" --clobber
           gh release upload $tag "$env:SHA_PATH#$env:STABLE_NAME.sha256" --clobber
