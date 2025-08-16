@@ -1,0 +1,17 @@
+{
+  "name": "framework-control-web",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@types/node": "^24.3.0",
+    "svelte": "^4.2.0",
+    "vite": "^5.0.0"
+  }
+}

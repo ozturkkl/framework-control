@@ -1,0 +1,12 @@
+<service>
+  <id>FrameworkControlService</id>
+  <name>Framework Control Service</name>
+  <description>Framework control HTTP bridge</description>
+  <executable>framework-control-service.exe</executable>
+  <workingdirectory>.</workingdirectory>
+  <startmode>Automatic</startmode>
+  <onfailure action="restart" delay="5 sec"/>
+  <log mode="roll"/>
+</service>
+
+

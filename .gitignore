@@ -1,0 +1,28 @@
+web/node_modules
+service/target
+service/target/wix/
+
+# Web build/cache
+web/dist
+web/.vite
+
+# Env files (keep example if present)
+web/.env
+web/.env.*
+!web/.env.example
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors/IDEs
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
