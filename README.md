@@ -29,7 +29,8 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 - Backend service: Rust (Axum + Tokio)
   - Exposes a tiny HTTP API (default: http://127.0.0.1:8090)
   - Executes Framework CLI (`framework_tool`) for all EC interactions (no direct library bindings)
-  - Small parser converts CLI text to JSON for the UI
+  - Returns raw CLI stdout in a simple JSON envelope; the web UI parses as needed
+  - Applies a persisted fan-control config at boot (auto/manual/curve)
 - Frontend UI: Svelte + Vite
   - Runs locally (dev: http://127.0.0.1:5173) and talks to the backend API
   - Simple pages: Telemetry and Fan control
@@ -54,10 +55,37 @@ The app expects these CLIs to be present for the associated features. The Window
 ## API (MVP)
 
 - `GET /api/health` → "ok"
-- `GET /api/power` → `{ ac_present: boolean, battery: { charge_percentage, cycle_count, charging } | null }`
-- `POST /api/fan/duty` → `{ status: "ok" }` (body: `{ percent, fan_index? }`)
+- `GET /api/power` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --power`)
+- `GET /api/thermal` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --thermal`)
+- `GET /api/config` → `{ ok: boolean, config: Config }`
+- `POST /api/config` → `{ ok: boolean }` (body: `{ config: Partial<Config> }`; deep-merged and persisted)
 
 Default bind: `127.0.0.1:8090`. The UI reads this via a simple `API_BASE` config.
+
+### Config
+
+- Location (Windows): `C:\ProgramData\FrameworkControl\config.json` (override with `FRAMEWORK_CONTROL_CONFIG`)
+- Shape (subset shown):
+
+```json
+{
+  "fan_curve": {
+    "enabled": true,
+    "mode": "curve", // "auto" | "manual" | "curve"
+    "sensor": "APU",  // or "CPU"
+    "points": [[40,0],[60,40],[75,80],[85,100]],
+    "poll_ms": 2000,
+    "hysteresis_c": 2,
+    "rate_limit_pct_per_step": 100,
+    "manual_duty_pct": null
+  }
+}
+```
+
+- Behavior:
+  - When `enabled=false` or `mode="auto"`, the service ensures platform auto fan control (`--autofanctrl`).
+  - When `mode="manual"` and `manual_duty_pct` is set, the service applies `--fansetduty`.
+  - When `mode="curve"`, the service applies a piecewise-linear curve with hysteresis and optional rate limit.
 
 ## Developer setup
 
