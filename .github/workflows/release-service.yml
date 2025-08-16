@@ -45,7 +45,7 @@ jobs:
           if (-not $versionMatch) { throw "Version not found in Cargo.toml" }
           $version = $versionMatch.Matches[0].Groups[1].Value
           echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "STABLE_NAME=framework-control-service.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "STABLE_NAME=framework-control-service-x86_64.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "VERSIONED_NAME=framework-control-service-$version-x86_64.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create stable-named copy for upload
