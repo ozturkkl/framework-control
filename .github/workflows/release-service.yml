@@ -75,6 +75,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release view continuous 2>$null || gh release create continuous -t "Framework Service (continuous)" -n "Automated build from main" --prerelease
+          # Remove existing assets so only the latest build remains
+          $existing = gh release view continuous --json assets -q ".assets[].name" | Out-String
+          if ($existing) {
+            $names = $existing -split "`n" | Where-Object { $_ -and $_.Trim().Length -gt 0 }
+            foreach ($n in $names) {
+              gh release delete-asset continuous "$n" --yes
+            }
+          }
           gh release upload continuous "$env:MSI_PATH#$env:STABLE_NAME" --clobber
           gh release upload continuous "$env:SHA_PATH#$env:STABLE_NAME.sha256" --clobber
 
@@ -87,8 +95,8 @@ jobs:
           $tag = "$env:RELEASE_TAG"
           if (-not $tag) { throw "RELEASE_TAG not resolved" }
           gh release view $tag 2>$null || gh release create $tag -t "Framework Service $env:VERSION" -n "Automated release for version $env:VERSION" --latest
+          # Only upload the stable-named asset + checksum
           gh release upload $tag "$env:MSI_PATH#$env:STABLE_NAME" --clobber
-          gh release upload $tag "$env:MSI_PATH#$env:VERSIONED_NAME" --clobber
           gh release upload $tag "$env:SHA_PATH#$env:STABLE_NAME.sha256" --clobber
 
 
