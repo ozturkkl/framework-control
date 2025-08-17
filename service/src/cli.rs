@@ -27,6 +27,10 @@ impl FrameworkTool {
         self.run(&["--thermal"]).await
     }
 
+    pub async fn versions(&self) -> Result<String, String> {
+        self.run(&["--versions"]).await
+    }
+
     pub async fn set_fan_duty(&self, percent: u32, fan_index: Option<u32>) -> Result<(), String> {
         let percent_s = percent.to_string();
         let fan_idx_s = fan_index.map(|idx| idx.to_string());

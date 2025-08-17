@@ -56,6 +56,8 @@ async fn main() {
     let app = Router::new()
         .route("/api/power", get(routes::get_power))
         .route("/api/thermal", get(routes::get_thermal))
+        .route("/api/versions", get(routes::get_versions))
+        .route("/api/system", get(routes::get_system_info))
         .route("/api/health", get(routes::health))
         .route("/api/config", get(routes::get_config))
         .route("/api/config", post(routes::set_config))

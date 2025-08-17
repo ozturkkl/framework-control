@@ -1,6 +1,6 @@
 # Framework Control Web
 
-Svelte + Vite minimal UI that talks to the local service at `http://127.0.0.1:5173`.
+Svelte + Vite minimal UI that talks to the local service at `http://127.0.0.1:8090`.
 
 ## Develop
 

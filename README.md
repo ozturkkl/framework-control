@@ -57,6 +57,8 @@ The app expects these CLIs to be present for the associated features. The Window
 - `GET /api/health` → "ok"
 - `GET /api/power` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --power`)
 - `GET /api/thermal` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --thermal`)
+- `GET /api/versions` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --versions`)
+- `GET /api/system` → `{ ok: boolean, cpu: string, memory_total_mb: number, os: string, gpus: string[], dgpu?: string }`
 - `GET /api/config` → `{ ok: boolean, config: Config }`
 - `POST /api/config` → `{ ok: boolean }` (body: `{ config: Partial<Config> }`; deep-merged and persisted)
 
