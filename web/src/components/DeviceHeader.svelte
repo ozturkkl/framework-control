@@ -1,8 +1,8 @@
 <script lang="ts">
   export let healthy = false;
   export let installerUrl: string = "";
-  const LID_CLOSED = "/assets/lid-closed.jpg";
-  const LID_OPEN = "/assets/lid-open.jpg";
+  const LID_CLOSED = `${import.meta.env.BASE_URL}assets/lid-closed.jpg`;
+  const LID_OPEN = `${import.meta.env.BASE_URL}assets/lid-open.jpg`;
   import { DefaultService, type SystemInfoEnvelope as SystemInfo } from "../api";
   import { parseFrameworkVersions, getScreenResolution } from "../lib/device";
   import Icon from "@iconify/svelte";
