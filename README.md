@@ -117,6 +117,36 @@ npm run dev
 
 Packaging (Windows / WiX): build the MSI to install the service to `C:\Program Files\FrameworkControl` and register it for auto‑start with elevation.
 
+### Dev environment variables
+
+Service reads a local `.env` on startup (via dotenvy). Create `framework-control/service/.env`:
+
+```
+# Allow your dev UI origin(s)
+FRAMEWORK_CONTROL_ALLOWED_ORIGINS=http://127.0.0.1:5174,http://localhost:5174
+
+# Token required for write operations from the UI (Bearer token)
+FRAMEWORK_CONTROL_TOKEN=<long-random-token>
+
+# Optional: pick a different port for dev
+# FRAMEWORK_CONTROL_PORT=8091
+```
+
+Web UI reads a `.env.local`. Create `framework-control/web/.env.local`:
+
+```
+# Local service URL (defaults to http://127.0.0.1:8090 if omitted)
+VITE_API_BASE=http://127.0.0.1:8090
+
+# Same token as the service uses so the client sends Authorization: Bearer <token>
+VITE_CONTROL_TOKEN=<long-random-token>
+```
+
+Notes:
+- The service always binds to loopback (`127.0.0.1`). It is not reachable from other machines.
+- For CORS to pass in dev, the service must list your dev origin(s) in `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`.
+- Write routes require the bearer token. The UI must provide `VITE_CONTROL_TOKEN`.
+
 ## OpenAPI + client generation
 
 - The service can emit an OpenAPI spec and exit:
@@ -138,11 +168,36 @@ Notes:
 - Generation runs `cargo run -- --generate-openapi` with an isolated cargo target (`service/target/openapi`) so it does not conflict with a running `cargo run` in another terminal.
 - The generated TypeScript client lives in `web/src/api` and is updated on `postinstall`, `predev`, and `prebuild`.
 
+Auth in the generated client:
+- The `POST /api/config` endpoint expects an `Authorization` header. The client will attach `Authorization: Bearer <token>` if `OpenAPI.TOKEN` is set (from `VITE_CONTROL_TOKEN`).
+
 ## Frontend API base
 
 - By default, requests are sent to `OpenAPI.BASE` which is set in `web/src/main.ts`:
   - `VITE_API_BASE` if provided, otherwise `http://127.0.0.1:8090`.
 - Alternatively, you can remove that line and configure a Vite dev proxy to the backend (e.g. proxy `/api` → `http://127.0.0.1:8090`).
+
+## GitHub Pages deployment
+
+The web UI is deployed to GitHub Pages under `/framework-control/`. Assets use `import.meta.env.BASE_URL` so they resolve correctly.
+
+To allow the Pages UI to talk to your local service:
+- The service must allow the Pages origin and require a token.
+- At runtime on your PC, the Windows service process receives these env vars from the installer (MSI) via WinSW configuration.
+
+CI secrets used to stamp MSI env:
+- `ALLOWED_ORIGINS`: e.g. `https://ozturkkl.github.io`
+- `CONTROL_TOKEN`: a long random token
+
+Configure them in GitHub → Settings → Secrets and variables → Actions.
+
+The workflow `.github/workflows/release-service.yml` replaces placeholders in `service/wix/FrameworkControlService.xml` so the installed service runs with:
+- `FRAMEWORK_CONTROL_ALLOWED_ORIGINS=%ALLOWED_ORIGINS%`
+- `FRAMEWORK_CONTROL_TOKEN=%CONTROL_TOKEN%`
+
+Frontend token for Pages:
+- During the Pages build, set `VITE_CONTROL_TOKEN` (for example via Pages build secrets) so the client includes the bearer token.
+- Alternatively, prompt the user to paste their local token once and store it in `localStorage`, then set `OpenAPI.TOKEN` on load.
 
 ## Roadmap
 

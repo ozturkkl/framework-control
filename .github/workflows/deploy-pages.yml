@@ -38,6 +38,7 @@ jobs:
         env:
           GITHUB_PAGES: 'true'
           VITE_INSTALLER_URL: ${{ vars.INSTALLER_URL }}
+          VITE_CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
