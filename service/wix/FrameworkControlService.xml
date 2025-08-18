@@ -7,6 +7,9 @@
   <startmode>Automatic</startmode>
   <onfailure action="restart" delay="5 sec"/>
   <log mode="roll"/>
+  <!-- Inject environment variables at install time via CI token replacement -->
+  <env name="FRAMEWORK_CONTROL_ALLOWED_ORIGINS" value="@ALLOWED_ORIGINS@" />
+  <env name="FRAMEWORK_CONTROL_TOKEN" value="@CONTROL_TOKEN@" />
 </service>
 
 

@@ -33,7 +33,17 @@ jobs:
         run: cargo build --release
 
       - name: Build MSI with cargo-wix
-        run: cargo wix --nocapture -v
+        shell: pwsh
+        env:
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
+        run: |
+          # Substitute placeholders in the WinSW config before packaging
+          $xml = Get-Content wix/FrameworkControlService.xml
+          $xml = $xml -replace '@ALLOWED_ORIGINS@', "$env:ALLOWED_ORIGINS"
+          $xml = $xml -replace '@CONTROL_TOKEN@', "$env:CONTROL_TOKEN"
+          Set-Content wix/FrameworkControlService.xml $xml -Encoding UTF8
+          cargo wix --nocapture -v
 
       - name: Locate MSI and read version
         shell: pwsh
