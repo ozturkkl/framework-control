@@ -3,7 +3,7 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::cli::FrameworkTool;
-use crate::config::Config;
+use crate::types::Config;
 
 #[derive(Clone)]
 pub struct AppState {

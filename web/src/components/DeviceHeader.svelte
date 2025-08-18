@@ -3,7 +3,7 @@
   export let installerUrl: string = "";
   const LID_CLOSED = "/assets/lid-closed.jpg";
   const LID_OPEN = "/assets/lid-open.jpg";
-  import { getVersions, getSystemInfo, type SystemInfo } from "../lib/api";
+  import { DefaultService, type SystemInfoEnvelope as SystemInfo } from "../api";
   import { parseFrameworkVersions, getScreenResolution } from "../lib/device";
   import Icon from "@iconify/svelte";
 
@@ -23,7 +23,7 @@
   $: if (healthy && versionsText === null) {
     (async () => {
       try {
-        const v = await getVersions();
+        const v = await DefaultService.getVersions();
         versionsText = v.stdout ?? "";
         const s = parseFrameworkVersions(versionsText);
         if (s.mainboardType) displayTitle = s.mainboardType;
@@ -37,7 +37,7 @@
   $: if (healthy && sys.ok === false) {
     (async () => {
       try {
-        sys = await getSystemInfo();
+        sys = await DefaultService.getSystemInfo();
       } catch {
         sys.ok = false;
       }

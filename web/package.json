@@ -4,11 +4,22 @@
   "version": "0.0.12",
   "type": "module",
   "scripts": {
+    "gen:api": "node scripts/gen-api.mjs",
+    "predev": "npm run gen:api",
     "dev": "vite",
+    "prebuild": "npm run gen:api",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint --ext .ts,.svelte src",
+    "postinstall": "npm run gen:api",
+    "clean": "rimraf dist .vite .svelte-kit openapi.json src/api"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.14.0",
+    "@typescript-eslint/parser": "^8.14.0",
+    "eslint": "^9.16.0",
+    "eslint-plugin-svelte": "^2.46.1",
+    "svelte-eslint-parser": "^0.41.0",
     "@iconify/svelte": "^4.1.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@types/node": "^24.3.0",
@@ -17,6 +28,10 @@
     "tailwindcss": "^3.4.17",
     "postcss": "^8.5.6",
     "autoprefixer": "^10.4.21",
-    "daisyui": "^4.12.24"
+    "daisyui": "^4.12.24",
+    "rimraf": "^5.0.5"
+  },
+  "dependencies": {
+    "openapi-typescript-codegen": "^0.29.0"
   }
 }

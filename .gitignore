@@ -1,10 +1,16 @@
-web/node_modules
-service/target
-service/target/wix/
+# Web generated OpenAPI spec and client
+web/openapi.json
+web/src/api/
+web/node_modules/
 
 # Web build/cache
-web/dist
-web/.vite
+web/dist/
+web/.vite/
+web/.svelte-kit/
+
+# Service build/cache
+service/target
+service/target/wix/
 
 # Env files (keep example if present)
 web/.env

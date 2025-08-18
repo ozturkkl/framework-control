@@ -26,13 +26,14 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 
 ## Architecture (MVP)
 
-- Backend service: Rust (Axum + Tokio)
+- Backend service: Rust (Tokio + Poem + poem-openapi)
   - Exposes a tiny HTTP API (default: http://127.0.0.1:8090)
+  - Generates OpenAPI on demand
   - Executes Framework CLI (`framework_tool`) for all EC interactions (no direct library bindings)
   - Returns raw CLI stdout in a simple JSON envelope; the web UI parses as needed
   - Applies a persisted fan-control config at boot (auto/manual/curve)
 - Frontend UI: Svelte + Vite
-  - Runs locally (dev: http://127.0.0.1:5173) and talks to the backend API
+  - Runs locally (dev: http://127.0.0.1:5174) and talks to the backend API
   - Simple pages: Telemetry and Fan control
 - Packaging: WiX
   - MSI installs the service binary to `C:\Program Files\FrameworkControl` and registers the background process with proper elevation at boot (no interactive consoles required)
@@ -58,9 +59,9 @@ The app expects these CLIs to be present for the associated features. The Window
 - `GET /api/power` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --power`)
 - `GET /api/thermal` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --thermal`)
 - `GET /api/versions` → `{ ok: boolean, stdout?: string, error?: string }` (raw output of `framework_tool --versions`)
-- `GET /api/system` → `{ ok: boolean, cpu: string, memory_total_mb: number, os: string, gpus: string[], dgpu?: string }`
+- `GET /api/system` → `{ ok: boolean, cpu: string, memory_total_mb: number, os: string, dgpu?: string }`
 - `GET /api/config` → `{ ok: boolean, config: Config }`
-- `POST /api/config` → `{ ok: boolean }` (body: `{ config: Partial<Config> }`; deep-merged and persisted)
+- `POST /api/config` → `{ ok: boolean }` (body: `PartialConfig`; currently `{ fan_curve?: FanCurveConfig }`; merged and persisted)
 
 Default bind: `127.0.0.1:8090`. The UI reads this via a simple `API_BASE` config.
 
@@ -72,8 +73,8 @@ Default bind: `127.0.0.1:8090`. The UI reads this via a simple `API_BASE` config
 ```json
 {
   "fan_curve": {
-    "enabled": true,
-    "mode": "curve", // "auto" | "manual" | "curve"
+    "enabled": false,
+    "mode": "auto", // "auto" | "manual" | "curve"
     "sensor": "APU",  // or "CPU"
     "points": [[40,0],[60,40],[75,80],[85,100]],
     "poll_ms": 2000,
@@ -87,7 +88,14 @@ Default bind: `127.0.0.1:8090`. The UI reads this via a simple `API_BASE` config
 - Behavior:
   - When `enabled=false` or `mode="auto"`, the service ensures platform auto fan control (`--autofanctrl`).
   - When `mode="manual"` and `manual_duty_pct` is set, the service applies `--fansetduty`.
-  - When `mode="curve"`, the service applies a piecewise-linear curve with hysteresis and optional rate limit.
+  - When `mode="curve"`, the service applies a piecewise-linear curve with hysteresis and optional rate limit. Rate limit constrains per-step duty change by `rate_limit_pct_per_step`.
+
+### Server
+
+- Bind address can be overridden with env vars:
+  - `FRAMEWORK_CONTROL_HOST` (default `127.0.0.1`)
+  - `FRAMEWORK_CONTROL_PORT` (default `8090`)
+- Startup log is written to `C:\Program Files\FrameworkControl\service.log` (or a temp fallback) to aid troubleshooting.
 
 ## Developer setup
 
@@ -108,6 +116,33 @@ npm run dev
 ```
 
 Packaging (Windows / WiX): build the MSI to install the service to `C:\Program Files\FrameworkControl` and register it for auto‑start with elevation.
+
+## OpenAPI + client generation
+
+- The service can emit an OpenAPI spec and exit:
+
+```bash
+# From repository root
+cd framework-control/service
+cargo run -- --generate-openapi  # writes ../web/openapi.json
+```
+
+- The web app includes a helper:
+
+```bash
+cd framework-control/web
+npm run gen:api
+```
+
+Notes:
+- Generation runs `cargo run -- --generate-openapi` with an isolated cargo target (`service/target/openapi`) so it does not conflict with a running `cargo run` in another terminal.
+- The generated TypeScript client lives in `web/src/api` and is updated on `postinstall`, `predev`, and `prebuild`.
+
+## Frontend API base
+
+- By default, requests are sent to `OpenAPI.BASE` which is set in `web/src/main.ts`:
+  - `VITE_API_BASE` if provided, otherwise `http://127.0.0.1:8090`.
+- Alternatively, you can remove that line and configure a Vite dev proxy to the backend (e.g. proxy `/api` → `http://127.0.0.1:8090`).
 
 ## Roadmap
 

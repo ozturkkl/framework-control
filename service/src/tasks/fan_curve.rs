@@ -4,15 +4,25 @@ use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::config::{Config, FanMode};
+use crate::types::{Config, FanMode};
 
 pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
     info!("Fan curve task starting");
     let mut last_duty: Option<u32> = None;
     let mut last_temp: Option<i32> = None;
+    let mut last_mode: Option<FanMode> = None;
+    let mut last_enabled: Option<bool> = None;
 
     loop {
         let snapshot = cfg.read().await.fan_curve.clone();
+        if Some(snapshot.enabled) != last_enabled || Some(snapshot.mode.clone()) != last_mode {
+            // Reset state when enabled/mode changes
+            last_duty = None;
+            last_temp = None;
+            last_mode = Some(snapshot.mode.clone());
+            last_enabled = Some(snapshot.enabled);
+        }
+
         if !snapshot.enabled {
             // Ensure platform fan control is in auto when our control is disabled
             let _ = cli.autofanctrl().await;
@@ -84,12 +94,12 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
     // never reached in current simple model
 }
 
-fn map_temp_to_duty(temp_c: i32, points: &[(u32, u32)]) -> u32 {
+fn map_temp_to_duty(temp_c: i32, points: &[[u32; 2]]) -> u32 {
     if points.is_empty() { return 0; }
     let t = temp_c.max(i32::MIN) as i64;
-    let mut last = (points[0].0 as i64, points[0].1 as i64);
-    for &(px, py) in &points[1..] {
-        let x = px as i64; let y = py as i64;
+    let mut last = (points[0][0] as i64, points[0][1] as i64);
+    for p in &points[1..] {
+        let x = p[0] as i64; let y = p[1] as i64;
         if t <= x { return lerp(last, (x, y), t) as u32; }
         last = (x, y);
     }

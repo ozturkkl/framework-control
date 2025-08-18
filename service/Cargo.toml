@@ -5,16 +5,16 @@ edition = "2021"
 authors = ["Framework Control"]
 
 [dependencies]
-axum = { version = "0.7", features = ["json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tower-http = { version = "0.5", features = ["cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 which = "6"
 chrono = "0.4"
 sysinfo = { version = "0.30", features = ["multithread"] }
+poem = { version = "3.1.12" }
+poem-openapi = { version = "5.1.16", features = ["swagger-ui"] }
 
 
 [package.metadata.wix]

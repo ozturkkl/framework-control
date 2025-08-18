@@ -2,10 +2,9 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::SocketAddr;
 
-use axum::http::Method;
-use axum::routing::{get, post};
-use axum::Router;
-use tower_http::cors::{Any, CorsLayer};
+use poem::{listener::TcpListener, EndpointExt, Route};
+use poem::middleware::Cors;
+use poem_openapi::OpenApiService;
 use tracing::info;
 
 mod cli;
@@ -13,6 +12,7 @@ mod config;
 mod routes;
 mod state;
 mod tasks;
+pub mod types;
 
 #[tokio::main]
 async fn main() {
@@ -45,24 +45,32 @@ async fn main() {
 
     let state = state::AppState::initialize().await;
 
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_origin(Any)
-        .allow_headers(Any);
+    let cors = Cors::new();
 
     // Boot background tasks (fan curve if enabled)
     tasks::boot(&state).await;
 
-    let app = Router::new()
-        .route("/api/power", get(routes::get_power))
-        .route("/api/thermal", get(routes::get_thermal))
-        .route("/api/versions", get(routes::get_versions))
-        .route("/api/system", get(routes::get_system_info))
-        .route("/api/health", get(routes::health))
-        .route("/api/config", get(routes::get_config))
-        .route("/api/config", post(routes::set_config))
-        .with_state(state)
-        .layer(cors);
+    // Build OpenApiService from routes::Api
+    let api = OpenApiService::new(crate::routes::Api, "framework-control-service", env!("CARGO_PKG_VERSION"))
+        .server("/");
+    // Optionally, write OpenAPI to a known path when requested (CLI flag), then exit cleanly
+    let flag_arg = std::env::args().any(|a| a == "--generate-openapi");
+    if flag_arg {
+        let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("web")
+            .join("openapi.json");
+        if let Some(parent) = out.parent() { std::fs::create_dir_all(parent).ok(); }
+        let spec_json = api.spec();
+        std::fs::write(&out, spec_json).ok();
+        return;
+    }
+
+    // Build the actual Poem app
+    let app = Route::new()
+        .nest("/", api)
+        .data(state.clone())
+        .with(cors);
 
     let host = std::env::var("FRAMEWORK_CONTROL_HOST").unwrap_or_else(|_| "127.0.0.1".into());
     let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
@@ -71,6 +79,8 @@ async fn main() {
         .unwrap_or(8090);
     let addr: SocketAddr = (host.parse::<std::net::IpAddr>().unwrap(), port).into();
     info!("listening on http://{}", addr);
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    poem::Server::new(TcpListener::bind(addr))
+        .run(app)
+        .await
+        .unwrap();
 }

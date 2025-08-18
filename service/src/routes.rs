@@ -1,110 +1,97 @@
-use axum::{extract::State, Json};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use poem::web::Data;
+use poem_openapi::{payload::Json, OpenApi, payload::PlainText};
 use tracing::error;
 use crate::state::AppState;
-use crate::config::{self, Config};
+use crate::config; // for save/load
+use crate::types::{CliOutput, ConfigEnvelope, UpdateResult, SystemInfoEnvelope, PartialConfig};
 use sysinfo::System;
 
-pub async fn health() -> &'static str { "ok" }
+pub struct Api;
 
-#[derive(Serialize)]
-pub struct CliOutput { pub ok: bool, pub stdout: Option<String>, pub error: Option<String> }
+#[OpenApi]
+impl Api {
+    /// Health
+    #[oai(path = "/api/health", method = "get", operation_id = "health")]
+    async fn health(&self) -> PlainText<&'static str> { PlainText("ok") }
 
-pub async fn get_power(State(state): State<AppState>) -> Json<CliOutput> {
-    let Some(cli) = &state.cli else {
-        return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
-    };
-    match cli.power().await {
-        Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
-        Err(e) => {
-            error!("power exec error: {}", e);
-            Json(CliOutput { ok: false, stdout: None, error: Some(e) })
+    /// Power info
+    #[oai(path = "/api/power", method = "get", operation_id = "getPower")]
+    async fn get_power(&self, state: Data<&AppState>) -> Json<CliOutput> {
+        let Some(cli) = &state.cli else {
+            return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
+        };
+        match cli.power().await {
+            Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
+            Err(e) => {
+                error!("power exec error: {}", e);
+                Json(CliOutput { ok: false, stdout: None, error: Some(e) })
+            }
         }
     }
-}
 
-pub async fn get_thermal(State(state): State<AppState>) -> Json<CliOutput> {
-    let Some(cli) = &state.cli else {
-        return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
-    };
-    match cli.thermal().await {
-        Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
-        Err(e) => Json(CliOutput { ok: false, stdout: None, error: Some(e) }),
+    /// Thermal info
+    #[oai(path = "/api/thermal", method = "get", operation_id = "getThermal")]
+    async fn get_thermal(&self, state: Data<&AppState>) -> Json<CliOutput> {
+        let Some(cli) = &state.cli else {
+            return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
+        };
+        match cli.thermal().await {
+            Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
+            Err(e) => Json(CliOutput { ok: false, stdout: None, error: Some(e) }),
+        }
     }
-}
 
-pub async fn get_versions(State(state): State<AppState>) -> Json<CliOutput> {
-    let Some(cli) = &state.cli else {
-        return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
-    };
-    match cli.versions().await {
-        Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
-        Err(e) => Json(CliOutput { ok: false, stdout: None, error: Some(e) }),
+    /// Versions
+    #[oai(path = "/api/versions", method = "get", operation_id = "getVersions")]
+    async fn get_versions(&self, state: Data<&AppState>) -> Json<CliOutput> {
+        let Some(cli) = &state.cli else {
+            return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
+        };
+        match cli.versions().await {
+            Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
+            Err(e) => Json(CliOutput { ok: false, stdout: None, error: Some(e) }),
+        }
     }
-}
 
-// Removed direct fan duty endpoint; use POST /api/config with mode/manual_duty_pct instead
+    /// Get config
+    #[oai(path = "/api/config", method = "get", operation_id = "getConfig")]
+    async fn get_config(&self, state: Data<&AppState>) -> Json<ConfigEnvelope> {
+        let cfg = state.config.read().await.clone();
+        Json(ConfigEnvelope { ok: true, config: cfg })
+    }
 
-// Config endpoints (minimal)
-#[derive(Serialize)]
-pub struct ConfigEnvelope { pub ok: bool, pub config: Config }
-
-pub async fn get_config(State(state): State<AppState>) -> Json<ConfigEnvelope> {
-    let cfg = state.config.read().await.clone();
-    Json(ConfigEnvelope { ok: true, config: cfg })
-}
-
-#[derive(Deserialize)]
-pub struct UpdateConfig { pub config: Value }
-
-#[derive(Serialize)]
-pub struct UpdateResult { pub ok: bool }
-
-pub async fn set_config(State(state): State<AppState>, Json(req): Json<UpdateConfig>) -> Json<UpdateResult> {
-    // Merge incoming partial JSON with current config, then validate and persist
-    let current_cfg = state.config.read().await.clone();
-    let mut current_val = match serde_json::to_value(&current_cfg) { Ok(v) => v, Err(_) => Value::Null };
-    deep_merge(&mut current_val, &req.config);
-    let merged: Config = match serde_json::from_value(current_val) {
-        Ok(c) => c,
-        Err(e) => {
-            error!("config merge/validation error: {}", e);
+    /// Set config (partial)
+    #[oai(path = "/api/config", method = "post", operation_id = "setConfig")]
+    async fn set_config(&self, state: Data<&AppState>, req: Json<PartialConfig>) -> Json<UpdateResult> {
+        let req = req.0;
+        let mut merged = state.config.read().await.clone();
+        if let Some(fc) = req.fan_curve { merged.fan_curve = fc; }
+        if let Err(e) = config::save(&merged) {
+            error!("config save error: {}", e);
             return Json(UpdateResult { ok: false });
         }
-    };
-    if let Err(e) = config::save(&merged) {
-        error!("config save error: {}", e);
-        return Json(UpdateResult { ok: false });
-    }
-    {
-        let mut w = state.config.write().await;
-        *w = merged;
-    }
-    Json(UpdateResult { ok: true })
-}
-
-#[derive(Serialize)]
-pub struct SystemInfoEnvelope {
-    pub ok: bool,
-    pub cpu: String,
-    pub memory_total_mb: u64,
-    pub os: String,
-    pub dgpu: Option<String>,
-}
-
-pub async fn get_system_info() -> Json<SystemInfoEnvelope> {
-    let sys = System::new_all();
-    let mut cpu = sys.global_cpu_info().brand().trim().to_string();
-    if cpu.is_empty() {
-        if let Some(c) = sys.cpus().iter().find(|c| !c.brand().trim().is_empty()) {
-            cpu = c.brand().trim().to_string();
+        {
+            let mut w = state.config.write().await;
+            *w = merged;
         }
+        Json(UpdateResult { ok: true })
     }
-    let mem_mb = sys.total_memory() / 1024 / 1024;
-    let os = System::name().unwrap_or_else(|| "Unknown OS".into());
-    let dgpu = pick_dedicated_gpu(&get_gpu_names().await);
-    Json(SystemInfoEnvelope { ok: true, cpu, memory_total_mb: mem_mb, os, dgpu })
+
+    /// System info
+    #[oai(path = "/api/system", method = "get", operation_id = "getSystemInfo")]
+    async fn get_system_info(&self) -> Json<SystemInfoEnvelope> {
+        let sys = System::new_all();
+        let mut cpu = sys.global_cpu_info().brand().trim().to_string();
+        if cpu.is_empty() {
+            if let Some(c) = sys.cpus().iter().find(|c| !c.brand().trim().is_empty()) {
+                cpu = c.brand().trim().to_string();
+            }
+        }
+        let mem_mb = sys.total_memory() / 1024 / 1024;
+        let os = System::name().unwrap_or_else(|| "Unknown OS".into());
+        let dgpu = pick_dedicated_gpu(&get_gpu_names().await);
+        Json(SystemInfoEnvelope { ok: true, cpu, memory_total_mb: mem_mb, os, dgpu })
+    }
 }
 
 async fn get_gpu_names() -> Vec<String> {
@@ -141,19 +128,5 @@ fn pick_dedicated_gpu(names: &[String]) -> Option<String> {
     best
 }
 
-
-fn deep_merge(base: &mut Value, patch: &Value) {
-    match (base, patch) {
-        (Value::Object(b), Value::Object(p)) => {
-            for (k, v) in p {
-                deep_merge(b.entry(k.clone()).or_insert(Value::Null), v);
-            }
-        }
-        // Arrays and scalars get replaced entirely
-        (b, v) => { *b = v.clone(); }
-    }
-}
-
-// Removed explicit fan-curve status endpoint; web can poll power/thermal
 
 

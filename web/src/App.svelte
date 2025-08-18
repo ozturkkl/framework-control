@@ -1,19 +1,28 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { fade } from "svelte/transition";
-  import { checkHealth } from "./lib/api";
+  import { DefaultService } from "./api";
   import DeviceHeader from "./components/DeviceHeader.svelte";
+  import FanControl from "./components/FanControl.svelte";
 
   let serviceHealthy: boolean | null = null;
-  const installerUrl: string =
-    (import.meta as any).env?.VITE_INSTALLER_URL || "";
+  const installerUrl: string = import.meta.env?.VITE_INSTALLER_URL || "";
 
-  let pollId: any = null;
+  let pollId: ReturnType<typeof setInterval> | null = null;
   onMount(async () => {
-    serviceHealthy = await checkHealth();
+    try {
+      await DefaultService.health();
+      serviceHealthy = true;
+    } catch {
+      serviceHealthy = false;
+    }
     pollId = setInterval(async () => {
-      const ok = await checkHealth();
-      serviceHealthy = ok;
+      try {
+        await DefaultService.health();
+        serviceHealthy = true;
+      } catch {
+        serviceHealthy = false;
+      }
     }, 4000);
   });
   onDestroy(() => {
@@ -62,15 +71,19 @@
       <div class={"card bg-base-100 shadow transition-all duration-500 "}>
         <div class="card-body flex flex-col justify-between">
           <h2 class="card-title">Fan Control</h2>
-          <div class="text-sm opacity-80">
-            Choose Auto, a fixed duty, or a saved curve with hysteresis and
-            rate‑limit. Settings persist and apply at boot.
-          </div>
-          <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
-            <li>Modes: Auto, Manual duty, or Curve</li>
-            <li>Piecewise points with hysteresis and rate limit</li>
-            <li>Config is persisted and applied at boot</li>
-          </ul>
+          {#if serviceHealthy}
+            <FanControl />
+          {:else}
+            <div class="text-sm opacity-80">
+              Choose Auto, a fixed duty, or a saved curve with hysteresis and
+              rate‑limit. Settings persist and apply at boot.
+            </div>
+            <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
+              <li>Modes: Auto, Manual duty, or Curve</li>
+              <li>Piecewise points with hysteresis and rate limit</li>
+              <li>Config is persisted and applied at boot</li>
+            </ul>
+          {/if}
         </div>
       </div>
     </section>
