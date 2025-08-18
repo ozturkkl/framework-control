@@ -1,9 +1,8 @@
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::net::SocketAddr;
 
 use poem::{listener::TcpListener, EndpointExt, Route};
 use poem::middleware::Cors;
+use poem::http::Method;
 use poem_openapi::OpenApiService;
 use tracing::info;
 
@@ -16,26 +15,7 @@ pub mod types;
 
 #[tokio::main]
 async fn main() {
-    // Write startup log
-    let log_path = r"C:\Program Files\FrameworkControl\service.log";
-    let mut log_file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_path)
-        .unwrap_or_else(|_| {
-            // If can't write to Program Files, try temp
-            let temp_path = std::env::temp_dir().join("framework-control.log");
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(temp_path)
-                .expect("Failed to open log file")
-        });
-    
-    writeln!(log_file, "\n=== Service starting at {} ===", chrono::Local::now()).ok();
-    writeln!(log_file, "Current user: {:?}", std::env::var("USERNAME")).ok();
-    writeln!(log_file, "PATH: {:?}", std::env::var("PATH")).ok();
-    
+    let _ = dotenvy::dotenv();
     tracing_subscriber::fmt()
         .with_env_filter(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info,tower_http=info".into()),
@@ -45,14 +25,32 @@ async fn main() {
 
     let state = state::AppState::initialize().await;
 
-    let cors = Cors::new();
+    let cors = match std::env::var("FRAMEWORK_CONTROL_ALLOWED_ORIGINS") {
+        Ok(val) if !val.trim().is_empty() => {
+            val.split(',')
+                .map(str::trim)
+                .fold(Cors::new(), |c, origin| c.allow_origin(origin))
+                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_headers(["content-type", "authorization"]) // allow bearer token
+                .max_age(600)
+        }
+        _ => {
+            tracing::warn!(
+                "CORS: no FRAMEWORK_CONTROL_ALLOWED_ORIGINS configured; denying all cross-origin requests"
+            );
+            Cors::new()
+                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_headers(["content-type", "authorization"]) // allow bearer token
+                .max_age(600)
+        }
+    };
 
     // Boot background tasks (fan curve if enabled)
     tasks::boot(&state).await;
 
     // Build OpenApiService from routes::Api
     let api = OpenApiService::new(crate::routes::Api, "framework-control-service", env!("CARGO_PKG_VERSION"))
-        .server("/");
+        .server("");
     // Optionally, write OpenAPI to a known path when requested (CLI flag), then exit cleanly
     let flag_arg = std::env::args().any(|a| a == "--generate-openapi");
     if flag_arg {
@@ -72,7 +70,7 @@ async fn main() {
         .data(state.clone())
         .with(cors);
 
-    let host = std::env::var("FRAMEWORK_CONTROL_HOST").unwrap_or_else(|_| "127.0.0.1".into());
+    let host = "127.0.0.1".to_string();
     let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
         .ok()
         .and_then(|s| s.parse().ok())

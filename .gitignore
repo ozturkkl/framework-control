@@ -15,6 +15,8 @@ service/target/wix/
 # Env files (keep example if present)
 web/.env
 web/.env.*
+service/.env
+service/.env.*
 !web/.env.example
 
 # OS junk

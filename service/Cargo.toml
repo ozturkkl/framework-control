@@ -15,6 +15,7 @@ chrono = "0.4"
 sysinfo = { version = "0.30", features = ["multithread"] }
 poem = { version = "3.1.12" }
 poem-openapi = { version = "5.1.16", features = ["swagger-ui"] }
+dotenvy = "0.15"
 
 
 [package.metadata.wix]

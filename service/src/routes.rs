@@ -1,6 +1,6 @@
 use poem::web::Data;
-use poem_openapi::{payload::Json, OpenApi, payload::PlainText};
-use tracing::error;
+use poem_openapi::{payload::Json, OpenApi, payload::PlainText, param::Header};
+use tracing::{error, warn, info};
 use crate::state::AppState;
 use crate::config; // for save/load
 use crate::types::{CliOutput, ConfigEnvelope, UpdateResult, SystemInfoEnvelope, PartialConfig};
@@ -62,7 +62,16 @@ impl Api {
 
     /// Set config (partial)
     #[oai(path = "/api/config", method = "post", operation_id = "setConfig")]
-    async fn set_config(&self, state: Data<&AppState>, req: Json<PartialConfig>) -> Json<UpdateResult> {
+    async fn set_config(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "Authorization")] auth: Header<String>,
+        req: Json<PartialConfig>,
+    ) -> Json<UpdateResult> {
+        let provided = auth.0.as_str().strip_prefix("Bearer ").unwrap_or("").trim();
+        if !state.is_valid_token(Some(provided)) {
+            return Json(UpdateResult { ok: false });
+        }
         let req = req.0;
         let mut merged = state.config.read().await.clone();
         if let Some(fc) = req.fan_curve { merged.fan_curve = fc; }
@@ -74,6 +83,7 @@ impl Api {
             let mut w = state.config.write().await;
             *w = merged;
         }
+        info!("set_config applied successfully");
         Json(UpdateResult { ok: true })
     }
 

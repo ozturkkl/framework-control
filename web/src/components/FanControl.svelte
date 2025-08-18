@@ -6,6 +6,7 @@
 
   let error: string | null = null;
   let success: string | null = null;
+  let token = import.meta.env.VITE_CONTROL_TOKEN;
 
   let mode: FanMode = "Auto";
   let manualDutyPct = 50;
@@ -57,7 +58,7 @@
       };
       const patch: PartialConfig = { fan_curve: updated };
       try {
-        const res = await DefaultService.setConfig(patch);
+        const res = await DefaultService.setConfig(token, patch);
         if (!res.ok) throw new Error("Failed to save config");
         currentFanCurve = updated;
         success = "Saved";

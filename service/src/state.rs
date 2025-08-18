@@ -1,5 +1,3 @@
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::sync::Arc;
 
 use crate::cli::FrameworkTool;
@@ -9,21 +7,26 @@ use crate::types::Config;
 pub struct AppState {
     pub cli: Option<FrameworkTool>,
     pub config: Arc<tokio::sync::RwLock<Config>>,
+    pub token: Option<String>,
 }
 
 impl AppState {
     pub async fn initialize() -> Self {
         let config = Arc::new(tokio::sync::RwLock::new(crate::config::load()));
+        let token = std::env::var("FRAMEWORK_CONTROL_TOKEN").ok();
         match FrameworkTool::new().await {
-            Ok(cli) => Self { cli: Some(cli), config },
-            Err(e) => {
-                let log_path = r"C:\Program Files\FrameworkControl\service.log";
-                if let Ok(mut f) = OpenOptions::new().append(true).open(log_path) {
-                    writeln!(f, "CLI init failed: {}", e).ok();
-                }
-                Self { cli: None, config }
+            Ok(cli) => Self { cli: Some(cli), config, token },
+            Err(_e) => {
+                Self { cli: None, config, token }
             }
         }
+    }
+
+    pub fn is_valid_token(&self, auth_header: Option<&str>) -> bool {
+        let Some(expected) = self.token.as_deref() else { return false; };
+        let Some(provided) = auth_header else { return false; };
+        let provided = provided.strip_prefix("Bearer ").unwrap_or(provided);
+        provided == expected
     }
 }
 

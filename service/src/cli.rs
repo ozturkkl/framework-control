@@ -1,8 +1,6 @@
-use std::fs::OpenOptions;
-use std::io::Write;
 
 use tokio::process::Command;
-use tracing::{info};
+use tracing::info;
 use which::which;
 
 /// Thin wrapper around the `framework_tool` CLI.
@@ -47,28 +45,26 @@ impl FrameworkTool {
     }
 
     async fn run(&self, args: &[&str]) -> Result<String, String> {
-        let out = Command::new(&self.path)
+        use tokio::time::{timeout, Duration};
+        let child = Command::new(&self.path)
             .args(args)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
-            .map_err(|e| format!("spawn failed: {e}"))?
-            .wait_with_output().await
-            .map_err(|e| format!("wait failed: {e}"))?;
-        if out.status.success() {
-            Ok(String::from_utf8_lossy(&out.stdout).to_string())
+            .map_err(|e| format!("spawn failed: {e}"))?;
+        let output = timeout(Duration::from_secs(5), child.wait_with_output())
+            .await
+            .map_err(|_| "framework_tool timed out".to_string())
+            .and_then(|res| res.map_err(|e| format!("wait failed: {e}")))?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
-            Err(format!("exit {}: {}", out.status, String::from_utf8_lossy(&out.stderr)))
+            Err(format!("exit {}: {}", output.status, String::from_utf8_lossy(&output.stderr)))
         }
     }
 }
 
 async fn resolve_framework_tool() -> Result<String, String> {
-    let log_path = r"C:\Program Files\FrameworkControl\service.log";
-    if let Ok(mut f) = OpenOptions::new().append(true).open(log_path) {
-        writeln!(f, "Searching for framework_tool...").ok();
-        writeln!(f, "PATH: {:?}", std::env::var("PATH")).ok();
-    }
 
     if let Ok(p) = std::env::var("FRAMEWORK_TOOL_PATH") {
         let path = std::path::Path::new(&p);
@@ -86,9 +82,6 @@ async fn resolve_framework_tool() -> Result<String, String> {
 
     for path in &common_paths {
         if std::path::Path::new(path).exists() {
-            if let Ok(mut f) = OpenOptions::new().append(true).open(log_path) {
-                writeln!(f, "Found at: {}", path).ok();
-            }
             return Ok(path.to_string());
         }
     }
