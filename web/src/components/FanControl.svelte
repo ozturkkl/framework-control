@@ -160,7 +160,7 @@
         poll_ms: Math.max(200, Math.floor(pollMs)),
         hysteresis_c: Math.max(0, Math.floor(hysteresisC)),
         rate_limit_pct_per_step: Math.max(1, Math.floor(rateLimitPctPerStep)),
-        manual_duty_pct: mode === "Manual" ? manualDutyPct : undefined,
+        manual_duty_pct: manualDutyPct,
       };
       const patch: PartialConfig = { fan_curve: updated };
       try {
