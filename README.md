@@ -10,7 +10,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 ## Goals
 
 - Minimal always‑on local service with a clean REST API
-- Fan controls: manual duty/RPM now; editor for curves soon
+- Fan controls: Auto, Manual duty, and Curve editor with hysteresis and rate‑limit
 - Telemetry surface: AC/battery/charge info; temps/fans; later PD/ports, expansion bay, input deck
 - Persisted settings with sensible defaults and easy backup/restore
 - Packaging suitable for end users (no terminals required)
@@ -35,6 +35,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 - Frontend UI: Svelte + Vite
   - Runs locally (dev: http://127.0.0.1:5174) and talks to the backend API
   - Simple pages: Telemetry and Fan control
+  - Responsive panel layout that adapts to the active fan mode
 - Packaging: WiX
   - MSI installs the service binary to `C:\Program Files\FrameworkControl` and registers the background process with proper elevation at boot (no interactive consoles required)
 
@@ -198,6 +199,13 @@ The workflow `.github/workflows/release-service.yml` replaces placeholders in `s
 Frontend token for Pages:
 - During the Pages build, set `VITE_CONTROL_TOKEN` (for example via Pages build secrets) so the client includes the bearer token.
 - Alternatively, prompt the user to paste their local token once and store it in `localStorage`, then set `OpenAPI.TOKEN` on load.
+
+## UI notes
+
+- Expand button appears only when the local service is healthy; clicking outside the modal closes it.
+- Fan mode selector is shown in the Fan Control panel header (hidden when not healthy).
+- Auto mode shows a short description; Manual shows a single slider; Curve opens the editor.
+- When not in Curve mode, the layout allocates more space to Telemetry/Power and a compact area to Fan Control.
 
 ## Roadmap
 
