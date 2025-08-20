@@ -16,14 +16,15 @@
     mode: "Auto",
     sensor: "APU",
     points: [
-      [50, 0],
-      [75, 30],
-      [90, 50],
+      [1, 10],
+      [70, 10],
+      [90, 30],
+      [100, 50],
     ],
-    poll_ms: 1500,
-    hysteresis_c: 2,
-    rate_limit_pct_per_step: 100,
-    manual_duty_pct: 50,
+    poll_ms: 400,
+    hysteresis_c: 0,
+    rate_limit_pct_per_step: 1,
+    manual_duty_pct: 40,
   };
 
   export let mode: FanMode = DEFAULT_FAN_CURVE.mode;
