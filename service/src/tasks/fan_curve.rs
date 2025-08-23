@@ -54,7 +54,11 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                             warn!("Failed to set fan duty: {}", e);
                         } else {
                             last_duty = Some(duty);
+                            debug!("Manual: Set {}%", duty);
                         }
+                    } else {
+                        let cur = duty;
+                        debug!("Manual: Holding {}%", cur);
                     }
                 } else {
                     // No manual duty set, fall back to auto
@@ -109,13 +113,17 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                             }
                             _ => tgt,
                         };
-
                         debug!("Temp: {}°C, Target: {}%, Setting: {}%", temp, tgt, next);
 
                         if let Err(e) = cli.set_fan_duty(next, None).await {
                             warn!("Failed to set fan duty: {}", e);
                         } else {
                             last_duty = Some(next);
+                        }
+                    } else {
+                        // Duty unchanged: still log current state
+                        if let Some(cur) = last_duty {
+                            debug!("Temp: {}°C, Target: {}%, Holding: {}%", temp, tgt, cur);
                         }
                     }
                 }

@@ -1,10 +1,10 @@
-use poem::web::Data;
-use poem_openapi::{payload::Json, OpenApi, payload::PlainText, param::Header};
-use tracing::{error, warn, info};
-use crate::state::AppState;
 use crate::config; // for save/load
-use crate::types::{CliOutput, ConfigEnvelope, UpdateResult, SystemInfoEnvelope, PartialConfig};
+use crate::state::AppState;
+use crate::types::{CliOutput, ConfigEnvelope, PartialConfig, SystemInfoEnvelope, UpdateResult};
+use poem::web::Data;
+use poem_openapi::{param::Header, payload::Json, payload::PlainText, OpenApi};
 use sysinfo::System;
+use tracing::{error, info};
 
 pub struct Api;
 
@@ -12,19 +12,33 @@ pub struct Api;
 impl Api {
     /// Health
     #[oai(path = "/api/health", method = "get", operation_id = "health")]
-    async fn health(&self) -> PlainText<&'static str> { PlainText("ok") }
+    async fn health(&self) -> PlainText<&'static str> {
+        PlainText("ok")
+    }
 
     /// Power info
     #[oai(path = "/api/power", method = "get", operation_id = "getPower")]
     async fn get_power(&self, state: Data<&AppState>) -> Json<CliOutput> {
         let Some(cli) = &state.cli else {
-            return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
+            return Json(CliOutput {
+                ok: false,
+                stdout: None,
+                error: Some("framework_tool not found".into()),
+            });
         };
         match cli.power().await {
-            Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
+            Ok(output) => Json(CliOutput {
+                ok: true,
+                stdout: Some(output),
+                error: None,
+            }),
             Err(e) => {
                 error!("power exec error: {}", e);
-                Json(CliOutput { ok: false, stdout: None, error: Some(e) })
+                Json(CliOutput {
+                    ok: false,
+                    stdout: None,
+                    error: Some(e),
+                })
             }
         }
     }
@@ -33,11 +47,23 @@ impl Api {
     #[oai(path = "/api/thermal", method = "get", operation_id = "getThermal")]
     async fn get_thermal(&self, state: Data<&AppState>) -> Json<CliOutput> {
         let Some(cli) = &state.cli else {
-            return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
+            return Json(CliOutput {
+                ok: false,
+                stdout: None,
+                error: Some("framework_tool not found".into()),
+            });
         };
         match cli.thermal().await {
-            Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
-            Err(e) => Json(CliOutput { ok: false, stdout: None, error: Some(e) }),
+            Ok(output) => Json(CliOutput {
+                ok: true,
+                stdout: Some(output),
+                error: None,
+            }),
+            Err(e) => Json(CliOutput {
+                ok: false,
+                stdout: None,
+                error: Some(e),
+            }),
         }
     }
 
@@ -45,11 +71,23 @@ impl Api {
     #[oai(path = "/api/versions", method = "get", operation_id = "getVersions")]
     async fn get_versions(&self, state: Data<&AppState>) -> Json<CliOutput> {
         let Some(cli) = &state.cli else {
-            return Json(CliOutput { ok: false, stdout: None, error: Some("framework_tool not found".into()) });
+            return Json(CliOutput {
+                ok: false,
+                stdout: None,
+                error: Some("framework_tool not found".into()),
+            });
         };
         match cli.versions().await {
-            Ok(output) => Json(CliOutput { ok: true, stdout: Some(output), error: None }),
-            Err(e) => Json(CliOutput { ok: false, stdout: None, error: Some(e) }),
+            Ok(output) => Json(CliOutput {
+                ok: true,
+                stdout: Some(output),
+                error: None,
+            }),
+            Err(e) => Json(CliOutput {
+                ok: false,
+                stdout: None,
+                error: Some(e),
+            }),
         }
     }
 
@@ -57,7 +95,10 @@ impl Api {
     #[oai(path = "/api/config", method = "get", operation_id = "getConfig")]
     async fn get_config(&self, state: Data<&AppState>) -> Json<ConfigEnvelope> {
         let cfg = state.config.read().await.clone();
-        Json(ConfigEnvelope { ok: true, config: cfg })
+        Json(ConfigEnvelope {
+            ok: true,
+            config: cfg,
+        })
     }
 
     /// Set config (partial)
@@ -74,7 +115,9 @@ impl Api {
         }
         let req = req.0;
         let mut merged = state.config.read().await.clone();
-        if let Some(fc) = req.fan_curve { merged.fan_curve = fc; }
+        if let Some(fc) = req.fan_curve {
+            merged.fan_curve = fc;
+        }
         if let Err(e) = config::save(&merged) {
             error!("config save error: {}", e);
             return Json(UpdateResult { ok: false });
@@ -100,7 +143,13 @@ impl Api {
         let mem_mb = sys.total_memory() / 1024 / 1024;
         let os = System::name().unwrap_or_else(|| "Unknown OS".into());
         let dgpu = pick_dedicated_gpu(&get_gpu_names().await);
-        Json(SystemInfoEnvelope { ok: true, cpu, memory_total_mb: mem_mb, os, dgpu })
+        Json(SystemInfoEnvelope {
+            ok: true,
+            cpu,
+            memory_total_mb: mem_mb,
+            os,
+            dgpu,
+        })
     }
 }
 
@@ -110,8 +159,12 @@ async fn get_gpu_names() -> Vec<String> {
         use tokio::process::Command;
         let ps = "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name";
         if let Ok(out) = Command::new("powershell")
-            .arg("-NoProfile").arg("-NonInteractive").arg("-Command").arg(ps)
-            .output().await
+            .arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-Command")
+            .arg(ps)
+            .output()
+            .await
         {
             if out.status.success() {
                 let s = String::from_utf8_lossy(&out.stdout);
@@ -130,13 +183,22 @@ fn pick_dedicated_gpu(names: &[String]) -> Option<String> {
     let mut best: Option<String> = None;
     for n in names {
         let lo = n.to_ascii_lowercase();
-        let looks_discrete = lo.contains("rtx") || lo.contains("gtx") || lo.contains("rx ") || lo.contains("arc ") || lo.contains("radeon pro") || lo.contains("geforce") || lo.contains("quadro") || lo.contains("radeon rx");
-        let looks_integrated = lo.contains("uhd") || lo.contains("iris") || lo.contains("vega") || lo.contains("780m");
-        if looks_discrete && !looks_integrated { return Some(n.clone()); }
-        if best.is_none() && !looks_integrated { best = Some(n.clone()); }
+        let looks_discrete = lo.contains("rtx")
+            || lo.contains("gtx")
+            || lo.contains("rx ")
+            || lo.contains("arc ")
+            || lo.contains("radeon pro")
+            || lo.contains("geforce")
+            || lo.contains("quadro")
+            || lo.contains("radeon rx");
+        let looks_integrated =
+            lo.contains("uhd") || lo.contains("iris") || lo.contains("vega") || lo.contains("780m");
+        if looks_discrete && !looks_integrated {
+            return Some(n.clone());
+        }
+        if best.is_none() && !looks_integrated {
+            best = Some(n.clone());
+        }
     }
     best
 }
-
-
-
