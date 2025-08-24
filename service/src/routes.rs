@@ -115,8 +115,14 @@ impl Api {
         }
         let req = req.0;
         let mut merged = state.config.read().await.clone();
-        if let Some(fc) = req.fan_curve {
-            merged.fan_curve = fc;
+        if let Some(fan) = req.fan {
+            let mut new_fan = merged.fan.clone();
+            // Overwrite sections only if provided
+            if let Some(m) = fan.mode { new_fan.mode = m; }
+            if let Some(man) = fan.manual { new_fan.manual = Some(man); }
+            if let Some(cur) = fan.curve { new_fan.curve = Some(cur); }
+            if let Some(cal) = fan.calibration { new_fan.calibration = Some(cal); }
+            merged.fan = new_fan;
         }
         if let Err(e) = config::save(&merged) {
             error!("config save error: {}", e);

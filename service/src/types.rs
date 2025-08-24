@@ -5,81 +5,54 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct Config {
     #[serde(default)]
-    pub fan_curve: FanCurveConfig,
+    pub fan: FanControlConfig,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            fan_curve: FanCurveConfig::default(),
-        }
-    }
+impl Default for Config { fn default() -> Self { Self { fan: FanControlConfig::default() } } }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Enum, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum FanControlMode {
+    #[default]
+    #[oai(rename = "disabled")]
+    Disabled,
+    #[oai(rename = "manual")]
+    Manual,
+    #[oai(rename = "curve")]
+    Curve,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Object)]
-pub struct FanCurveConfig {
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct FanControlConfig {
     #[serde(default)]
-    pub mode: FanMode,
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "FanCurveConfig::default_sensor")]
-    pub sensor: String, // "APU" | "CPU"
-    #[serde(default = "FanCurveConfig::default_points")]
-    pub points: Vec<[u32; 2]>, // (temp_c, duty_pct)
-    #[serde(default = "FanCurveConfig::default_poll_ms")]
-    pub poll_ms: u64,
-    #[serde(default = "FanCurveConfig::default_hysteresis_c")]
-    pub hysteresis_c: u32,
-    #[serde(default = "FanCurveConfig::default_rate_limit_pct_per_step")]
-    pub rate_limit_pct_per_step: u32,
-    #[serde(default)]
-    pub manual_duty_pct: Option<u32>,
+    pub mode: FanControlMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual: Option<ManualConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub curve: Option<CurveConfig>,
+    /// Optional calibration at the root to allow updates without touching curve config
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration: Option<FanCalibration>,
 }
 
-impl FanCurveConfig {
-    fn default_sensor() -> String {
-        "APU".to_string()
-    }
-    fn default_points() -> Vec<[u32; 2]> {
-        vec![[40, 0], [60, 40], [75, 80], [85, 100]]
-    }
-    fn default_poll_ms() -> u64 {
-        2000
-    }
-    fn default_hysteresis_c() -> u32 {
-        2
-    }
-    fn default_rate_limit_pct_per_step() -> u32 {
-        100
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct ManualConfig { pub duty_pct: u32 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct CurveConfig {
+    #[serde(default = "default_sensor")] pub sensor: String,
+    #[serde(default = "default_points")] pub points: Vec<[u32; 2]>,
+    #[serde(default = "default_poll_ms")] pub poll_ms: u64,
+    #[serde(default = "default_hysteresis_c")] pub hysteresis_c: u32,
+    #[serde(default = "default_rate_limit_pct_per_step")] pub rate_limit_pct_per_step: u32,
+    #[serde(skip_serializing_if = "Option::is_none")] pub calibration: Option<FanCalibration>,
 }
 
-impl Default for FanCurveConfig {
-    fn default() -> Self {
-        Self {
-            mode: FanMode::default(),
-            enabled: false,
-            sensor: Self::default_sensor(),
-            points: Self::default_points(),
-            poll_ms: Self::default_poll_ms(),
-            hysteresis_c: Self::default_hysteresis_c(),
-            rate_limit_pct_per_step: Self::default_rate_limit_pct_per_step(),
-            manual_duty_pct: None,
-            calibration: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Enum, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum FanMode {
-    #[default]
-    Auto,
-    Manual,
-    Curve,
-}
+fn default_sensor() -> String { "APU".to_string() }
+fn default_points() -> Vec<[u32; 2]> { vec![[40, 0], [60, 40], [75, 80], [85, 100]] }
+fn default_poll_ms() -> u64 { 2000 }
+fn default_hysteresis_c() -> u32 { 2 }
+fn default_rate_limit_pct_per_step() -> u32 { 100 }
 
 // API envelope types
 #[derive(Serialize, Object)]
@@ -110,8 +83,18 @@ pub struct SystemInfoEnvelope {
 }
 
 #[derive(Debug, Clone, Deserialize, Object)]
-pub struct PartialConfig {
-    pub fan_curve: Option<FanCurveConfig>,
+pub struct PartialConfig { pub fan: Option<PartialFanControlConfig> }
+
+#[derive(Debug, Clone, Deserialize, Object, Default)]
+pub struct PartialFanControlConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<FanControlMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual: Option<ManualConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub curve: Option<CurveConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calibration: Option<FanCalibration>,
 }
 
 // Fan calibration types

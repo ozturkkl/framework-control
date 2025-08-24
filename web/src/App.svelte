@@ -67,7 +67,7 @@
           class={"col-span-12 " + panelGridClasses(pid, healthy, fanMode)}
         >
           {#if pid === "telemetry"}
-            <Panel title="Telemetry" expandable={healthy}>
+            <Panel title="Telemetry (Coming soon)" expandable={healthy}>
               <div class="text-sm opacity-80">
                 Live temps and fan RPM read locally via the service. Nothing
                 leaves your machine.
@@ -79,7 +79,7 @@
               </ul>
             </Panel>
           {:else if pid === "power"}
-            <Panel title="Power" expandable={healthy}>
+            <Panel title="Power (Coming soon)" expandable={healthy}>
               <div class="text-sm opacity-80">
                 Quick view of charger state and battery health at a glance,
                 powered by the Framework CLI.

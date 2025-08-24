@@ -4,49 +4,49 @@ use tokio::time::{sleep, Duration};
 use tracing::{debug, info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::{Config, FanMode};
+use crate::types::{Config, FanControlMode};
 
 /// Main fan control task that runs continuously based on config
 pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
     info!("Fan control task started");
 
     let mut last_duty: Option<u32> = None;
-    let mut last_config_hash: Option<u64> = None; // Track config changes
+    let mut last_mode: Option<FanControlMode> = None;
     let mut active_target: Option<u32> = None;
     let mut transition_start_temp: i32 = 0; // Used for hysteresis band
 
     loop {
         let loop_started = std::time::Instant::now();
-        let config = cfg.read().await.fan_curve.clone();
-        let poll_interval = Duration::from_millis(config.poll_ms.max(200));
-
-        // Calculate a simple hash to detect config changes
-        let config_hash = calculate_config_hash(&config);
-        let config_changed = last_config_hash != Some(config_hash);
-
-        if config_changed {
-            debug!("Fan config changed, applying immediately");
-            // Reset state to force immediate update
-            last_duty = None;
-            last_config_hash = Some(config_hash);
-        }
+        let config = cfg.read().await.fan.clone();
+        // Loop cadence: use curve.poll_ms while in Curve mode with a curve present; otherwise a small fixed cadence
+        let poll_interval = match (&config.mode, &config.curve) {
+            (FanControlMode::Curve, Some(c)) => Duration::from_millis(c.poll_ms),
+            _ => Duration::from_millis(500),
+        };
 
         // Handle based on current mode
-        match (config.enabled, &config.mode) {
-            // Disabled or Auto mode: let firmware handle it
-            (false, _) | (_, FanMode::Auto) => {
-                // Ensure platform auto control is enabled when entering Auto/Disabled.
-                // We also trigger on config changes because last_duty may have been reset.
-                if config_changed || last_duty.is_some() {
-                    debug!("Switching to auto fan control");
+        match &config.mode {
+            // Disabled: let firmware handle it
+            FanControlMode::Disabled => {
+                if last_mode != Some(FanControlMode::Disabled) {
+                    debug!("Mode change: {:?} -> Disabled", last_mode);
                     let _ = cli.autofanctrl().await;
                     last_duty = None;
                 }
+                last_mode = Some(FanControlMode::Disabled);
             }
 
             // Manual mode: set fixed duty
-            (true, FanMode::Manual) => {
-                if let Some(duty) = config.manual_duty_pct {
+            FanControlMode::Manual => {
+                if last_mode != Some(FanControlMode::Manual) {
+                    debug!("Mode change: {:?} -> Manual", last_mode);
+                }
+                let target = if let Some(m) = &config.manual {
+                    Some(m.duty_pct.min(100))
+                } else {
+                    None
+                };
+                if let Some(duty) = target {
                     let duty = duty.min(100);
                     if last_duty != Some(duty) {
                         debug!("Setting manual fan duty to {}%", duty);
@@ -62,15 +62,27 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                     }
                 } else {
                     // No manual duty set, fall back to auto
+                    debug!("Manual: No duty set, switching to auto fan control");
                     let _ = cli.autofanctrl().await;
                     last_duty = None;
                 }
+                last_mode = Some(FanControlMode::Manual);
             }
 
             // Curve mode: dynamic control based on temperature
-            (true, FanMode::Curve) => {
+            FanControlMode::Curve => {
+                if last_mode != Some(FanControlMode::Curve) {
+                    debug!("Mode change: {:?} -> Curve", last_mode);
+                }
+                let Some(curve_cfg) = &config.curve else {
+                    warn!("Curve mode without curve config; falling back to platform auto");
+                    let _ = cli.autofanctrl().await;
+                    last_duty = None;
+                    sleep(poll_interval).await;
+                    continue;
+                };
                 // 1. Read temperature
-                let temp = match get_sensor_temperature(&cli, &config.sensor).await {
+                let temp = match get_sensor_temperature(&cli, &curve_cfg.sensor).await {
                     Some(t) => t,
                     None => {
                         warn!("Failed to read temperature, continuing...");
@@ -78,9 +90,15 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                         continue;
                     }
                 };
+                // If we just entered Curve mode, anchor hysteresis and clear target to avoid stale state
+                if last_mode != Some(FanControlMode::Curve) {
+                    debug!("Anchoring hysteresis at temp={}°C on entering Curve", temp);
+                    transition_start_temp = temp;
+                    active_target = None;
+                }
 
                 // 2. Compute instantaneous curve duty
-                let curve_target = calculate_duty_from_curve(temp, &config.points);
+                let curve_target = calculate_duty_from_curve(temp, &curve_cfg.points);
 
                 // 3. Decide whether to accept this as the new active target
                 match active_target {
@@ -94,8 +112,14 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                             active_target = Some(curve_target);
                             transition_start_temp = temp;
                         } else {
-                            // Decreasing – apply hysteresis band
-                            if temp <= transition_start_temp - config.hysteresis_c as i32 {
+                            // Decreasing – apply hysteresis with special handling:
+                            // - If hysteresis is disabled, accept immediately
+                            // - If temperature has increased since the transition anchor, accept immediately and re-anchor
+                            // - Otherwise require temp to drop by hysteresis band
+                            if curve_cfg.hysteresis_c == 0
+                                || temp >= transition_start_temp
+                                || temp <= transition_start_temp - curve_cfg.hysteresis_c as i32
+                            {
                                 active_target = Some(curve_target);
                                 transition_start_temp = temp;
                             }
@@ -106,27 +130,40 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
 
                 // 4. Step towards active_target every loop (rate-limited)
                 if let Some(tgt) = active_target {
-                    if last_duty != Some(tgt) {
-                        let next = match last_duty {
-                            Some(prev) if config.rate_limit_pct_per_step < 100 => {
-                                apply_rate_limit(prev, tgt, config.rate_limit_pct_per_step)
-                            }
-                            _ => tgt,
-                        };
-                        debug!("Temp: {}°C, Target: {}%, Setting: {}%", temp, tgt, next);
+                    let mut decision = "hold";
+                    let mut reason = "last==next";
+                    
+                    let next = match last_duty {
+                        Some(prev) if curve_cfg.rate_limit_pct_per_step < 100 => {
+                            apply_rate_limit(prev, tgt, curve_cfg.rate_limit_pct_per_step)
+                        }
+                        _ => tgt,
+                    };
+                    if last_duty != Some(next) {
+                        decision = "set";
+                        reason = "advance";
 
                         if let Err(e) = cli.set_fan_duty(next, None).await {
                             warn!("Failed to set fan duty: {}", e);
                         } else {
                             last_duty = Some(next);
                         }
-                    } else {
-                        // Duty unchanged: still log current state
-                        if let Some(cur) = last_duty {
-                            debug!("Temp: {}°C, Target: {}%, Holding: {}%", temp, tgt, cur);
-                        }
                     }
+                    debug!(
+                        "CurveLoop: temp={}°C, inst_target={}%, active_target={}%, anchor={}°C, hys={}°C, last_duty={:?}%, next={}%, step_limit={}%, decision={}, reason={}",
+                        temp,
+                        curve_target,
+                        tgt,
+                        transition_start_temp,
+                        curve_cfg.hysteresis_c,
+                        last_duty,
+                        next,
+                        curve_cfg.rate_limit_pct_per_step,
+                        decision,
+                        reason
+                    );
                 }
+                last_mode = Some(FanControlMode::Curve);
             }
         }
         let elapsed = loop_started.elapsed();
@@ -223,32 +260,6 @@ fn apply_rate_limit(current: u32, target: u32, max_change: u32) -> u32 {
     } else {
         current.saturating_sub(max_change).max(target)
     }
-}
-
-/// Calculate a hash of config to detect changes
-fn calculate_config_hash(config: &crate::types::FanCurveConfig) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    let mut hasher = DefaultHasher::new();
-
-    // Hash all relevant config fields
-    config.enabled.hash(&mut hasher);
-    format!("{:?}", config.mode).hash(&mut hasher);
-    config.sensor.hash(&mut hasher);
-
-    // Hash the curve points
-    for point in &config.points {
-        point[0].hash(&mut hasher);
-        point[1].hash(&mut hasher);
-    }
-
-    config.hysteresis_c.hash(&mut hasher);
-    config.rate_limit_pct_per_step.hash(&mut hasher);
-    config.manual_duty_pct.hash(&mut hasher);
-    // Note: We don't hash poll_ms as changing polling interval shouldn't reset the curve
-
-    hasher.finish()
 }
 
 #[cfg(test)]
