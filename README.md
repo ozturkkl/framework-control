@@ -1,6 +1,6 @@
 # Framework Control
 
-Framework Control is a lightweight control surface for Framework laptops. It exposes a minimal local HTTP API and a modern web UI to monitor telemetry and tweak core platform settings (fans, power, charging, etc.). The project is designed to be fast, unobtrusive, and extensible. Windows background service + Svelte web UI for basic telemetry and fan control on Framework laptops.
+updated REFramework Control is a lightweight control surface for Framework laptops. It exposes a minimal local HTTP API and a modern web UI to monitor telemetry and tweak core platform settings (fans, power, charging, etc.). The project is designed to be fast, unobtrusive, and extensible. Windows background service + Svelte web UI for telemetry and advanced fan control (auto/manual/curve, hysteresis, rate limit, live RPM overlay with calibration).
 
 ## DEMO
 
@@ -11,6 +11,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 
 - Minimal always‑on local service with a clean REST API
 - Fan controls: Auto, Manual duty, and Curve editor with hysteresis and rate‑limit
+  - Live RPM overlay on the curve editor (requires one‑time calibration)
 - Telemetry surface: AC/battery/charge info; temps/fans; later PD/ports, expansion bay, input deck
 - Persisted settings with sensible defaults and easy backup/restore
 - Packaging suitable for end users (no terminals required)
@@ -31,7 +32,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
   - Generates OpenAPI on demand
   - Executes Framework CLI (`framework_tool`) for all EC interactions (no direct library bindings)
   - Returns raw CLI stdout in a simple JSON envelope; the web UI parses as needed
-  - Applies a persisted fan-control config at boot (auto/manual/curve)
+  - Applies a persisted fan-control config at boot (disabled/manual/curve)
 - Frontend UI: Svelte + Vite
   - Runs locally (dev: http://127.0.0.1:5174) and talks to the backend API
   - Simple pages: Telemetry and Fan control
@@ -69,27 +70,39 @@ Default bind: `127.0.0.1:8090`. The UI reads this via a simple `API_BASE` config
 ### Config
 
 - Location (Windows): `C:\ProgramData\FrameworkControl\config.json` (override with `FRAMEWORK_CONTROL_CONFIG`)
-- Shape (subset shown):
+- Shape (current):
 
 ```json
 {
-  "fan_curve": {
-    "enabled": false,
-    "mode": "auto", // "auto" | "manual" | "curve"
-    "sensor": "APU",  // or "CPU"
-    "points": [[40,0],[60,40],[75,80],[85,100]],
-    "poll_ms": 2000,
-    "hysteresis_c": 2,
-    "rate_limit_pct_per_step": 100,
-    "manual_duty_pct": null
+  "fan": {
+    "mode": "disabled", // "disabled" | "manual" | "curve"
+    "manual": {
+      "duty_pct": 50
+    },
+    "curve": {
+      "sensor": "APU", // or "CPU"
+      "points": [[40,20],[60,40],[75,80]],
+      "poll_ms": 400,
+      "hysteresis_c": 1,
+      "rate_limit_pct_per_step": 1
+    },
+    "calibration": {
+      "points": [[0,0],[20,xxx],[40,xxx],[60,xxx],[80,xxx],[100,xxx]],
+      "updated_at": 1710000000
+    }
   }
 }
 ```
 
 - Behavior:
-  - When `enabled=false` or `mode="auto"`, the service ensures platform auto fan control (`--autofanctrl`).
-  - When `mode="manual"` and `manual_duty_pct` is set, the service applies `--fansetduty`.
-  - When `mode="curve"`, the service applies a piecewise-linear curve with hysteresis and optional rate limit. Rate limit constrains per-step duty change by `rate_limit_pct_per_step`.
+  - When `mode="disabled"`, the service enables platform auto fan control (`--autofanctrl`).
+  - When `mode="manual"`, the service applies `--fansetduty` to `manual.duty_pct` and holds it.
+  - When `mode="curve"`, the service:
+    - polls temperature at `curve.poll_ms` for the selected `sensor` (APU/CPU)
+    - computes a piecewise‑linear duty from `curve.points` with anchors [0,0] and [100,100]
+    - applies hysteresis on decreasing targets using `hysteresis_c` to reduce oscillation
+    - rate‑limits duty change per loop using `rate_limit_pct_per_step` (1..100)
+  - Calibration data, if present, is used by the web UI to map `RPM → duty%` for the live overlay; the service does not currently consume calibration.
 
 ### Server
 
@@ -206,6 +219,13 @@ Frontend token for Pages:
 - Fan mode selector is shown in the Fan Control panel header (hidden when not healthy).
 - Auto mode shows a short description; Manual shows a single slider; Curve opens the editor.
 - When not in Curve mode, the layout allocates more space to Telemetry/Power and a compact area to Fan Control.
+
+### Fan curve editor: live RPM overlay and calibration
+
+- Toggle live overlay with the speedometer button in the curve header. The overlay shows a crosshair at the current temperature and estimated duty% (from current RPM via calibration).
+- First‑time use prompts a guided calibration. The app steps through duties [100, 80, 60, 40, 20], measures stable RPM, then saves `fan.calibration.points` and `updated_at`.
+- Calibration temporarily switches to Manual mode and restores the previous mode when finished or cancelled.
+- Calibration data is persisted in the config and used only by the UI to map `RPM → duty%` using spline interpolation.
 
 ## Roadmap
 
