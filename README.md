@@ -2,7 +2,9 @@
 
 updated REFramework Control is a lightweight control surface for Framework laptops. It exposes a minimal local HTTP API and a modern web UI to monitor telemetry and tweak core platform settings (fans, power, charging, etc.). The project is designed to be fast, unobtrusive, and extensible. Windows background service + Svelte web UI for telemetry and advanced fan control (auto/manual/curve, hysteresis, rate limit, live RPM overlay with calibration).
 
-## DEMO
+## How To Use
+
+<img width="1295" height="892" alt="image" src="https://github.com/user-attachments/assets/46303d21-5d04-4d02-97dc-24892086c072" />
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
