@@ -29,7 +29,8 @@ jobs:
           $parentSha = $(git rev-parse "$sha^" 2>$null)
           $fileChanged = $false
           if ($parentSha) {
-            $diff = git diff --name-only "$parentSha" "$sha" -- service/Cargo.toml 2>$null
+            # Working directory is 'service', so use path relative to this dir
+            $diff = git diff --name-only "$parentSha" "$sha" -- Cargo.toml 2>$null
             $fileChanged = [bool]$diff
           }
           $shouldRelease = $false
@@ -53,6 +54,7 @@ jobs:
           Write-Host "Commit: $sha"
           Write-Host "Parent: $parentSha"
           Write-Host "Cargo.toml changed in commit: $fileChanged"
+          if ($fileChanged) { Write-Host "Changed files:`n$diff" }
           Write-Host "Detected version: $current"
           Write-Host "Previous version: $previous"
           Write-Host "Should release: $shouldRelease"
