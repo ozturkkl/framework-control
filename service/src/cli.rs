@@ -1,6 +1,6 @@
 
 use tokio::process::Command;
-use tracing::info;
+use tracing::{info, warn, error};
 use which::which;
 
 /// Thin wrapper around the `framework_tool` CLI.
@@ -90,6 +90,71 @@ async fn resolve_framework_tool() -> Result<String, String> {
     if let Ok(p) = which("framework_tool.exe") { return Ok(p.to_string_lossy().to_string()); }
 
     Err("framework_tool not found. Please install via winget: winget install FrameworkComputer.framework_tool".into())
+}
+
+/// Try to install framework_tool using winget on Windows.
+/// Returns Ok(()) if installation command succeeded (not necessarily that binary is already on PATH).
+#[cfg(target_os = "windows")]
+pub async fn attempt_install_via_winget() -> Result<(), String> {
+    use tokio::time::{timeout, Duration};
+    // Use powershell to ensure non-interactive winget call works in service context
+    let args = [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        // Accept agreements and try to be quiet; winget may still emit output
+        "winget install FrameworkComputer.framework_tool --accept-source-agreements --accept-package-agreements --silent",
+    ];
+    info!("Attempting to install framework_tool via winget...");
+    let child = Command::new("powershell")
+        .args(args)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("failed to spawn winget: {e}"))?;
+    let output = timeout(Duration::from_secs(180), child.wait_with_output())
+        .await
+        .map_err(|_| "winget install timed out".to_string())
+        .and_then(|r| r.map_err(|e| format!("winget wait failed: {e}")))?;
+    if output.status.success() {
+        info!("winget reported successful installation of framework_tool");
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!("winget install exit {}: {}", output.status, stderr);
+        Err(format!("winget install failed with status {}", output.status))
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub async fn attempt_install_via_winget() -> Result<(), String> {
+    Err("winget installation is only supported on Windows".into())
+}
+
+/// Resolve framework_tool, attempting installation if not present.
+pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
+    match FrameworkTool::new().await {
+        Ok(cli) => Ok(cli),
+        Err(e) => {
+            warn!("framework_tool not found: {}", e);
+            match attempt_install_via_winget().await {
+                Ok(()) => {
+                    // Try resolve again
+                    match FrameworkTool::new().await {
+                        Ok(cli) => Ok(cli),
+                        Err(e2) => {
+                            error!("framework_tool still not found after install: {}", e2);
+                            Err(e2)
+                        }
+                    }
+                }
+                Err(ei) => {
+                    warn!("automatic install failed: {}", ei);
+                    Err(e)
+                }
+            }
+        }
+    }
 }
 
 

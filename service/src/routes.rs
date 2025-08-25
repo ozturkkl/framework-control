@@ -1,8 +1,9 @@
 use crate::config; // for save/load
 use crate::state::AppState;
 use crate::types::{CliOutput, ConfigEnvelope, PartialConfig, SystemInfoEnvelope, UpdateResult};
+use serde_json::Value;
 use poem::web::Data;
-use poem_openapi::{param::Header, payload::Json, payload::PlainText, OpenApi};
+use poem_openapi::{param::Header, payload::Json, OpenApi};
 use sysinfo::System;
 use tracing::{error, info};
 
@@ -10,11 +11,14 @@ pub struct Api;
 
 #[OpenApi]
 impl Api {
-    /// Health
+    /// Health: returns overall service health and CLI presence
     #[oai(path = "/api/health", method = "get", operation_id = "health")]
-    async fn health(&self) -> PlainText<&'static str> {
-        PlainText("ok")
+    async fn health(&self, state: Data<&AppState>) -> Json<Value> {
+        let cli_present = state.cli.is_some();
+        Json(serde_json::json!({ "ok": true, "cli_present": cli_present }))
     }
+
+    
 
     /// Power info
     #[oai(path = "/api/power", method = "get", operation_id = "getPower")]

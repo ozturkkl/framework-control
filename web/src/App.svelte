@@ -6,8 +6,10 @@
   import DeviceHeader from "./components/DeviceHeader.svelte";
   import FanControl from "./components/FanControl.svelte";
   import Panel from "./components/Panel.svelte";
+  import { OpenAPI } from "./api";
 
   let healthy: boolean = false;
+  let cliPresent: boolean = true;
   let fanMode: "Auto" | "Manual" | "Curve" = "Auto";
   const installerUrl: string = import.meta.env?.VITE_INSTALLER_URL || "";
 
@@ -19,6 +21,7 @@
     mode: "Auto" | "Manual" | "Curve"
   ): string {
     if (!isHealthy) return "md:col-span-4";
+    if (!cliPresent) return "md:col-span-4 opacity-50 pointer-events-none select-none";
     if (pid === "telemetry")
       return mode === "Curve"
         ? "md:col-start-1 md:col-span-5 md:row-start-1 md:row-span-1"
@@ -34,21 +37,26 @@
     return "md:col-span-4";
   }
   onMount(async () => {
-    try {
-      await DefaultService.health();
-      healthy = true;
-    } catch {
-      healthy = false;
-    }
+    await pollHealthOnce();
     pollId = setInterval(async () => {
-      try {
-        await DefaultService.health();
-        healthy = true;
-      } catch {
-        healthy = false;
-      }
+      await pollHealthOnce();
     }, 1000);
   });
+
+  async function pollHealthOnce() {
+    try {
+      const res = await fetch(`${OpenAPI.BASE}/api/health`, { credentials: "omit" });
+      if (res.ok) {
+        const j = await res.json();
+        healthy = !!j.ok;
+        cliPresent = j.cli_present !== undefined ? !!j.cli_present : true;
+        return;
+      }
+    } catch {
+      // fall through
+    }
+    healthy = false;
+  }
   onDestroy(() => {
     if (pollId) clearInterval(pollId);
   });
@@ -57,7 +65,7 @@
 <main class="min-h-screen flex items-center justify-center px-6 py-12">
   <div class="w-full max-w-6xl mx-auto space-y-4">
     <section in:fade={{ duration: 200 }}>
-      <DeviceHeader {healthy} {installerUrl} />
+      <DeviceHeader {healthy} {installerUrl} {cliPresent} />
     </section>
 
     <section class="grid gap-4 md:grid-cols-12 md:auto-rows-fr">

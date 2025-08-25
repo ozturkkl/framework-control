@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::cli::FrameworkTool;
+use crate::cli::{FrameworkTool, resolve_or_install};
 use crate::types::Config;
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ impl AppState {
     pub async fn initialize() -> Self {
         let config = Arc::new(tokio::sync::RwLock::new(crate::config::load()));
         let token = std::env::var("FRAMEWORK_CONTROL_TOKEN").ok();
-        match FrameworkTool::new().await {
+        match resolve_or_install().await {
             Ok(cli) => Self { cli: Some(cli), config, token },
             Err(_e) => {
                 Self { cli: None, config, token }

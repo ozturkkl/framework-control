@@ -1,6 +1,8 @@
 <script lang="ts">
   export let healthy = false;
   export let installerUrl: string = "";
+  export let cliPresent: boolean = true;
+  const repoLink = "https://github.com/FrameworkComputer/framework-system?tab=readme-ov-file#installation";
   const LID_CLOSED = `${import.meta.env.BASE_URL}assets/lid-closed.jpg`;
   const LID_OPEN = `${import.meta.env.BASE_URL}assets/lid-open.jpg`;
   import { DefaultService, type SystemInfoEnvelope as SystemInfo } from "../api";
@@ -87,7 +89,14 @@
         {#if healthy}
           <div class="flex items-center gap-2 justify-between">
             <h2 class="text-xl md:text-2xl font-semibold">{displayTitle}</h2>
-            <span class="badge badge-success mr-0">Connected</span>
+            {#if cliPresent}
+              <span class="badge badge-success mr-0">Connected</span>
+            {:else}
+              <a class="btn btn-error btn-sm mr-0 no-underline inline-flex items-center gap-2" href={repoLink} target="_blank" rel="noreferrer noopener">
+                <Icon icon="mdi:alert-circle-outline" class="w-4 h-4" />
+                <span>framework_tool missing — Install</span>
+              </a>
+            {/if}
           </div>
           <hr class="my-2 border border-primary/15" />
           {#if sys}
