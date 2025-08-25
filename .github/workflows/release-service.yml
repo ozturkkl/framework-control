@@ -25,33 +25,37 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $currentMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
-          if (-not $currentMatch) { throw "Version not found in Cargo.toml" }
-          $current = $currentMatch.Matches[0].Groups[1].Value
-          # Find the previous commit that modified Cargo.toml (in repo path service/Cargo.toml)
-          $lastChange = git log -n 1 --pretty=format:%H -- service/Cargo.toml 2>$null
-          $prevChange = git log -n 1 --skip=1 --pretty=format:%H -- service/Cargo.toml 2>$null
-          $prevContent = $null
-          if ($prevChange) {
-            try {
-              $prevContent = git show "$prevChange":service/Cargo.toml 2>$null
-            } catch {
-              $prevContent = $null
-            }
+          $sha = $env:GITHUB_SHA
+          $parentSha = $(git rev-parse "$sha^" 2>$null)
+          $fileChanged = $false
+          if ($parentSha) {
+            $diff = git diff --name-only "$parentSha" "$sha" -- service/Cargo.toml 2>$null
+            $fileChanged = [bool]$diff
           }
+          $shouldRelease = $false
+          $current = $null
           $previous = $null
-          if ($prevContent) {
-            $prevMatch = [regex]::Match($prevContent, '^version\s*=\s*"([^"]+)"', 'Multiline')
-            if ($prevMatch.Success) { $previous = $prevMatch.Groups[1].Value }
+          if ($fileChanged) {
+            $currentMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+            if (-not $currentMatch) { throw "Version not found in Cargo.toml" }
+            $current = $currentMatch.Matches[0].Groups[1].Value
+            $prevContent = git show "$parentSha":service/Cargo.toml 2>$null
+            if ($prevContent) {
+              $prevMatch = [regex]::Match($prevContent, '^version\s*=\s*"([^"]+)"', 'Multiline')
+              if ($prevMatch.Success) { $previous = $prevMatch.Groups[1].Value }
+            }
+            $shouldRelease = ($current -ne $previous)
+          } else {
+            $shouldRelease = $false
           }
-          $changed = -not $previous -or ($current -ne $previous)
           echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "SHOULD_RELEASE=$changed" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "SHOULD_RELEASE=$shouldRelease" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Commit: $sha"
+          Write-Host "Parent: $parentSha"
+          Write-Host "Cargo.toml changed in commit: $fileChanged"
           Write-Host "Detected version: $current"
           Write-Host "Previous version: $previous"
-          Write-Host "Last change commit: $lastChange"
-          Write-Host "Previous change commit: $prevChange"
-          Write-Host "Should release: $changed"
+          Write-Host "Should release: $shouldRelease"
 
       - name: Install Rust (stable)
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
@@ -127,14 +131,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
-          # Find the commit that last changed Cargo.toml (working directory is service)
-          $commitSha = git log -1 --pretty=format:%H -- Cargo.toml
-          $commitMsg = git log -1 --pretty=format:%s -- Cargo.toml
-          if (-not $commitSha) {
-            # Fallback to HEAD
-            $commitSha = git rev-parse HEAD
-            $commitMsg = git log -1 --pretty=format:%s
-          }
+          $commitSha = "$env:GITHUB_SHA"
+          $commitMsg = git log -1 --pretty=format:%s "$commitSha"
           $repo = "${{ github.repository }}"
           $commitUrl = "https://github.com/$repo/commit/$commitSha"
           $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n$commitUrl`nMessage: $commitMsg"
