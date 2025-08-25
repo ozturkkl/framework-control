@@ -18,15 +18,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install WiX Toolset
-        run: choco install wixtoolset --no-progress -y
-
-      - name: Install cargo-wix
-        run: cargo install cargo-wix
-
       - name: Determine version change
         id: version_check
         shell: pwsh
@@ -47,6 +38,18 @@ jobs:
           $changed = -not $previous -or ($current -ne $previous)
           echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "SHOULD_RELEASE=$changed" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install Rust (stable)
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install WiX Toolset
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        run: choco install wixtoolset --no-progress -y
+
+      - name: Install cargo-wix
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        run: cargo install cargo-wix
 
       - name: Build service (release)
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
