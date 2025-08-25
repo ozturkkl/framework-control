@@ -2,7 +2,7 @@ name: Build and Release Service MSI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch: {}
 
 permissions:
@@ -127,14 +127,12 @@ jobs:
           $commitMsg = git log -1 --pretty=format:%s "$commitSha"
           $repo = "${{ github.repository }}"
           $commitUrl = "https://github.com/$repo/commit/$commitSha"
-          $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n$commitUrl`nMessage: $commitMsg"
+          $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n$commitUrl`n`n$commitMsg"
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag -t "$env:VERSION" -n "$body" --latest
+            gh release create $tag -t "Framework Service Installer" -n "$body" --latest
           } else {
-            gh release edit $tag -t "$env:VERSION" -n "$body" --latest
+            gh release edit $tag -t "Framework Service Installer" -n "$body" --latest
           }
           gh release upload $tag "$env:STABLE_PATH" --clobber
           gh release upload $tag "$env:SHA_PATH" --clobber
-
-
