@@ -17,11 +17,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Determine version change
         id: version_check
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $currentMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
           if (-not $currentMatch) { throw "Version not found in Cargo.toml" }
           $current = $currentMatch.Matches[0].Groups[1].Value
@@ -62,6 +65,7 @@ jobs:
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
           CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
         run: |
+          $ErrorActionPreference = 'Stop'
           # Substitute placeholders in the WinSW config before packaging
           $xml = Get-Content wix/FrameworkControlService.xml
           $xml = $xml -replace '@ALLOWED_ORIGINS@', "$env:ALLOWED_ORIGINS"
@@ -73,6 +77,7 @@ jobs:
         shell: pwsh
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
+          $ErrorActionPreference = 'Stop'
           $msi = Get-ChildItem -Path "target/wix" -Filter *.msi | Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $msi) { throw "MSI not found in target/wix" }
           echo "MSI_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -82,6 +87,7 @@ jobs:
         shell: pwsh
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
+          $ErrorActionPreference = 'Stop'
           $stable = Join-Path $env:RUNNER_TEMP $env:STABLE_NAME
           Copy-Item -Path "$env:MSI_PATH" -Destination "$stable" -Force
           echo "STABLE_PATH=$stable" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -90,6 +96,7 @@ jobs:
         shell: pwsh
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
+          $ErrorActionPreference = 'Stop'
           $hash = (Get-FileHash "$env:MSI_PATH" -Algorithm SHA256).Hash
           $shaPath = "$env:RUNNER_TEMP/" + $env:STABLE_NAME + ".sha256"
           Set-Content -Path $shaPath -Value $hash -NoNewline
@@ -107,6 +114,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
           $commitSha = git log -1 --pretty=format:%H -- service/Cargo.toml
           $commitMsg = git log -1 --pretty=format:%s -- service/Cargo.toml
