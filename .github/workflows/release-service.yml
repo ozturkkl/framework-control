@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Determine version change
         id: version_check
@@ -41,6 +41,9 @@ jobs:
           $changed = -not $previous -or ($current -ne $previous)
           echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "SHOULD_RELEASE=$changed" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Detected version: $current"
+          Write-Host "Previous version: $previous"
+          Write-Host "Should release: $changed"
 
       - name: Install Rust (stable)
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
@@ -116,8 +119,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
-          $commitSha = git log -1 --pretty=format:%H -- service/Cargo.toml
-          $commitMsg = git log -1 --pretty=format:%s -- service/Cargo.toml
+          # Find the commit that last changed Cargo.toml (working directory is service)
+          $commitSha = git log -1 --pretty=format:%H -- Cargo.toml
+          $commitMsg = git log -1 --pretty=format:%s -- Cargo.toml
+          if (-not $commitSha) {
+            # Fallback to HEAD
+            $commitSha = git rev-parse HEAD
+            $commitMsg = git log -1 --pretty=format:%s
+          }
           $repo = "${{ github.repository }}"
           $commitUrl = "https://github.com/$repo/commit/$commitSha"
           $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n$commitUrl`nMessage: $commitMsg"
