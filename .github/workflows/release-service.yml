@@ -3,8 +3,6 @@ name: Build and Release Service MSI
 on:
   push:
     branches: [ main ]
-  release:
-    types: [ published ]
   workflow_dispatch: {}
 
 permissions:
@@ -29,11 +27,34 @@ jobs:
       - name: Install cargo-wix
         run: cargo install cargo-wix
 
+      - name: Determine version change
+        id: version_check
+        shell: pwsh
+        run: |
+          $currentMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          if (-not $currentMatch) { throw "Version not found in Cargo.toml" }
+          $current = $currentMatch.Matches[0].Groups[1].Value
+          try {
+            $prevContent = git show HEAD^:service/Cargo.toml 2>$null
+          } catch {
+            $prevContent = $null
+          }
+          $previous = $null
+          if ($prevContent) {
+            $prevMatch = [regex]::Match($prevContent, '^version\s*=\s*"([^"]+)"', 'Multiline')
+            if ($prevMatch.Success) { $previous = $prevMatch.Groups[1].Value }
+          }
+          $changed = -not $previous -or ($current -ne $previous)
+          echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "SHOULD_RELEASE=$changed" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Build service (release)
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: cargo build --release
 
       - name: Build MSI with cargo-wix
         shell: pwsh
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         env:
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
           CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
@@ -47,19 +68,16 @@ jobs:
 
       - name: Locate MSI and read version
         shell: pwsh
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
           $msi = Get-ChildItem -Path "target/wix" -Filter *.msi | Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $msi) { throw "MSI not found in target/wix" }
           echo "MSI_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $versionMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
-          if (-not $versionMatch) { throw "Version not found in Cargo.toml" }
-          $version = $versionMatch.Matches[0].Groups[1].Value
-          echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "STABLE_NAME=framework-control-service-x86_64.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "VERSIONED_NAME=framework-control-service-$version-x86_64.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create stable-named copy for upload
         shell: pwsh
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
           $stable = Join-Path $env:RUNNER_TEMP $env:STABLE_NAME
           Copy-Item -Path "$env:MSI_PATH" -Destination "$stable" -Force
@@ -67,49 +85,27 @@ jobs:
 
       - name: Generate SHA256
         shell: pwsh
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
           $hash = (Get-FileHash "$env:MSI_PATH" -Algorithm SHA256).Hash
           $shaPath = "$env:RUNNER_TEMP/" + $env:STABLE_NAME + ".sha256"
           Set-Content -Path $shaPath -Value $hash -NoNewline
           echo "SHA_PATH=$shaPath" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Resolve release tag (for release event)
-        if: github.event_name == 'release'
-        shell: pwsh
-        run: |
-          $tag = "${{ github.event.release.tag_name }}"
-          echo "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
-
       - name: Ensure gh CLI
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: gh --version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish rolling release (continuous) on push to main
-        if: startsWith(github.ref, 'refs/heads/')
+      - name: Publish versioned release for bumped version
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view continuous 2>$null || gh release create continuous -t "Framework Service (continuous)" -n "Automated build from main" --prerelease
-          # Remove previous MSI/sha assets so only the latest remain
-          $ids = gh release view continuous --json assets --jq '.assets[] | select(.name | endswith(".msi") or endswith(".sha256")) | .id'
-          if ($ids) {
-            $ids -split "`n" | ForEach-Object { if ($_) { gh api repos/${{ github.repository }}/releases/assets/$_ -X DELETE >$null } }
-          }
-          gh release upload continuous "$env:STABLE_PATH" --clobber
-          gh release upload continuous "$env:SHA_PATH" --clobber
-
-      - name: Publish versioned release on release event
-        if: github.event_name == 'release'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = "$env:RELEASE_TAG"
-          if (-not $tag) { throw "RELEASE_TAG not resolved" }
-          gh release view $tag 2>$null || gh release create $tag -t "Framework Service $env:VERSION" -n "Automated release for version $env:VERSION" --latest
-          # Only upload the stable-named asset + checksum
+          $tag = "$env:VERSION"
+          gh release view $tag 2>$null || gh release create $tag -t "$env:VERSION" -n "Automated release for version $env:VERSION" --latest
           gh release upload $tag "$env:STABLE_PATH" --clobber
           gh release upload $tag "$env:SHA_PATH" --clobber
 
