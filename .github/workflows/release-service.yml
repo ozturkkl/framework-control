@@ -124,10 +124,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
           $commitSha = "$env:GITHUB_SHA"
-          $commitMsg = git log -1 --pretty=format:%s "$commitSha"
+          $commitMsg = git log -1 --pretty=format:%B "$commitSha"
           $repo = "${{ github.repository }}"
           $commitUrl = "https://github.com/$repo/commit/$commitSha"
-          $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n$commitUrl`n`n$commitMsg"
+          $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n`n$commitMsg"
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag -t "Framework Service Installer" -n "$body" --latest
