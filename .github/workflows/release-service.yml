@@ -28,10 +28,16 @@ jobs:
           $currentMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
           if (-not $currentMatch) { throw "Version not found in Cargo.toml" }
           $current = $currentMatch.Matches[0].Groups[1].Value
-          try {
-            $prevContent = git show HEAD^:service/Cargo.toml 2>$null
-          } catch {
-            $prevContent = $null
+          # Find the previous commit that modified Cargo.toml (in repo path service/Cargo.toml)
+          $lastChange = git log -n 1 --pretty=format:%H -- service/Cargo.toml 2>$null
+          $prevChange = git log -n 1 --skip=1 --pretty=format:%H -- service/Cargo.toml 2>$null
+          $prevContent = $null
+          if ($prevChange) {
+            try {
+              $prevContent = git show "$prevChange":service/Cargo.toml 2>$null
+            } catch {
+              $prevContent = $null
+            }
           }
           $previous = $null
           if ($prevContent) {
@@ -43,6 +49,8 @@ jobs:
           echo "SHOULD_RELEASE=$changed" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "Detected version: $current"
           Write-Host "Previous version: $previous"
+          Write-Host "Last change commit: $lastChange"
+          Write-Host "Previous change commit: $prevChange"
           Write-Host "Should release: $changed"
 
       - name: Install Rust (stable)
