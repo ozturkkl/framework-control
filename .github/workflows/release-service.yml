@@ -17,36 +17,49 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install WiX Toolset
-        run: choco install wixtoolset --no-progress -y
-
-      - name: Install cargo-wix
-        run: cargo install cargo-wix
+        with:
+          fetch-depth: 2
 
       - name: Determine version change
         id: version_check
         shell: pwsh
+        working-directory: .
         run: |
-          $currentMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
-          if (-not $currentMatch) { throw "Version not found in Cargo.toml" }
-          $current = $currentMatch.Matches[0].Groups[1].Value
-          try {
-            $prevContent = git show HEAD^:service/Cargo.toml 2>$null
-          } catch {
-            $prevContent = $null
+          $ErrorActionPreference = 'Stop'
+          $sha = $env:GITHUB_SHA
+          $parentSha = git rev-parse "$sha^"
+          $diff = git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml 2>$null
+          if (-not $diff) {
+            echo "SHOULD_RELEASE=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Host "service/Cargo.toml not changed; skipping release."
+            exit 0
           }
-          $previous = $null
-          if ($prevContent) {
-            $prevMatch = [regex]::Match($prevContent, '^version\s*=\s*"([^"]+)"', 'Multiline')
-            if ($prevMatch.Success) { $previous = $prevMatch.Groups[1].Value }
+          $prevMatch = ($diff -split "`n") | Select-String '^-version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          $currMatch = ($diff -split "`n") | Select-String '^\+version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          $previous = if ($prevMatch) { $prevMatch.Matches[0].Groups[1].Value } else { $null }
+          $current = if ($currMatch) { $currMatch.Matches[0].Groups[1].Value } else { $null }
+          if (-not $current) {
+            $m = Select-String -Path service/Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+            if ($m) { $current = $m.Matches[0].Groups[1].Value }
           }
-          $changed = -not $previous -or ($current -ne $previous)
+          $shouldRelease = ($previous -and $current -and ($current -ne $previous))
           echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "SHOULD_RELEASE=$changed" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "SHOULD_RELEASE=$shouldRelease" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Current version: $current"
+          Write-Host "Previous version: $previous"
+          Write-Host "Should release: $shouldRelease"
+
+      - name: Install Rust (stable)
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install WiX Toolset
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        run: choco install wixtoolset --no-progress -y
+
+      - name: Install cargo-wix
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        run: cargo install cargo-wix
 
       - name: Build service (release)
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
@@ -59,6 +72,7 @@ jobs:
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
           CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
         run: |
+          $ErrorActionPreference = 'Stop'
           # Substitute placeholders in the WinSW config before packaging
           $xml = Get-Content wix/FrameworkControlService.xml
           $xml = $xml -replace '@ALLOWED_ORIGINS@', "$env:ALLOWED_ORIGINS"
@@ -70,6 +84,7 @@ jobs:
         shell: pwsh
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
+          $ErrorActionPreference = 'Stop'
           $msi = Get-ChildItem -Path "target/wix" -Filter *.msi | Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $msi) { throw "MSI not found in target/wix" }
           echo "MSI_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -79,6 +94,7 @@ jobs:
         shell: pwsh
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
+          $ErrorActionPreference = 'Stop'
           $stable = Join-Path $env:RUNNER_TEMP $env:STABLE_NAME
           Copy-Item -Path "$env:MSI_PATH" -Destination "$stable" -Force
           echo "STABLE_PATH=$stable" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -87,6 +103,7 @@ jobs:
         shell: pwsh
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: |
+          $ErrorActionPreference = 'Stop'
           $hash = (Get-FileHash "$env:MSI_PATH" -Algorithm SHA256).Hash
           $shaPath = "$env:RUNNER_TEMP/" + $env:STABLE_NAME + ".sha256"
           Set-Content -Path $shaPath -Value $hash -NoNewline
@@ -104,8 +121,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
-          gh release view $tag 2>$null || gh release create $tag -t "$env:VERSION" -n "Automated release for version $env:VERSION" --latest
+          $commitSha = "$env:GITHUB_SHA"
+          $commitMsg = git log -1 --pretty=format:%s "$commitSha"
+          $repo = "${{ github.repository }}"
+          $commitUrl = "https://github.com/$repo/commit/$commitSha"
+          $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n$commitUrl`nMessage: $commitMsg"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag -t "$env:VERSION" -n "$body" --latest
+          } else {
+            gh release edit $tag -t "$env:VERSION" -n "$body" --latest
+          }
           gh release upload $tag "$env:STABLE_PATH" --clobber
           gh release upload $tag "$env:SHA_PATH" --clobber
 
