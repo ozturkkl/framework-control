@@ -16,6 +16,7 @@ sysinfo = { version = "0.30", features = ["multithread"] }
 poem = { version = "3.1.12" }
 poem-openapi = { version = "5.1.16", features = ["swagger-ui"] }
 dotenvy = "0.15"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 
 
 [package.metadata.wix]
