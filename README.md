@@ -1,6 +1,6 @@
 # Framework Control
 
-updated REFramework Control is a lightweight control surface for Framework laptops. It exposes a minimal local HTTP API and a modern web UI to monitor telemetry and tweak core platform settings (fans, power, charging, etc.). The project is designed to be fast, unobtrusive, and extensible. Windows background service + Svelte web UI for telemetry and advanced fan control (auto/manual/curve, hysteresis, rate limit, live RPM overlay with calibration).
+Framework Control is a lightweight control surface for Framework laptops. It exposes a minimal local HTTP API and a modern web UI to monitor telemetry and tweak core platform settings (fans, power, charging, etc.). The project is designed to be fast, unobtrusive, and extensible. Windows background service + Svelte web UI for telemetry and advanced fan control (auto/manual/curve, hysteresis, rate limit, live RPM overlay with calibration).
 
 ## How To Use
 
