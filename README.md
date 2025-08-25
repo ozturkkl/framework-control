@@ -4,6 +4,11 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 
 ## How To Use
 
+> ⚠️ **Warning (Framework 16)**
+> BIOS 3.06 (BETA) is required for proper EC/fan control behavior.
+> Install the beta BIOS before using this tool or it won't work.
+> Announcement and downloads: https://community.frame.work/t/framework-laptop-16-ryzen-7040-bios-3-06-release-beta/73326
+
 <img width="1295" height="892" alt="image" src="https://github.com/user-attachments/assets/46303d21-5d04-4d02-97dc-24892086c072" />
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
