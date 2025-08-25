@@ -105,7 +105,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "$env:VERSION"
-          gh release view $tag 2>$null || gh release create $tag -t "$env:VERSION" -n "Automated release for version $env:VERSION" --latest
+          $commitSha = git log -1 --pretty=format:%H -- service/Cargo.toml
+          $commitMsg = git log -1 --pretty=format:%s -- service/Cargo.toml
+          $repo = "${{ github.repository }}"
+          $commitUrl = "https://github.com/$repo/commit/$commitSha"
+          $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n$commitUrl`nMessage: $commitMsg"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag -t "$env:VERSION" -n "$body" --latest
+          } else {
+            gh release edit $tag -t "$env:VERSION" -n "$body" --latest
+          }
           gh release upload $tag "$env:STABLE_PATH" --clobber
           gh release upload $tag "$env:SHA_PATH" --clobber
 
