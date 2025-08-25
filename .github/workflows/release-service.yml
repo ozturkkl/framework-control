@@ -18,44 +18,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
       - name: Determine version change
         id: version_check
         shell: pwsh
+        working-directory: .
         run: |
           $ErrorActionPreference = 'Stop'
           $sha = $env:GITHUB_SHA
-          $parentSha = $(git rev-parse "$sha^" 2>$null)
-          $fileChanged = $false
-          if ($parentSha) {
-            # Working directory is 'service', so use path relative to this dir
-            $diff = git diff --name-only "$parentSha" "$sha" -- Cargo.toml 2>$null
-            $fileChanged = [bool]$diff
+          $parentSha = git rev-parse "$sha^"
+          $diff = git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml 2>$null
+          if (-not $diff) {
+            echo "SHOULD_RELEASE=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Host "service/Cargo.toml not changed; skipping release."
+            exit 0
           }
-          $shouldRelease = $false
-          $current = $null
-          $previous = $null
-          if ($fileChanged) {
-            $currentMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
-            if (-not $currentMatch) { throw "Version not found in Cargo.toml" }
-            $current = $currentMatch.Matches[0].Groups[1].Value
-            $prevContent = git show "$parentSha":service/Cargo.toml 2>$null
-            if ($prevContent) {
-              $prevMatch = [regex]::Match($prevContent, '^version\s*=\s*"([^"]+)"', 'Multiline')
-              if ($prevMatch.Success) { $previous = $prevMatch.Groups[1].Value }
-            }
-            $shouldRelease = ($current -ne $previous)
-          } else {
-            $shouldRelease = $false
+          $prevMatch = ($diff -split "`n") | Select-String '^-version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          $currMatch = ($diff -split "`n") | Select-String '^\+version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          $previous = if ($prevMatch) { $prevMatch.Matches[0].Groups[1].Value } else { $null }
+          $current = if ($currMatch) { $currMatch.Matches[0].Groups[1].Value } else { $null }
+          if (-not $current) {
+            $m = Select-String -Path service/Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+            if ($m) { $current = $m.Matches[0].Groups[1].Value }
           }
+          $shouldRelease = ($previous -and $current -and ($current -ne $previous))
           echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "SHOULD_RELEASE=$shouldRelease" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "Commit: $sha"
-          Write-Host "Parent: $parentSha"
-          Write-Host "Cargo.toml changed in commit: $fileChanged"
-          if ($fileChanged) { Write-Host "Changed files:`n$diff" }
-          Write-Host "Detected version: $current"
+          Write-Host "Current version: $current"
           Write-Host "Previous version: $previous"
           Write-Host "Should release: $shouldRelease"
 
