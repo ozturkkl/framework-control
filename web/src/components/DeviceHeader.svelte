@@ -2,10 +2,13 @@
   export let healthy = false;
   export let installerUrl: string = "";
   export let cliPresent: boolean = true;
-  const repoLink = "https://github.com/FrameworkComputer/framework-system?tab=readme-ov-file#installation";
+  const repoLink = "https://github.com/ozturkkl/framework-control/tree/main";
   const LID_CLOSED = `${import.meta.env.BASE_URL}assets/lid-closed.jpg`;
   const LID_OPEN = `${import.meta.env.BASE_URL}assets/lid-open.jpg`;
-  import { DefaultService, type SystemInfoEnvelope as SystemInfo } from "../api";
+  import {
+    DefaultService,
+    type SystemInfoEnvelope as SystemInfo,
+  } from "../api";
   import { parseFrameworkVersions, getScreenResolution } from "../lib/device";
   import Icon from "@iconify/svelte";
 
@@ -89,14 +92,30 @@
         {#if healthy}
           <div class="flex items-center gap-2 justify-between">
             <h2 class="text-xl md:text-2xl font-semibold">{displayTitle}</h2>
-            {#if cliPresent}
-              <span class="badge badge-success mr-0">Connected</span>
-            {:else}
-              <a class="btn btn-error btn-sm mr-0 no-underline inline-flex items-center gap-2" href={repoLink} target="_blank" rel="noreferrer noopener">
-                <Icon icon="mdi:alert-circle-outline" class="w-4 h-4" />
-                <span>framework_tool missing — Install</span>
+            <div class="flex items-center gap-2">
+              {#if cliPresent}
+                <span class="badge badge-success mr-0">Connected</span>
+              {:else}
+                <a
+                  class="btn btn-error btn-sm mr-0 no-underline inline-flex items-center gap-2"
+                  href={repoLink}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <Icon icon="mdi:alert-circle-outline" class="w-4 h-4" />
+                  <span>framework_tool missing — Install</span>
+                </a>
+              {/if}
+              <a
+                class="btn btn-ghost btn-sm mr-0"
+                href={repoLink}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Open GitHub repository"
+              >
+                <Icon icon="mdi:github" class="w-5 h-5" />
               </a>
-            {/if}
+            </div>
           </div>
           <hr class="my-2 border border-primary/15" />
           {#if sys}
@@ -162,7 +181,7 @@
               fan control. Currently only works on Windows.
             </p>
             <div
-              class="flex items-center gap-4 md:gap-5 flex-wrap md:flex-nowrap"
+              class="flex items-center gap-2 md:gap-4 flex-wrap md:flex-nowrap"
             >
               {#if installerUrl}
                 <a class="btn btn-primary btn-lg px-6" href={installerUrl}
@@ -173,8 +192,17 @@
                   >Download coming soon</button
                 >
               {/if}
+              <a
+                class="btn btn-ghost btn-lg px-4"
+                href={repoLink}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Open GitHub repository"
+              >
+                <Icon icon="mdi:github" class="w-5 h-5" />
+              </a>
               <span
-                class="text-sm opacity-60 whitespace-normal max-w-[22rem] md:max-w-lg ml-2"
+                class="text-sm opacity-60 whitespace-normal max-w-[22rem] md:max-w-lg"
                 >Choose "More info" → "Run anyway". The page will update
                 automatically.</span
               >
