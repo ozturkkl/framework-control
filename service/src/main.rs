@@ -1,10 +1,10 @@
 use std::net::SocketAddr;
 
-use poem::{listener::TcpListener, EndpointExt, Route};
+use poem::{listener::TcpListener, EndpointExt, Route, get};
 use poem::middleware::Cors;
-use poem::http::Method;
+use poem::http::{Method};
 use poem_openapi::OpenApiService;
-use tracing::info;
+use tracing::{info};
 
 mod cli;
 mod config;
@@ -12,6 +12,8 @@ mod routes;
 mod state;
 mod tasks;
 pub mod types;
+
+mod r#static;
 
 #[tokio::main]
 async fn main() {
@@ -25,25 +27,34 @@ async fn main() {
 
     let state = state::AppState::initialize().await;
 
-    let cors = match std::env::var("FRAMEWORK_CONTROL_ALLOWED_ORIGINS") {
-        Ok(val) if !val.trim().is_empty() => {
-            val.split(',')
-                .map(str::trim)
-                .fold(Cors::new(), |c, origin| c.allow_origin(origin))
-                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                .allow_headers(["content-type", "authorization"]) // allow bearer token
-                .max_age(600)
+    // Determine bind address to derive self-origins for CORS
+    let bind_host = "127.0.0.1";
+    let configured_port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
+        .expect("FRAMEWORK_CONTROL_PORT must be set (no defaults)")
+        .parse()
+        .expect("FRAMEWORK_CONTROL_PORT must be a valid u16 (e.g. 8090)");
+    let self_origins = vec![format!("http://{}:{}", bind_host, configured_port)];
+
+    // Merge configured origins with self-origins (dedup), then apply common rules
+    let mut origins: Vec<String> = std::env::var("FRAMEWORK_CONTROL_ALLOWED_ORIGINS")
+        .ok()
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+    for so in &self_origins {
+        if !origins.iter().any(|o| o.eq_ignore_ascii_case(so)) {
+            origins.push(so.clone());
         }
-        _ => {
-            tracing::warn!(
-                "CORS: no FRAMEWORK_CONTROL_ALLOWED_ORIGINS configured; denying all cross-origin requests"
-            );
-            Cors::new()
-                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                .allow_headers(["content-type", "authorization"]) // allow bearer token
-                .max_age(600)
-        }
-    };
+    }
+    let cors = origins
+        .iter()
+        .fold(Cors::new(), |c, origin| c.allow_origin(origin.as_str()))
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers(["content-type", "authorization"]) // allow bearer token
+        .max_age(600);
 
     // Boot background tasks (fan curve if enabled)
     tasks::boot(&state).await;
@@ -64,18 +75,15 @@ async fn main() {
         return;
     }
 
-    // Build the actual Poem app
+    // Build the actual Poem app and apply CORS globally (API and static UI)
     let app = Route::new()
-        .nest("/", api)
+        .nest("/api", api)
+        .at("/", get(r#static::serve_static))
+        .at("/*path", get(r#static::serve_static))
         .data(state.clone())
         .with(cors);
 
-    let host = "127.0.0.1".to_string();
-    let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(8090);
-    let addr: SocketAddr = (host.parse::<std::net::IpAddr>().unwrap(), port).into();
+    let addr: SocketAddr = (bind_host.parse::<std::net::IpAddr>().unwrap(), configured_port).into();
     info!("listening on http://{}", addr);
     poem::Server::new(TcpListener::bind(addr))
         .run(app)

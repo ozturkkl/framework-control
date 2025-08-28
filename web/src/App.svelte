@@ -45,7 +45,7 @@
 
   async function pollHealthOnce() {
     try {
-      const res = await fetch(`${OpenAPI.BASE}/api/health`, { credentials: "omit" });
+      const res = await fetch(`${OpenAPI.BASE}/health`, { credentials: "omit" });
       if (res.ok) {
         const j = await res.json();
         healthy = !!j.ok;

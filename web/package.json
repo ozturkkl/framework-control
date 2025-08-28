@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "gen:api": "node scripts/gen-api.mjs",
-    "predev": "npm run gen:api",
+    "gen:icons": "node scripts/gen-icons.mjs",
+    "build:msi": "node scripts/build-msi.mjs",
+    "predev": "npm run gen:api && npm run gen:icons",
     "dev": "vite",
-    "prebuild": "npm run gen:api",
+    "prebuild": "npm run gen:api && npm run gen:icons",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint --ext .ts,.svelte src",
-    "postinstall": "npm run gen:api",
+    "postinstall": "npm run gen:api && npm run gen:icons",
     "clean": "rimraf dist .vite .svelte-kit openapi.json src/api"
   },
   "devDependencies": {
@@ -29,7 +31,10 @@
     "postcss": "^8.5.6",
     "autoprefixer": "^10.4.21",
     "daisyui": "^4.12.24",
-    "rimraf": "^5.0.5"
+    "rimraf": "^5.0.5",
+    "vite-plugin-pwa": "^0.20.5",
+    "workbox-window": "^7.2.0",
+    "sharp": "^0.33.5"
   },
   "dependencies": {
     "openapi-typescript-codegen": "^0.29.0"

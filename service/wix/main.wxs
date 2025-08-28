@@ -79,6 +79,7 @@
 
         <MajorUpgrade
             Schedule='afterInstallInitialize'
+            AllowSameVersionUpgrades='yes'
             DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
 
         <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
@@ -87,6 +88,17 @@
         <Directory Id='TARGETDIR' Name='SourceDir'>
             <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
                 <Directory Id='APPLICATIONFOLDER' Name='FrameworkControl'>
+                    <Component Id='UninstallShortcut' Guid='E28F0B3D-AF40-46B5-9A0C-D366F8657B34'>
+                        <!-- Use the install folder itself as the component KeyPath to avoid Registry ICEs -->
+                        <CreateFolder/>
+                        <Shortcut
+                            Id='UninstallProduct'
+                            Name='Uninstall Framework Control Service'
+                            Description='Remove Framework Control Service from this computer'
+                            Target='[System64Folder]msiexec.exe'
+                            Arguments='/x [ProductCode]'
+                            WorkingDirectory='System64Folder' />
+                    </Component>
                     <Component Id='WinSwComponent' Guid='*'>
                         <File
                             Id='WinSwExe'
@@ -173,6 +185,7 @@
             <ComponentRef Id='binary0'/>
             <ComponentRef Id='WinSwComponent'/>
             <ComponentRef Id='WinSwConfigComponent'/>
+            <ComponentRef Id='UninstallShortcut'/>
         </Feature>
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
@@ -212,6 +225,8 @@
             <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>
 
         </UI>
+
+        
 
         
         <!--

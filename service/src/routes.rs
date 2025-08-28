@@ -1,9 +1,9 @@
 use crate::config; // for save/load
 use crate::state::AppState;
 use crate::types::{CliOutput, ConfigEnvelope, PartialConfig, SystemInfoEnvelope, UpdateResult};
-use serde_json::Value;
 use poem::web::Data;
 use poem_openapi::{param::Header, payload::Json, OpenApi};
+use serde_json::Value;
 use sysinfo::System;
 use tracing::{error, info};
 
@@ -12,16 +12,19 @@ pub struct Api;
 #[OpenApi]
 impl Api {
     /// Health: returns overall service health and CLI presence
-    #[oai(path = "/api/health", method = "get", operation_id = "health")]
+    #[oai(path = "/health", method = "get", operation_id = "health")]
     async fn health(&self, state: Data<&AppState>) -> Json<Value> {
         let cli_present = state.cli.is_some();
-        Json(serde_json::json!({ "ok": true, "cli_present": cli_present }))
+        let service_version = env!("CARGO_PKG_VERSION");
+        Json(serde_json::json!({
+            "ok": true,
+            "cli_present": cli_present,
+            "serviceVersion": service_version,
+        }))
     }
 
-    
-
     /// Power info
-    #[oai(path = "/api/power", method = "get", operation_id = "getPower")]
+    #[oai(path = "/power", method = "get", operation_id = "getPower")]
     async fn get_power(&self, state: Data<&AppState>) -> Json<CliOutput> {
         let Some(cli) = &state.cli else {
             return Json(CliOutput {
@@ -48,7 +51,7 @@ impl Api {
     }
 
     /// Thermal info
-    #[oai(path = "/api/thermal", method = "get", operation_id = "getThermal")]
+    #[oai(path = "/thermal", method = "get", operation_id = "getThermal")]
     async fn get_thermal(&self, state: Data<&AppState>) -> Json<CliOutput> {
         let Some(cli) = &state.cli else {
             return Json(CliOutput {
@@ -71,8 +74,8 @@ impl Api {
         }
     }
 
-    /// Versions
-    #[oai(path = "/api/versions", method = "get", operation_id = "getVersions")]
+    /// Versions (from framework_tool CLI)
+    #[oai(path = "/versions", method = "get", operation_id = "getVersions")]
     async fn get_versions(&self, state: Data<&AppState>) -> Json<CliOutput> {
         let Some(cli) = &state.cli else {
             return Json(CliOutput {
@@ -96,7 +99,7 @@ impl Api {
     }
 
     /// Get config
-    #[oai(path = "/api/config", method = "get", operation_id = "getConfig")]
+    #[oai(path = "/config", method = "get", operation_id = "getConfig")]
     async fn get_config(&self, state: Data<&AppState>) -> Json<ConfigEnvelope> {
         let cfg = state.config.read().await.clone();
         Json(ConfigEnvelope {
@@ -106,7 +109,7 @@ impl Api {
     }
 
     /// Set config (partial)
-    #[oai(path = "/api/config", method = "post", operation_id = "setConfig")]
+    #[oai(path = "/config", method = "post", operation_id = "setConfig")]
     async fn set_config(
         &self,
         state: Data<&AppState>,
@@ -122,10 +125,18 @@ impl Api {
         if let Some(fan) = req.fan {
             let mut new_fan = merged.fan.clone();
             // Overwrite sections only if provided
-            if let Some(m) = fan.mode { new_fan.mode = m; }
-            if let Some(man) = fan.manual { new_fan.manual = Some(man); }
-            if let Some(cur) = fan.curve { new_fan.curve = Some(cur); }
-            if let Some(cal) = fan.calibration { new_fan.calibration = Some(cal); }
+            if let Some(m) = fan.mode {
+                new_fan.mode = m;
+            }
+            if let Some(man) = fan.manual {
+                new_fan.manual = Some(man);
+            }
+            if let Some(cur) = fan.curve {
+                new_fan.curve = Some(cur);
+            }
+            if let Some(cal) = fan.calibration {
+                new_fan.calibration = Some(cal);
+            }
             merged.fan = new_fan;
         }
         if let Err(e) = config::save(&merged) {
@@ -141,7 +152,7 @@ impl Api {
     }
 
     /// System info
-    #[oai(path = "/api/system", method = "get", operation_id = "getSystemInfo")]
+    #[oai(path = "/system", method = "get", operation_id = "getSystemInfo")]
     async fn get_system_info(&self) -> Json<SystemInfoEnvelope> {
         let sys = System::new_all();
         let mut cpu = sys.global_cpu_info().brand().trim().to_string();

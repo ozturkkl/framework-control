@@ -10,6 +10,7 @@
   <!-- Inject environment variables at install time via CI token replacement -->
   <env name="FRAMEWORK_CONTROL_ALLOWED_ORIGINS" value="@ALLOWED_ORIGINS@" />
   <env name="FRAMEWORK_CONTROL_TOKEN" value="@CONTROL_TOKEN@" />
+  <env name="FRAMEWORK_CONTROL_PORT" value="@CONTROL_PORT@" />
 </service>
 
 
