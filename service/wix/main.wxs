@@ -160,6 +160,16 @@
                             Source='$(var.CargoTargetBinDir)\framework-control-service.exe'
                             KeyPath='yes'/>
                     </Component>
+                    
+                    <!-- Marker file for shortcut creation -->
+                    <Component Id='ShortcutMarker' Guid='*'>
+                        <File
+                            Id='MarkerFile'
+                            Name='create_shortcuts.flag'
+                            DiskId='1'
+                            Source='wix\empty.txt'
+                            KeyPath='yes'/>
+                    </Component>
 
                     
                 </Directory>
@@ -168,8 +178,8 @@
 
         <Feature
             Id='Binaries'
-            Title='Application'
-            Description='Installs all binaries and the license.'
+            Title='Framework Control Service'
+            Description='Installs the Framework Control background service'
             Level='1'
             ConfigurableDirectory='APPLICATIONFOLDER'
             AllowAdvertise='no'
@@ -186,6 +196,15 @@
             <ComponentRef Id='WinSwComponent'/>
             <ComponentRef Id='WinSwConfigComponent'/>
             <ComponentRef Id='UninstallShortcut'/>
+        </Feature>
+        
+        <Feature
+            Id='Shortcuts'
+            Title='Desktop Shortcuts'
+            Description='Create Start Menu and Desktop shortcuts for app mode launch'
+            Level='1'
+            AllowAdvertise='no'>
+            <ComponentRef Id='ShortcutMarker'/>
         </Feature>
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
@@ -211,16 +230,7 @@
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>
             
-            <!--
-              Enabling the EULA dialog in the installer is a three step process:
-
-                1. Comment out or remove the two `Publish` tags that follow the
-                   `WixVariable` tag.
-                2. Uncomment the `<WixVariable Id='WixUILicenseRtf' Value='Path\to\Eula.rft'>` tag further down
-                3. Replace the `Value` attribute of the `WixVariable` tag with
-                   the path to a RTF file that will be used as the EULA and
-                   displayed in the license agreement dialog.
-            -->
+            <!-- Skip license dialog -->
             <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>
             <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>
 

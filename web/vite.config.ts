@@ -15,7 +15,7 @@ export default defineConfig(() => {
     plugins: [
       svelte(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['assets/**/*'],
         manifest: {
           name: 'Framework Control',
@@ -33,7 +33,7 @@ export default defineConfig(() => {
           ]
         },
         workbox: {
-          skipWaiting: true,
+          skipWaiting: false,
           clientsClaim: true,
           navigateFallback: '/index.html',
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],

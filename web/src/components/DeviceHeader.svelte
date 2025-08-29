@@ -11,6 +11,7 @@
   } from "../api";
   import { parseFrameworkVersions, getScreenResolution } from "../lib/device";
   import Icon from "@iconify/svelte";
+  import SettingsModal from "./SettingsModal.svelte";
 
   let versionsText: string | null = null;
   let displayTitle = "Your Laptop";
@@ -58,6 +59,7 @@
   let infoCardClass =
     "flex items-center gap-2 bg-base-200 rounded-xl px-3 py-2 text-sm md:text-base whitespace-normal break-words border border-primary/25";
   let infoCardIconClass = "w-10 h-10";
+  let showSettings = false;
 </script>
 
 <div class="card bg-base-100 shadow overflow-hidden">
@@ -106,6 +108,13 @@
                   <span>framework_tool missing — Install</span>
                 </a>
               {/if}
+              <button
+                class="btn btn-ghost btn-sm mr-0"
+                aria-label="Open settings"
+                on:click={() => (showSettings = true)}
+              >
+                <Icon icon="mdi:cog-outline" class="w-5 h-5" />
+              </button>
               <a
                 class="btn btn-ghost btn-sm mr-0"
                 href={repoLink}
@@ -117,6 +126,9 @@
               </a>
             </div>
           </div>
+          {#if showSettings}
+            <SettingsModal on:close={() => (showSettings = false)} />
+          {/if}
           <hr class="my-2 border border-primary/15" />
           {#if sys}
             <div class="flex flex-wrap gap-2">

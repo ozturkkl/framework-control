@@ -34,7 +34,8 @@
     "rimraf": "^5.0.5",
     "vite-plugin-pwa": "^0.20.5",
     "workbox-window": "^7.2.0",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "png-to-ico": "^2.1.8"
   },
   "dependencies": {
     "openapi-typescript-codegen": "^0.29.0"

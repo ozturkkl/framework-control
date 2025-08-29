@@ -9,6 +9,7 @@ use tracing::{info};
 mod cli;
 mod config;
 mod routes;
+mod shortcuts;
 mod state;
 mod tasks;
 pub mod types;
@@ -24,6 +25,9 @@ async fn main() {
         )
         .without_time()
         .init();
+
+    // Check if installer requested shortcut creation on first run
+    shortcuts::create_shortcuts_if_installer_requested().await;
 
     let state = state::AppState::initialize().await;
 

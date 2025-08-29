@@ -1,4 +1,5 @@
 use crate::config; // for save/load
+use crate::shortcuts;
 use crate::state::AppState;
 use crate::types::{CliOutput, ConfigEnvelope, PartialConfig, SystemInfoEnvelope, UpdateResult};
 use poem::web::Data;
@@ -171,6 +172,53 @@ impl Api {
             os,
             dgpu,
         })
+    }
+
+    #[oai(
+        path = "/shortcuts/status",
+        method = "get",
+        operation_id = "getShortcutsStatus"
+    )]
+    async fn get_shortcuts_status(&self) -> Json<Value> {
+        let installed = shortcuts::shortcuts_exist();
+        Json(serde_json::json!({
+            "ok": true,
+            "installed": installed,
+        }))
+    }
+
+    #[oai(
+        path = "/shortcuts/create",
+        method = "post",
+        operation_id = "createShortcuts"
+    )]
+    async fn create_shortcuts(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "Authorization")] auth: Header<String>,
+    ) -> Json<UpdateResult> {
+        // Check auth
+        let provided = auth.0.as_str().strip_prefix("Bearer ").unwrap_or("").trim();
+        if !state.is_valid_token(Some(provided)) {
+            return Json(UpdateResult { ok: false });
+        }
+
+        // Get port from environment (required at startup)
+        let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
+            .expect("FRAMEWORK_CONTROL_PORT must be set")
+            .parse()
+            .expect("FRAMEWORK_CONTROL_PORT must be valid");
+
+        match shortcuts::create_shortcuts(port).await {
+            Ok(_) => {
+                info!("Shortcuts created successfully");
+                Json(UpdateResult { ok: true })
+            }
+            Err(e) => {
+                error!("Failed to create shortcuts: {}", e);
+                Json(UpdateResult { ok: false })
+            }
+        }
     }
 }
 

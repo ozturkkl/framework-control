@@ -13,6 +13,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
+3. Launch via Start Menu/Desktop shortcuts or visit http://127.0.0.1:8090 in your browser
 
 ## Disclaimer
 
@@ -26,6 +27,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Persistent Settings**: Configurations saved locally with sensible defaults
 - **Clean Architecture**: Minimal always‑on local service with REST API (default: http://127.0.0.1:8090)
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
+- **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
 
 ## Upcoming Goals
 
@@ -85,8 +87,8 @@ FRAMEWORK_CONTROL_ALLOWED_ORIGINS=http://127.0.0.1:5174,http://localhost:5174
 # Token required for write operations from the UI
 FRAMEWORK_CONTROL_TOKEN=<long-random-token>
 
-# Optional: pick a different port
-# FRAMEWORK_CONTROL_PORT=8091
+# Required: port for the service
+FRAMEWORK_CONTROL_PORT=8090
 ```
 
 Web UI `.env.local` file (`framework-control/web/.env.local`):
@@ -98,6 +100,11 @@ VITE_API_BASE=http://127.0.0.1:8090
 # Same token as the service
 VITE_CONTROL_TOKEN=<long-random-token>
 ```
+
+## Updates & Caching
+
+- UI is served by the service; PWA is configured for passive offline caching (no auto‑reloads)
+- When implementing update flow, trigger a one‑time reload after service update to pick up new UI
 
 ## API & Configuration
 

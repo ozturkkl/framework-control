@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import pngToIco from 'png-to-ico';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,13 @@ async function generate() {
       .toFile(dest);
     console.log(`[gen-icons] Wrote ${path.relative(publicDir, dest)}`);
   }
+
+  // Generate ICO from 256px PNG (best for Windows icons)
+  const png256 = await sharp(source).resize(256, 256, { fit: 'cover' }).png().toBuffer();
+  const icoBuf = await pngToIco(png256);
+  const icoDest = path.resolve(outDir, 'logo.ico');
+  await fs.promises.writeFile(icoDest, icoBuf);
+  console.log(`[gen-icons] Wrote ${path.relative(publicDir, icoDest)}`);
 }
 
 generate().catch((e) => {
