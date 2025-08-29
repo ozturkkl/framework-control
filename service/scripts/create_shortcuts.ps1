@@ -14,7 +14,8 @@ function Get-AppPathFromRegistry($exe) {
             $v = $k.GetValue("")
             if ($v -and (Test-Path $v)) { return $v }
         }
-    } catch {}
+    }
+    catch {}
     return $null
 }
 
@@ -40,14 +41,17 @@ if (-not $edgePath) {
     foreach ($c in $cands) { if (Test-Path $c) { $edgePath = $c; break } }
 }
 
-# Determine which browser to use
-if (Test-Path $chromePath) {
-    $targetPath = $chromePath
-    $arguments = "--app=`"$url`""
-} elseif (Test-Path $edgePath) {
+Determine which browser to use
+
+if (Test-Path $edgePath) {
     $targetPath = $edgePath
     $arguments = "--app=`"$url`""
-} else {
+}
+elseif (Test-Path $chromePath) {
+    $targetPath = $chromePath
+    $arguments = "--app=`"$url`""
+}
+else {
     # Fallback to explorer (opens default browser without console flash)
     $targetPath = "$env:WINDIR\explorer.exe"
     $arguments = $url
