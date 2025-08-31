@@ -1,0 +1,88 @@
+## Framework Control – Boilerplate Summary
+
+This document captures the current state, architecture, and key technical details of the Framework Control app so new features can be scoped quickly. Share or update this when implementing changes.
+
+### Purpose
+Local Windows service + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. Default local API: `http://127.0.0.1:8090`.
+
+### High-Level Architecture
+- Backend service: Rust (Tokio + Poem + poem-openapi) in `framework-control/service`
+- Frontend web UI: Svelte + Vite in `framework-control/web`
+- Packaging: WiX MSI for Windows (service registration, assets)
+- Security: loopback-only API; write operations require bearer token
+
+### Backend Service (Rust)
+- Entry: `service/src/main.rs` (@main.rs)
+  - Loads config and environment (`FRAMEWORK_CONTROL_PORT`, `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`, `FRAMEWORK_CONTROL_TOKEN`)
+  - Serves static UI, builds OpenAPI, mounts routes, initializes optional CLI integration
+- Routes: `service/src/routes.rs` (@routes.rs)
+  - Endpoints (under `/api`):
+    - `GET /health`: health + version + `cli_present`
+    - `GET /power`: proxy to `framework_tool power`
+    - `GET /thermal`: proxy to `framework_tool thermal`
+    - `GET /versions`: proxy to `framework_tool versions`
+    - `GET /config`: return persisted config
+    - `POST /config`: update config (requires `Authorization: Bearer <token>`)
+    - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
+    - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
+    - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
+  - Helpers: GPU detection via PowerShell on Windows
+- Other key files:
+  - `service/src/config.rs`: load/save config JSON in `C:\ProgramData\FrameworkControl\config.json`
+  - `service/src/types.rs`: API/request/response and config types
+  - `service/src/state.rs`: shared `AppState` (config RwLock, CLI handle, auth helper)
+  - `service/src/static.rs`: static file serving for the UI
+  - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome app mode)
+  - `service/src/tasks/*`: background tasks (e.g., apply fan settings at boot)
+- CLI dependency: `framework_tool` (from `framework-system`). Service wraps it rather than linking low-level driver libraries directly.
+
+### Frontend Web UI (Svelte)
+- Entry: `web/src/App.svelte` (@App.svelte)
+  - Polls `/health` every second to update `healthy` + `cliPresent`
+  - Renders panels: Telemetry, Power, Fan Control; layout adapts to fan mode
+  - Integrates `FanControl.svelte` for Auto/Manual/Curve config
+- API client: `web/src/api/*` generated from OpenAPI (`scripts/gen-api.mjs`)
+- Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`)
+- Env: `web/.env.local`
+  - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
+  - `VITE_CONTROL_TOKEN` (bearer token for write ops)
+- Build/dev:
+  - `npm i && npm run dev` (dev)
+  - `npm run build` (generates `web/dist` used by service/static)
+
+### Installation & Packaging
+- MSI assets at `service/wix/*`, built via `web/scripts/build-msi.mjs` and service packaging
+- Start Menu/Desktop shortcuts created on demand through `/api/shortcuts/create`
+
+### Configuration
+- Persisted at `C:\ProgramData\FrameworkControl\config.json`
+- Fan modes: Auto, Manual duty, Curve (with hysteresis, rate limiting, calibration)
+- Write operations require `FRAMEWORK_CONTROL_TOKEN` (Bearer auth header)
+
+### Developer Quick Start
+- Backend (dev):
+  - `cd framework-control/service`
+  - Set `.env` with:
+    - `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`
+    - `FRAMEWORK_CONTROL_TOKEN`
+    - `FRAMEWORK_CONTROL_PORT=8090`
+  - `cargo run`
+- Frontend (dev):
+  - `cd framework-control/web`
+  - `.env.local` with `VITE_API_BASE`, `VITE_CONTROL_TOKEN`
+  - `npm i && npm run dev`
+
+### Notable Cross-Repo Context
+- `framework-system`: houses `framework_tool` and `framework_lib`
+- `inputmodule-rs`: firmware and tooling for Framework 16 input modules (e.g., `qtpy/src/main.rs` @main.rs for USB CDC commands + LED control)
+
+### Roadmap (per README)
+- TDP control, telemetry dashboards, LED matrix support, additional EC controls, Linux support, import/export.
+
+### How to Update This Summary
+- When adding endpoints: list under Backend → Routes with method/path and brief description
+- When adding UI panels/components: list under Frontend → Components and mention which endpoint(s) it consumes
+- When adding background tasks: list under Backend → Other key files
+- Keep env variables and config surface in sync with code
+
+

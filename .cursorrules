@@ -1,0 +1,55 @@
+name: Framework Control Context
+description: Core project context and navigation hints for Cursor. Keeps the assistant aware of architecture, key files, and commands.
+
+onProjectLoad:
+  # Open the high‑signal context first
+  open:
+    - path: framework-control/PROJECT_SUMMARY.md
+    - path: framework-control/README.md
+    - path: framework-control/service/src/routes.rs
+    - path: framework-control/service/src/main.rs
+    - path: framework-control/web/src/App.svelte
+
+  # Pin summary so it remains visible
+  pinTabs:
+    - framework-control/PROJECT_SUMMARY.md
+
+assistant:
+  # Encourage the assistant to cite code by file where relevant
+  preferences:
+    citeCodeByPath: true
+    preferSemanticSearch: true
+    maxSearchResults: 20
+    summarizeLongFiles: true
+    defaultApiBaseHint: "http://127.0.0.1:8090"
+
+search:
+  # Prioritize backend and frontend app code; de‑prioritize large build outputs
+  include:
+    - framework-control/service/src/**
+    - framework-control/web/src/**
+    - framework-control/README.md
+    - framework-control/PROJECT_SUMMARY.md
+  exclude:
+    - framework-control/web/dist/**
+    - **/target/**
+    - **/node_modules/**
+
+snippets:
+  - id: env-service
+    title: Service .env template
+    body: |
+      FRAMEWORK_CONTROL_ALLOWED_ORIGINS=http://127.0.0.1:5174,http://localhost:5174
+      FRAMEWORK_CONTROL_TOKEN=<long-random-token>
+      FRAMEWORK_CONTROL_PORT=8090
+  - id: env-web
+    title: Web .env.local template
+    body: |
+      VITE_API_BASE=http://127.0.0.1:8090
+      VITE_CONTROL_TOKEN=<long-random-token>
+
+notes:
+  - Always update PROJECT_SUMMARY.md when adding/altering endpoints, UI components, config, or background tasks. Treat it as required documentation.
+  - Use @routes.rs, @main.rs, @App.svelte, and @README.md shorthands in prompts.
+
+
