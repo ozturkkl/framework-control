@@ -77,6 +77,9 @@ jobs:
       - name: Build web (generate icons, openapi, dist)
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: npm run prebuild && npm run build
+        env:
+          GITHUB_PAGES: 'false'
+          VITE_BASE: '/'
         working-directory: web
 
       - name: Build service (release)
@@ -146,7 +149,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
           $changelogPath = "../CHANGELOG.md"
-          $defaultBody = "Check the changelog for information about version $env:VERSION."
+          $defaultBody = "Refer to the CHANGELOG.md for information about version $env:VERSION."
           $body = $defaultBody
           if (Test-Path $changelogPath) {
             $lines = Get-Content $changelogPath
