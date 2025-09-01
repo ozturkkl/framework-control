@@ -3,3 +3,5 @@
 @tailwind utilities;
 
 
+/* Disable daisyUI's root scrollbar-gutter to avoid layout shift when modals open */
+html { scrollbar-gutter: auto !important; }

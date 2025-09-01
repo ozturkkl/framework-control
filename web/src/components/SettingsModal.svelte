@@ -277,6 +277,5 @@
       <button class="btn" on:click={close}>Close</button>
     </div>
   </div>
-  <button class="modal-backdrop" on:click={close} aria-label="Close settings"
-  ></button>
+  <button class="modal-backdrop" on:click={close} aria-label="Close settings"></button>
 </div>
