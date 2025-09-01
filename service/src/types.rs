@@ -6,9 +6,11 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     #[serde(default)]
     pub fan: FanControlConfig,
+    #[serde(default)]
+    pub updates: UpdatesConfig,
 }
 
-impl Default for Config { fn default() -> Self { Self { fan: FanControlConfig::default() } } }
+impl Default for Config { fn default() -> Self { Self { fan: FanControlConfig::default(), updates: UpdatesConfig::default() } } }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Enum, Default)]
 #[serde(rename_all = "lowercase")]
@@ -74,6 +76,13 @@ pub struct UpdateResult {
 }
 
 #[derive(Serialize, Object)]
+pub struct UpdateCheckEnvelope {
+    pub ok: bool,
+    pub current_version: String,
+    pub latest_version: Option<String>,
+}
+
+#[derive(Serialize, Object)]
 pub struct SystemInfoEnvelope {
     pub ok: bool,
     pub cpu: String,
@@ -83,7 +92,10 @@ pub struct SystemInfoEnvelope {
 }
 
 #[derive(Debug, Clone, Deserialize, Object)]
-pub struct PartialConfig { pub fan: Option<PartialFanControlConfig> }
+pub struct PartialConfig {
+    pub fan: Option<PartialFanControlConfig>,
+    pub updates: Option<PartialUpdatesConfig>,
+}
 
 #[derive(Debug, Clone, Deserialize, Object, Default)]
 pub struct PartialFanControlConfig {
@@ -95,6 +107,18 @@ pub struct PartialFanControlConfig {
     pub curve: Option<CurveConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration: Option<FanCalibration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct UpdatesConfig {
+    #[serde(default)]
+    pub auto_install: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Object, Default)]
+pub struct PartialUpdatesConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_install: Option<bool>,
 }
 
 // Fan calibration types

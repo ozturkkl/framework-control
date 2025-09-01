@@ -11,6 +11,9 @@
   } from "../api";
   import { parseFrameworkVersions, getScreenResolution } from "../lib/device";
   import Icon from "@iconify/svelte";
+  import SettingsModal from "./SettingsModal.svelte";
+  import { OpenAPI } from "../api";
+  import { gtSemver } from "../lib/semver";
 
   let versionsText: string | null = null;
   let displayTitle = "Your Laptop";
@@ -58,6 +61,52 @@
   let infoCardClass =
     "flex items-center gap-2 bg-base-200 rounded-xl px-3 py-2 text-sm md:text-base whitespace-normal break-words border border-primary/25";
   let infoCardIconClass = "w-10 h-10";
+  let showSettings = false;
+
+  // Update check state (for settings dot)
+  let currentServiceVersion: string | null = null;
+  let latestServiceVersion: string | null = null;
+  let updatesPaused: boolean = false;
+  let hasUpdate: boolean = false;
+
+  function loadUpdatePrefs() {
+    updatesPaused = localStorage.getItem("fc_updates_paused") === "1";
+  }
+  loadUpdatePrefs();
+
+  // Listen for updates paused changes
+  if (typeof window !== "undefined") {
+    window.addEventListener("fc_updates_paused_changed", () => {
+      loadUpdatePrefs();
+    });
+  }
+  // Trigger one check when becoming healthy (or if already healthy at mount)
+  let prevHealthy = false;
+  $: if (healthy && !prevHealthy) {
+    prevHealthy = healthy;
+    checkServiceUpdateOnce();
+  }
+
+  async function checkServiceUpdateOnce() {
+    try {
+      const res = await fetch(`${OpenAPI.BASE}/update/check`, {
+        credentials: "omit",
+      });
+      if (!res.ok) {
+        return;
+      }
+      const j = await res.json();
+      currentServiceVersion =
+        (j.current_version ?? null)?.toString().trim() || null;
+      latestServiceVersion =
+        (j.latest_version ?? null)?.toString().trim() || null;
+    } catch {}
+  }
+
+  $: hasUpdate =
+    currentServiceVersion && latestServiceVersion
+      ? gtSemver(latestServiceVersion, currentServiceVersion) && !updatesPaused
+      : false;
 </script>
 
 <div class="card bg-base-100 shadow overflow-hidden">
@@ -106,6 +155,18 @@
                   <span>framework_tool missing — Install</span>
                 </a>
               {/if}
+              <button
+                class="btn btn-ghost btn-sm mr-0 relative"
+                aria-label="Open settings"
+                on:click={() => (showSettings = true)}
+              >
+                <Icon icon="mdi:cog-outline" class="w-5 h-5" />
+                {#if hasUpdate}
+                  <span
+                    class="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-warning animate-pulse z-10 pointer-events-none"
+                  ></span>
+                {/if}
+              </button>
               <a
                 class="btn btn-ghost btn-sm mr-0"
                 href={repoLink}
@@ -117,6 +178,9 @@
               </a>
             </div>
           </div>
+          {#if showSettings}
+            <SettingsModal on:close={() => (showSettings = false)} />
+          {/if}
           <hr class="my-2 border border-primary/15" />
           {#if sys}
             <div class="flex flex-wrap gap-2">
