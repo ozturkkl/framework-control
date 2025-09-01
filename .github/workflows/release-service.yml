@@ -89,12 +89,16 @@ jobs:
         env:
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
           CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
+          CONTROL_PORT: ${{ secrets.CONTROL_PORT }}
+          UPDATE_REPO: ${{ secrets.UPDATE_REPO }}
         run: |
           $ErrorActionPreference = 'Stop'
           # Substitute placeholders in the WinSW config before packaging
           $xml = Get-Content wix/FrameworkControlService.xml
           $xml = $xml -replace '@ALLOWED_ORIGINS@', "$env:ALLOWED_ORIGINS"
           $xml = $xml -replace '@CONTROL_TOKEN@', "$env:CONTROL_TOKEN"
+          $xml = $xml -replace '@CONTROL_PORT@', "$env:CONTROL_PORT"
+          $xml = $xml -replace '@UPDATE_REPO@', "$env:UPDATE_REPO"
           Set-Content wix/FrameworkControlService.xml $xml -Encoding UTF8
           cargo wix --nocapture -v
 

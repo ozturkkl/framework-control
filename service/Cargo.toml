@@ -1,6 +1,6 @@
 [package]
 name = "framework-control-service"
-version = "0.3.4"
+version = "0.3.3"
 edition = "2021"
 authors = ["Framework Control"]
 
