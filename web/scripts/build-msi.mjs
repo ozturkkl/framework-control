@@ -25,7 +25,12 @@ const parseArgs = () => {
     if (i === -1) return undefined;
     return args[i].includes('=') ? args[i].split('=')[1] : args[i + 1];
   };
-  return { CONTROL_PORT: val('port'), ALLOWED_ORIGINS: val('allowed-origins'), CONTROL_TOKEN: val('token') };
+  return {
+    CONTROL_PORT: val('port'),
+    ALLOWED_ORIGINS: val('allowed-origins'),
+    CONTROL_TOKEN: val('token'),
+    UPDATE_REPO: val('update-repo'),
+  };
 };
 
 const readDotEnv = (p) => {
@@ -44,7 +49,8 @@ const isValidPort = (v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Numb
 const replaceTokens = (xml, t) => xml
   .replaceAll('@ALLOWED_ORIGINS@', t.ALLOWED_ORIGINS ?? '')
   .replaceAll('@CONTROL_TOKEN@', t.CONTROL_TOKEN ?? '')
-  .replaceAll('@CONTROL_PORT@', t.CONTROL_PORT ?? '');
+  .replaceAll('@CONTROL_PORT@', t.CONTROL_PORT ?? '')
+  .replaceAll('@UPDATE_REPO@', t.UPDATE_REPO ?? '');
 
 async function main() {
   // Build web and service
@@ -59,6 +65,7 @@ async function main() {
     ALLOWED_ORIGINS: args.ALLOWED_ORIGINS ?? env.FRAMEWORK_CONTROL_ALLOWED_ORIGINS ?? dot.FRAMEWORK_CONTROL_ALLOWED_ORIGINS ?? '',
     CONTROL_TOKEN: args.CONTROL_TOKEN ?? env.FRAMEWORK_CONTROL_TOKEN ?? dot.FRAMEWORK_CONTROL_TOKEN ?? '',
     CONTROL_PORT: args.CONTROL_PORT ?? env.FRAMEWORK_CONTROL_PORT ?? dot.FRAMEWORK_CONTROL_PORT,
+    UPDATE_REPO: args.UPDATE_REPO ?? env.FRAMEWORK_CONTROL_UPDATE_REPO ?? dot.FRAMEWORK_CONTROL_UPDATE_REPO ?? '',
   };
   if (!tokens.CONTROL_PORT || !isValidPort(tokens.CONTROL_PORT)) {
     throw new Error('CONTROL_PORT is required (via --port, env FRAMEWORK_CONTROL_PORT, or service/.env)');

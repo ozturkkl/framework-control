@@ -1,62 +1,71 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { DefaultService } from '../api';
-  import Icon from '@iconify/svelte';
-  
-  let shortcutsInstalled = false;
+  import { onMount } from "svelte";
+  import { DefaultService, OpenAPI } from "../api";
+  import Icon from "@iconify/svelte";
+
+  let shortcutsCreated = false;
   let checking = true;
-  let installing = false;
-  let error = '';
-  
+  let creatingShortcuts = false;
+  let error = "";
+
   async function checkStatus() {
     try {
       const data = await DefaultService.getShortcutsStatus();
-      shortcutsInstalled = data.installed || false;
+      shortcutsCreated = data.installed || false;
     } catch {
-      shortcutsInstalled = false;
+      shortcutsCreated = false;
     } finally {
       checking = false;
     }
   }
-  
-  async function installShortcuts() {
-    installing = true;
-    error = '';
+
+  async function createShortcuts() {
+    if (creatingShortcuts) return;
+    creatingShortcuts = true;
+    error = "";
     try {
       // Reuse the OpenAPI.TOKEN if present
-      const auth = (await import('../api')).OpenAPI.TOKEN;
-      const result = await DefaultService.createShortcuts(auth ? `Bearer ${auth}` : '');
+      const auth = OpenAPI.TOKEN;
+      const result = await DefaultService.createShortcuts(
+        auth ? `Bearer ${auth}` : ""
+      );
       if (result.ok) {
-        shortcutsInstalled = true;
+        shortcutsCreated = true;
       } else {
-        error = 'Failed to create shortcuts';
+        error = "Failed to create shortcuts";
       }
     } catch (e) {
-      error = 'Error creating shortcuts';
-      console.error('Failed to create shortcuts:', e);
+      error = "Error creating shortcuts";
+      console.error("Failed to create shortcuts:", e);
     } finally {
-      installing = false;
+      creatingShortcuts = false;
     }
   }
-  
-  onMount(() => { checkStatus(); });
+
+  onMount(() => {
+    checkStatus();
+  });
 </script>
 
 <div class="flex items-center justify-end py-1">
   <button
-    class={
-      (!checking && shortcutsInstalled)
-        ? 'btn btn-ghost btn-sm text-success gap-2'
-        : 'btn btn-sm btn-primary'
-    }
-    on:click={installShortcuts}
-    disabled={installing}
+    class={!checking && shortcutsCreated
+      ? "btn btn-ghost btn-sm text-success gap-2"
+      : "btn btn-sm btn-primary"}
+    on:click={createShortcuts}
   >
-    {#if !checking && shortcutsInstalled}
+    {#if !checking && shortcutsCreated}
       <Icon icon="mdi:check" class="w-4 h-4" />
-      Installed
+      Shortcuts created
+    {:else if creatingShortcuts}
+      <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+      Creating shortcuts...
     {:else}
-      {installing ? 'Installing...' : 'Install'}
+      <Icon
+        icon="material-symbols:switch-access-shortcut-add-rounded"
+        class="w-4 h-4"
+      />
+      Create shortcuts
     {/if}
   </button>
 </div>

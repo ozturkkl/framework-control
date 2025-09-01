@@ -11,6 +11,7 @@
   <env name="FRAMEWORK_CONTROL_ALLOWED_ORIGINS" value="@ALLOWED_ORIGINS@" />
   <env name="FRAMEWORK_CONTROL_TOKEN" value="@CONTROL_TOKEN@" />
   <env name="FRAMEWORK_CONTROL_PORT" value="@CONTROL_PORT@" />
+  <env name="FRAMEWORK_CONTROL_UPDATE_REPO" value="@UPDATE_REPO@" />
 </service>
 
 

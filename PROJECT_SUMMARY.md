@@ -26,6 +26,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
     - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
+    - `GET /update/check`: check for latest version from update feed (see env below)
+    - `POST /update/apply`: install the update (auth required)
   - Helpers: GPU detection via PowerShell on Windows
 - Other key files:
   - `service/src/config.rs`: load/save config JSON in `C:\ProgramData\FrameworkControl\config.json`
@@ -43,6 +45,14 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Integrates `FanControl.svelte` for Auto/Manual/Curve config
 - API client: `web/src/api/*` generated from OpenAPI (`scripts/gen-api.mjs`)
 - Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`)
+  - `SettingsModal.svelte`: adds Updates section to check/apply service updates
+- Shared utilities: `web/src/lib/*`
+- Frontend API usage guideline (do not bypass):
+  - Always use the generated API client (`DefaultService`, `OpenAPI`) for all requests.
+  - Do NOT call `fetch` directly to backend endpoints in UI code.
+  - Prefer typed responses from OpenAPI (e.g., `UpdateCheckEnvelope`, `UpdateResult`, `ConfigEnvelope`).
+  - For authenticated calls, pass `Bearer ${OpenAPI.TOKEN}`
+
 - Env: `web/.env.local`
   - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
   - `VITE_CONTROL_TOKEN` (bearer token for write ops)
@@ -53,11 +63,19 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 ### Installation & Packaging
 - MSI assets at `service/wix/*`, built via `web/scripts/build-msi.mjs` and service packaging
 - Start Menu/Desktop shortcuts created on demand through `/api/shortcuts/create`
+  - The MSI build injects env vars into the installed Windows service via token replacement in `service/wix/FrameworkControlService.xml`. Ensure these tokens are set when building:
+    - `@ALLOWED_ORIGINS@` → `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`
+    - `@CONTROL_TOKEN@` → `FRAMEWORK_CONTROL_TOKEN`
+    - `@CONTROL_PORT@` → `FRAMEWORK_CONTROL_PORT`
+    - `@UPDATE_REPO@` → `FRAMEWORK_CONTROL_UPDATE_REPO`
 
 ### Configuration
 - Persisted at `C:\ProgramData\FrameworkControl\config.json`
 - Fan modes: Auto, Manual duty, Curve (with hysteresis, rate limiting, calibration)
 - Write operations require `FRAMEWORK_CONTROL_TOKEN` (Bearer auth header)
+ - Updates:
+   - `FRAMEWORK_CONTROL_UPDATE_REPO`: GitHub repo to check (format `owner/repo` or `https://github.com/owner/repo`). `GET /api/update/check` uses GitHub Releases API to fetch the latest tag and MSI asset URL; `POST /api/update/apply` downloads that MSI and launches `msiexec` on Windows.
+  - MSI build: pass tokens via CLI args or environment. `node web/scripts/build-msi.mjs --port 8090 --allowed-origins "http://127.0.0.1:5174" --token YOUR_TOKEN --update-repo owner/repo`. The script also reads `service/.env` for defaults.
 
 ### Developer Quick Start
 - Backend (dev):

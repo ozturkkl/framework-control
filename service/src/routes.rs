@@ -1,7 +1,10 @@
 use crate::config; // for save/load
 use crate::shortcuts;
+use crate::update::{check_and_apply_now, get_current_and_latest};
 use crate::state::AppState;
-use crate::types::{CliOutput, ConfigEnvelope, PartialConfig, SystemInfoEnvelope, UpdateResult};
+use crate::types::{
+    CliOutput, ConfigEnvelope, PartialConfig, SystemInfoEnvelope, UpdateCheckEnvelope, UpdateResult,
+};
 use poem::web::Data;
 use poem_openapi::{param::Header, payload::Json, OpenApi};
 use serde_json::Value;
@@ -47,6 +50,40 @@ impl Api {
                     stdout: None,
                     error: Some(e),
                 })
+            }
+        }
+    }
+
+    /// Update: check for latest version from update feed
+    #[oai(path = "/update/check", method = "get", operation_id = "checkUpdate")]
+    async fn check_update(&self) -> Json<UpdateCheckEnvelope> {
+        match get_current_and_latest().await {
+            Ok((current, latest)) => Json(UpdateCheckEnvelope { ok: true, current_version: current, latest_version: latest }),
+            Err(e) => {
+                error!("update check failed: {}", e);
+                let current = env!("CARGO_PKG_VERSION").to_string();
+                Json(UpdateCheckEnvelope { ok: false, current_version: current, latest_version: None })
+            }
+        }
+    }
+
+    /// Update: apply latest by downloading MSI and invoking msiexec (Windows only)
+    #[oai(path = "/update/apply", method = "post", operation_id = "applyUpdate")]
+    async fn apply_update(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "Authorization")] auth: Header<String>,
+        _req: Json<Value>,
+    ) -> Json<UpdateResult> {
+        let provided = auth.0.as_str().strip_prefix("Bearer ").unwrap_or("").trim();
+        if !state.is_valid_token(Some(provided)) {
+            return Json(UpdateResult { ok: false });
+        }
+        match check_and_apply_now().await {
+            Ok(applied) => Json(UpdateResult { ok: applied }),
+            Err(e) => {
+                error!("apply update failed: {}", e);
+                Json(UpdateResult { ok: false })
             }
         }
     }
@@ -139,6 +176,11 @@ impl Api {
                 new_fan.calibration = Some(cal);
             }
             merged.fan = new_fan;
+        }
+        if let Some(up) = req.updates {
+            let mut new_up = merged.updates.clone();
+            if let Some(ai) = up.auto_install { new_up.auto_install = ai; }
+            merged.updates = new_up;
         }
         if let Err(e) = config::save(&merged) {
             error!("config save error: {}", e);

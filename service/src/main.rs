@@ -9,6 +9,7 @@ use tracing::{info};
 mod cli;
 mod config;
 mod routes;
+mod update;
 mod shortcuts;
 mod state;
 mod tasks;
