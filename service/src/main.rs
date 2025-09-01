@@ -27,6 +27,21 @@ async fn main() {
         .without_time()
         .init();
 
+    // If we're only generating OpenAPI, do it immediately and exit without requiring env or starting tasks
+    let flag_arg = std::env::args().any(|a| a == "--generate-openapi");
+    if flag_arg {
+        let api = OpenApiService::new(crate::routes::Api, "framework-control-service", env!("CARGO_PKG_VERSION"))
+            .server("");
+        let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("web")
+            .join("openapi.json");
+        if let Some(parent) = out.parent() { let _ = std::fs::create_dir_all(parent); }
+        let spec_json = api.spec();
+        let _ = std::fs::write(&out, spec_json);
+        return;
+    }
+
     // Check if installer requested shortcut creation on first run
     shortcuts::create_shortcuts_if_installer_requested().await;
 
@@ -67,18 +82,6 @@ async fn main() {
     // Build OpenApiService from routes::Api
     let api = OpenApiService::new(crate::routes::Api, "framework-control-service", env!("CARGO_PKG_VERSION"))
         .server("");
-    // Optionally, write OpenAPI to a known path when requested (CLI flag), then exit cleanly
-    let flag_arg = std::env::args().any(|a| a == "--generate-openapi");
-    if flag_arg {
-        let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("web")
-            .join("openapi.json");
-        if let Some(parent) = out.parent() { std::fs::create_dir_all(parent).ok(); }
-        let spec_json = api.spec();
-        std::fs::write(&out, spec_json).ok();
-        return;
-    }
 
     // Build the actual Poem app and apply CORS globally (API and static UI)
     let app = Route::new()
