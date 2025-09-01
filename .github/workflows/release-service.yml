@@ -142,14 +142,27 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
           $changelogPath = "../CHANGELOG.md"
-          if (-not (Test-Path $changelogPath)) { throw "CHANGELOG not found at $changelogPath" }
-          $lines = Get-Content $changelogPath
-          $start = ($lines | Select-String -Pattern "^##\s+$([regex]::Escape($env:VERSION))\b" -SimpleMatch).LineNumber
-          if (-not $start) { throw "Version $env:VERSION section not found in CHANGELOG.md" }
-          $after = $lines[$start..($lines.Length-1)]
-          $nextHeaderIndex = ($after | Select-String -Pattern '^##\s+' | Select-Object -Skip 1 -First 1).LineNumber
-          if ($nextHeaderIndex) { $section = $after[0..($nextHeaderIndex-2)] } else { $section = $after }
-          $body = ($section -join "`n")
+          $defaultBody = "Check the changelog for information about version $env:VERSION."
+          $body = $defaultBody
+          if (Test-Path $changelogPath) {
+            $lines = Get-Content $changelogPath
+            $pattern = ('^##\s+' + [regex]::Escape($env:VERSION) + '(\s|$)')
+            $match = ($lines | Select-String -Pattern $pattern | Select-Object -First 1)
+            if ($match) {
+              $startIndex = [int]$match.LineNumber - 1  # Convert to 0-based index
+              $after = $lines[$startIndex..($lines.Length-1)]
+              $headers = ($after | Select-String -Pattern '^##\s+' -AllMatches)
+              if ($headers.Count -ge 2) {
+                $endIndex = [int]$headers[1].LineNumber - 2
+              } else {
+                $endIndex = $after.Length - 1
+              }
+              if ($endIndex -ge 0) {
+                $section = $after[0..$endIndex]
+                $body = ($section -join "`n")
+              }
+            }
+          }
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag -t "Framework Service Installer" -n "$body" --latest
