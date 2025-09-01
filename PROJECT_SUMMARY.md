@@ -59,6 +59,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Build/dev:
   - `npm i && npm run dev` (dev)
   - `npm run build` (generates `web/dist` used by service/static)
+  - Embedded UI feature flag: the Rust service now has an `embed-ui` Cargo feature (enabled by default) that embeds `web/dist` into the binary. CI OpenAPI generation runs with `--no-default-features` to avoid requiring `web/dist` at that step.
 
 ### Installation & Packaging
 - MSI assets at `service/wix/*`, built via `web/scripts/build-msi.mjs` and service packaging

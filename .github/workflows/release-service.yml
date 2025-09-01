@@ -61,6 +61,24 @@ jobs:
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: cargo install cargo-wix
 
+      - name: Setup Node.js 20
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        run: npm ci
+        working-directory: web
+
+      - name: Build web (generate icons, openapi, dist)
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        run: npm run prebuild && npm run build
+        working-directory: web
+
       - name: Build service (release)
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: cargo build --release
@@ -123,11 +141,15 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
-          $commitSha = "$env:GITHUB_SHA"
-          $commitMsg = git log -1 --pretty=format:%B "$commitSha"
-          $repo = "${{ github.repository }}"
-          $commitUrl = "https://github.com/$repo/commit/$commitSha"
-          $body = "Automated release for version $env:VERSION`n`nCommit: $commitSha`n`n$commitMsg"
+          $changelogPath = "../CHANGELOG.md"
+          if (-not (Test-Path $changelogPath)) { throw "CHANGELOG not found at $changelogPath" }
+          $lines = Get-Content $changelogPath
+          $start = ($lines | Select-String -Pattern "^##\s+$([regex]::Escape($env:VERSION))\b" -SimpleMatch).LineNumber
+          if (-not $start) { throw "Version $env:VERSION section not found in CHANGELOG.md" }
+          $after = $lines[$start..($lines.Length-1)]
+          $nextHeaderIndex = ($after | Select-String -Pattern '^##\s+' | Select-Object -Skip 1 -First 1).LineNumber
+          if ($nextHeaderIndex) { $section = $after[0..($nextHeaderIndex-2)] } else { $section = $after }
+          $body = ($section -join "`n")
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag -t "Framework Service Installer" -n "$body" --latest

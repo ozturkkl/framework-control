@@ -1,8 +1,11 @@
 use poem::{handler, IntoResponse, Response};
 use poem::http::StatusCode;
 use tracing::debug;
+
+#[cfg(feature = "embed-ui")]
 use rust_embed::RustEmbed;
 
+#[cfg(feature = "embed-ui")]
 #[derive(RustEmbed)]
 #[folder = "../web/dist"]
 struct EmbeddedWeb;
@@ -34,6 +37,7 @@ pub fn serve_static(req: &poem::Request) -> Response {
         Some(r) => r,
         None => return Response::builder().status(StatusCode::NOT_FOUND).body(()).into_response(),
     };
+    #[cfg(feature = "embed-ui")]
     if let Some(content) = EmbeddedWeb::get(&rel) {
         debug!("static: embedded hit '{}'", rel);
         return Response::builder()

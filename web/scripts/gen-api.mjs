@@ -22,8 +22,8 @@ function run(cmd, args, opts = {}) {
   });
 }
 
-// 1) Generate OpenAPI by running service with flag in an isolated target dir to avoid locking conflicts
-await run('cargo', ['run', '--', '--generate-openapi'], {
+// 1) Generate OpenAPI by running service with flag with no default features to avoid UI embedding in CI
+await run('cargo', ['run', '--no-default-features', '--', '--generate-openapi'], {
   cwd: serviceDir,
   env: { ...process.env, CARGO_TARGET_DIR: isolatedTargetDir },
 });
