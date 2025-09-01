@@ -1,4 +1,4 @@
-## 0.3.4 - 2025-09-01
+## 0.3.3 - 2025-09-01
 
 - PWA offline support with passive caching
 - Auto-update service (6h checks) + MSI install flow (Windows)

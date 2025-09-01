@@ -37,8 +37,9 @@ jobs:
         run: npm run build
         env:
           GITHUB_PAGES: 'true'
-          VITE_INSTALLER_URL: ${{ vars.INSTALLER_URL }}
-          VITE_CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
+          VITE_INSTALLER_URL: ${{ secrets.VITE_INSTALLER_URL || vars.VITE_INSTALLER_URL }}
+          VITE_CONTROL_TOKEN: ${{ secrets.VITE_CONTROL_TOKEN || vars.VITE_CONTROL_TOKEN }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -80,6 +80,9 @@ jobs:
         env:
           GITHUB_PAGES: 'false'
           VITE_BASE: '/'
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
+          VITE_INSTALLER_URL: ${{ secrets.VITE_INSTALLER_URL || vars.VITE_INSTALLER_URL }}
+          VITE_CONTROL_TOKEN: ${{ secrets.VITE_CONTROL_TOKEN || vars.VITE_CONTROL_TOKEN }}
         working-directory: web
 
       - name: Build service (release)
@@ -90,18 +93,18 @@ jobs:
         shell: pwsh
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         env:
-          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
-          CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
-          CONTROL_PORT: ${{ secrets.CONTROL_PORT }}
-          UPDATE_REPO: ${{ secrets.UPDATE_REPO }}
+          FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
+          FRAMEWORK_CONTROL_TOKEN: ${{ secrets.FRAMEWORK_CONTROL_TOKEN || vars.FRAMEWORK_CONTROL_TOKEN }}
+          FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
+          FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
         run: |
           $ErrorActionPreference = 'Stop'
           # Substitute placeholders in the WinSW config before packaging
           $xml = Get-Content wix/FrameworkControlService.xml
-          $xml = $xml -replace '@ALLOWED_ORIGINS@', "$env:ALLOWED_ORIGINS"
-          $xml = $xml -replace '@CONTROL_TOKEN@', "$env:CONTROL_TOKEN"
-          $xml = $xml -replace '@CONTROL_PORT@', "$env:CONTROL_PORT"
-          $xml = $xml -replace '@UPDATE_REPO@', "$env:UPDATE_REPO"
+          $xml = $xml -replace '@FRAMEWORK_CONTROL_ALLOWED_ORIGINS@', "$env:FRAMEWORK_CONTROL_ALLOWED_ORIGINS"
+          $xml = $xml -replace '@FRAMEWORK_CONTROL_TOKEN@', "$env:FRAMEWORK_CONTROL_TOKEN"
+          $xml = $xml -replace '@FRAMEWORK_CONTROL_PORT@', "$env:FRAMEWORK_CONTROL_PORT"
+          $xml = $xml -replace '@FRAMEWORK_CONTROL_UPDATE_REPO@', "$env:FRAMEWORK_CONTROL_UPDATE_REPO"
           Set-Content wix/FrameworkControlService.xml $xml -Encoding UTF8
           cargo wix --nocapture -v
 

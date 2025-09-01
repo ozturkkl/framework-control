@@ -7,11 +7,11 @@
   <startmode>Automatic</startmode>
   <onfailure action="restart" delay="5 sec"/>
   <log mode="roll"/>
-  <!-- Inject environment variables at install time via CI token replacement -->
-  <env name="FRAMEWORK_CONTROL_ALLOWED_ORIGINS" value="@ALLOWED_ORIGINS@" />
-  <env name="FRAMEWORK_CONTROL_TOKEN" value="@CONTROL_TOKEN@" />
-  <env name="FRAMEWORK_CONTROL_PORT" value="@CONTROL_PORT@" />
-  <env name="FRAMEWORK_CONTROL_UPDATE_REPO" value="@UPDATE_REPO@" />
+  <!-- Inject environment variables at install time via CI token replacement (placeholders match full env names) -->
+  <env name="FRAMEWORK_CONTROL_ALLOWED_ORIGINS" value="@FRAMEWORK_CONTROL_ALLOWED_ORIGINS@" />
+  <env name="FRAMEWORK_CONTROL_TOKEN" value="@FRAMEWORK_CONTROL_TOKEN@" />
+  <env name="FRAMEWORK_CONTROL_PORT" value="@FRAMEWORK_CONTROL_PORT@" />
+  <env name="FRAMEWORK_CONTROL_UPDATE_REPO" value="@FRAMEWORK_CONTROL_UPDATE_REPO@" />
 </service>
 
 
