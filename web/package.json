@@ -1,19 +1,19 @@
 {
   "name": "framework-control-web",
   "private": true,
-  "version": "0.3.4",
+  "version": "0.3.3",
   "type": "module",
   "scripts": {
     "gen:api": "node scripts/gen-api.mjs",
     "gen:icons": "node scripts/gen-icons.mjs",
     "build:msi": "node scripts/build-msi.mjs",
-    "predev": "npm run gen:api && npm run gen:icons",
+    "predev": "npm run gen:icons && npm run gen:api",
     "dev": "vite",
-    "prebuild": "npm run gen:api && npm run gen:icons",
+    "prebuild": "npm run gen:icons && npm run gen:api",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint --ext .ts,.svelte src",
-    "postinstall": "npm run gen:api && npm run gen:icons",
+    "postinstall": "npm run gen:icons && npm run gen:api",
     "clean": "rimraf dist .vite .svelte-kit openapi.json src/api"
   },
   "devDependencies": {
