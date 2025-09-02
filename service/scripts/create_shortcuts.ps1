@@ -41,40 +41,80 @@ if (-not $edgePath) {
     foreach ($c in $cands) { if (Test-Path $c) { $edgePath = $c; break } }
 }
 
-Determine which browser to use
+# Resolve Brave path
+$bravePath = Get-AppPathFromRegistry 'brave.exe'
+if (-not $bravePath) {
+    $cands = @(
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\Application\brave.exe",
+        "$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe",
+        "$env:ProgramFiles(x86)\BraveSoftware\Brave-Browser\Application\brave.exe"
+    )
+    foreach ($c in $cands) { if (Test-Path $c) { $bravePath = $c; break } }
+}
 
+# Determine which browser to use
+
+$useAppMode = $false
 if (Test-Path $edgePath) {
     $targetPath = $edgePath
     $arguments = "--app=`"$url`""
+    $useAppMode = $true
 }
 elseif (Test-Path $chromePath) {
     $targetPath = $chromePath
     $arguments = "--app=`"$url`""
+    $useAppMode = $true
+}
+elseif (Test-Path $bravePath) {
+    $targetPath = $bravePath
+    $arguments = "--app=`"$url`""
+    $useAppMode = $true
 }
 else {
-    # Fallback to explorer (opens default browser without console flash)
-    $targetPath = "$env:WINDIR\explorer.exe"
-    $arguments = $url
+    # No app-mode browser found; we'll create .url InternetShortcuts instead
+    $targetPath = $null
+    $arguments = $null
 }
 
-# Start Menu shortcut
-$StartMenuShortcut = $WshShell.CreateShortcut('{START_MENU}')
-$StartMenuShortcut.TargetPath = $targetPath
-$StartMenuShortcut.Arguments = $arguments
-$StartMenuShortcut.WindowStyle = 1  # Normal
-$StartMenuShortcut.IconLocation = "$iconPath,0"
-$StartMenuShortcut.Description = 'Framework Control - Local service UI'
-$StartMenuShortcut.Save()
 
-# Desktop shortcut
-$DesktopShortcut = $WshShell.CreateShortcut('{DESKTOP}')
-$DesktopShortcut.TargetPath = $targetPath
-$DesktopShortcut.Arguments = $arguments
-$DesktopShortcut.WindowStyle = 1  # Normal
-$DesktopShortcut.IconLocation = "$iconPath,0"
-$DesktopShortcut.Description = 'Framework Control - Local service UI'
-$DesktopShortcut.Save()
 
-Write-Host "Shortcuts created successfully using: $targetPath"
+# Resolve output paths
+$startMenuLnk = '{START_MENU}'
+$desktopLnk = '{DESKTOP}'
+$startMenuUrl = [System.IO.Path]::ChangeExtension($startMenuLnk, '.url')
+$desktopUrl = [System.IO.Path]::ChangeExtension($desktopLnk, '.url')
+
+# Ensure parent directories exist
+$dirs = @((Split-Path -Parent $startMenuLnk), (Split-Path -Parent $desktopLnk))
+foreach ($d in $dirs) { if ($d -and -not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null } }
+
+if ($useAppMode) {
+    # Start Menu shortcut (.lnk, app-mode)
+    $StartMenuShortcut = $WshShell.CreateShortcut($startMenuLnk)
+    $StartMenuShortcut.TargetPath = $targetPath
+    $StartMenuShortcut.Arguments = $arguments
+    $StartMenuShortcut.WindowStyle = 1  # Normal
+    $StartMenuShortcut.IconLocation = "$iconPath,0"
+    $StartMenuShortcut.Description = 'Framework Control - Local service UI'
+    $StartMenuShortcut.Save()
+
+    # Desktop shortcut (.lnk, app-mode)
+    $DesktopShortcut = $WshShell.CreateShortcut($desktopLnk)
+    $DesktopShortcut.TargetPath = $targetPath
+    $DesktopShortcut.Arguments = $arguments
+    $DesktopShortcut.WindowStyle = 1  # Normal
+    $DesktopShortcut.IconLocation = "$iconPath,0"
+    $DesktopShortcut.Description = 'Framework Control - Local service UI'
+    $DesktopShortcut.Save()
+
+    Write-Host "Shortcuts created successfully using app-mode: $targetPath"
+}
+else {
+    # Fallback: create Internet Shortcut (.url) which opens via the default browser reliably
+    $urlContent = "[InternetShortcut]`nURL=$url`nIconFile=$iconPath`nIconIndex=0`n"
+    Set-Content -Path $startMenuUrl -Value $urlContent -Encoding ASCII -Force
+    Set-Content -Path $desktopUrl -Value $urlContent -Encoding ASCII -Force
+    Write-Host "Internet shortcuts (.url) created for default browser"
+}
 
 

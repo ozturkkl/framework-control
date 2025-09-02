@@ -1,3 +1,7 @@
+## Unreleased
+
+- Windows shortcuts: Brave app-mode support with `.url` fallback; improved detection and status.
+
 ## 0.3.3 - 2025-09-01
 
 - PWA offline support with passive caching

@@ -51,5 +51,6 @@ snippets:
 notes:
   - Always update PROJECT_SUMMARY.md when adding/altering endpoints, UI components, config, or background tasks. Treat it as required documentation.
   - Use @routes.rs, @main.rs, @App.svelte, and @README.md shorthands in prompts.
+  - Always update CHANGELOG.md under "Unreleased" with concise one-line bullets for user-visible changes (features, fixes, behavior changes). Collapse related changes into a single line when possible.
 
 

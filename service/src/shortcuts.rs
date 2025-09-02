@@ -26,7 +26,17 @@ pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
 
 pub fn shortcuts_exist() -> bool {
     match get_shortcut_paths() {
-        Ok((start_menu, desktop)) => start_menu.exists() && desktop.exists(),
+        Ok((start_menu, desktop)) => {
+            let exists_either = |p: &PathBuf| {
+                if p.exists() {
+                    true
+                } else {
+                    let url_variant = p.with_extension("url");
+                    url_variant.exists()
+                }
+            };
+            exists_either(&start_menu) && exists_either(&desktop)
+        }
         Err(_) => false,
     }
 }

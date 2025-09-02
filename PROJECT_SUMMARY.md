@@ -34,7 +34,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `service/src/types.rs`: API/request/response and config types
   - `service/src/state.rs`: shared `AppState` (config RwLock, CLI handle, auth helper)
   - `service/src/static.rs`: static file serving for the UI
-  - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome app mode)
+  - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
   - `service/src/tasks/*`: background tasks (e.g., apply fan settings at boot)
 - CLI dependency: `framework_tool` (from `framework-system`). Service wraps it rather than linking low-level driver libraries directly.
 
