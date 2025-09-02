@@ -53,6 +53,11 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Prefer typed responses from OpenAPI (e.g., `UpdateCheckEnvelope`, `UpdateResult`, `ConfigEnvelope`).
   - For authenticated calls, pass `Bearer ${OpenAPI.TOKEN}`
 
+- Hosted vs Embedded UI behavior:
+  - The UI now detects when it is running as a hosted build (origin != local service origin) and the service has an update available.
+  - In that case, a blocking modal (`VersionMismatchModal.svelte`) prevents using the hosted app to avoid version drift. It offers two actions: open the local app (http://127.0.0.1:PORT) and download the installer (if `VITE_INSTALLER_URL` is provided), or jump to Releases.
+  - When served from the embedded service (127.0.0.1:PORT), normal operation continues. Updates are still surfaced in `Settings` and via the small indicator dot.
+
 - Env: `web/.env.local`
   - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
   - `VITE_CONTROL_TOKEN` (bearer token for write ops)

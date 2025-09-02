@@ -7,6 +7,8 @@
   import FanControl from "./components/FanControl.svelte";
   import Panel from "./components/Panel.svelte";
   import { OpenAPI } from "./api";
+  import VersionMismatchModal from "./components/VersionMismatchModal.svelte";
+  import { gtSemver } from "./lib/semver";
 
   let healthy: boolean = false;
   let cliPresent: boolean = true;
@@ -14,6 +16,16 @@
   const installerUrl: string = import.meta.env?.VITE_INSTALLER_URL || "";
 
   let pollId: ReturnType<typeof setInterval> | null = null;
+    
+  // Hosted vs embedded detection
+  const apiOrigin = new URL(OpenAPI.BASE || "/api", window.location.href).origin;
+  const isHosted = window.location.origin !== apiOrigin;
+
+  // Service update info for mismatch gate
+  let serviceCurrentVersion: string | null = null;
+  let serviceLatestVersion: string | null = null;
+  let showMismatchGate = false;
+
   // Helper to keep layout logic readable without changing values
   function panelGridClasses(
     pid: string,
@@ -41,6 +53,16 @@
     pollId = setInterval(async () => {
       await pollHealthOnce();
     }, 1000);
+    // One-shot update check to decide mismatch gating (ignore paused setting)
+    try {
+      const res = await DefaultService.checkUpdate();
+      serviceCurrentVersion = (res.current_version ?? null)?.toString().trim() || null;
+      serviceLatestVersion = (res.latest_version ?? null)?.toString().trim() || null;
+      const updateAvailable = serviceCurrentVersion && serviceLatestVersion
+        ? gtSemver(serviceLatestVersion, serviceCurrentVersion)
+        : false;
+      showMismatchGate = isHosted && updateAvailable;
+    } catch {}
   });
 
   async function pollHealthOnce() {
@@ -63,7 +85,7 @@
 </script>
 
 <main class="min-h-screen flex items-center justify-center px-6 py-12">
-  <div class="w-full max-w-6xl mx-auto space-y-4">
+  <div class="w-full max-w-6xl mx-auto space-y-4" inert={showMismatchGate} aria-hidden={showMismatchGate}>
     <section in:fade={{ duration: 200 }}>
       <DeviceHeader {healthy} {installerUrl} {cliPresent} />
     </section>
@@ -150,4 +172,12 @@
       {/each}
     </section>
   </div>
+  {#if showMismatchGate}
+    <VersionMismatchModal
+      serviceCurrent={serviceCurrentVersion}
+      serviceLatest={serviceLatestVersion}
+      apiOrigin={apiOrigin}
+      installerUrl={installerUrl}
+    />
+  {/if}
 </main>
