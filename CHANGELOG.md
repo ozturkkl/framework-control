@@ -1,6 +1,8 @@
 ## Unreleased
 
 - Windows shortcuts: Brave app-mode support with `.url` fallback; improved detection and status.
+- Backend: refactor CLI wrapper into `service/src/cli/` module (`framework_tool.rs`), preparing for additional CLIs (e.g., RyzenAdj, inputmodule-rs).
+- Backend: add `service/src/utils/` with `github.rs` and `wget.rs` for shared release/winget helpers.
 
 ## 0.3.3 - 2025-09-01
 

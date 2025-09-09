@@ -14,6 +14,7 @@ mod shortcuts;
 mod state;
 mod tasks;
 pub mod types;
+mod utils;
 
 mod r#static;
 
