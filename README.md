@@ -76,6 +76,14 @@ npm i
 npm run dev
 ```
 
+### Frontend API Usage Policy (Important)
+
+- Always use the generated client in `web/src/api` (`DefaultService`, `OpenAPI`) for all calls to the local service.
+- Do NOT use `fetch` directly for service endpoints anywhere in the UI.
+- After changing backend routes or models, regenerate the client:
+  1. Build the service to refresh `web/openapi.json`
+  2. From `framework-control/web`, run: `npm run gen:api`
+
 **Environment Variables**:
 
 Service `.env` file (`framework-control/service/.env`):

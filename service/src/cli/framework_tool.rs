@@ -1,3 +1,4 @@
+use super::framework_tool_parser::{parse_power, parse_thermal, parse_versions, PowerParsed, ThermalParsed, VersionsParsed};
 use crate::utils::{download as dl, github as gh, wget as wg};
 use tokio::process::Command;
 use tracing::{error, info, warn};
@@ -17,16 +18,19 @@ impl FrameworkTool {
         Ok(Self { path })
     }
 
-    pub async fn power(&self) -> Result<String, String> {
-        self.run(&["--power"]).await
+    pub async fn power(&self) -> Result<PowerParsed, String> {
+        let out = self.run(&["--power"]).await?;
+        Ok(parse_power(&out))
     }
 
-    pub async fn thermal(&self) -> Result<String, String> {
-        self.run(&["--thermal"]).await
+    pub async fn thermal(&self) -> Result<ThermalParsed, String> {
+        let out = self.run(&["--thermal"]).await?;
+        Ok(parse_thermal(&out))
     }
 
-    pub async fn versions(&self) -> Result<String, String> {
-        self.run(&["--versions"]).await
+    pub async fn versions(&self) -> Result<VersionsParsed, String> {
+        let out = self.run(&["--versions"]).await?;
+        Ok(parse_versions(&out))
     }
 
     pub async fn set_fan_duty(&self, percent: u32, fan_index: Option<u32>) -> Result<(), String> {
@@ -151,10 +155,14 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     let ext: &str = "";
     let filename = format!("framework_tool{}", ext);
-    let url = gh::get_latest_release_url_ending_with("FrameworkComputer", "framework-system", &[filename.as_str()])
-        .await
-        .map_err(|e| format!("failed to resolve framework_tool asset: {e}"))?
-        .ok_or_else(|| "framework_tool asset not found in latest release".to_string())?;
+    let url = gh::get_latest_release_url_ending_with(
+        "FrameworkComputer",
+        "framework-system",
+        &[filename.as_str()],
+    )
+    .await
+    .map_err(|e| format!("failed to resolve framework_tool asset: {e}"))?
+    .ok_or_else(|| "framework_tool asset not found in latest release".to_string())?;
     let dest_path = base_dir.join(&filename).to_string_lossy().to_string();
 
     info!(

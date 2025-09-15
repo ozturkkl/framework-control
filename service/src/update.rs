@@ -1,5 +1,5 @@
-use tracing::{error, info};
 use crate::utils::github as gh;
+use tracing::{error, info};
 
 pub fn parse_github_repo_env() -> Option<(String, String)> {
     let repo = std::env::var("FRAMEWORK_CONTROL_UPDATE_REPO").ok()?;
@@ -11,8 +11,14 @@ pub fn parse_github_repo_env() -> Option<(String, String)> {
         ))
     } else {
         let parts: Vec<&str> = repo.split('/').collect();
-        let owner = parts.get(parts.len().saturating_sub(2)).cloned().unwrap_or("");
-        let name = parts.get(parts.len().saturating_sub(1)).cloned().unwrap_or("");
+        let owner = parts
+            .get(parts.len().saturating_sub(2))
+            .cloned()
+            .unwrap_or("");
+        let name = parts
+            .get(parts.len().saturating_sub(1))
+            .cloned()
+            .unwrap_or("");
         if owner.is_empty() || name.is_empty() {
             None
         } else {
@@ -21,14 +27,18 @@ pub fn parse_github_repo_env() -> Option<(String, String)> {
     }
 }
 
-
-pub async fn get_current_and_latest() -> Result<(String, Option<String>), String> {
+pub async fn get_current_and_latest() -> Result<(String, String), String> {
     let current = env!("CARGO_PKG_VERSION").to_string();
+    let current_trimmed = current.trim().to_string();
+    if current_trimmed.is_empty() {
+        return Err("current version missing".into());
+    }
     let Some((owner, name)) = parse_github_repo_env() else {
-        return Ok((current, None));
+        return Err("FRAMEWORK_CONTROL_UPDATE_REPO not set".into());
     };
-    let latest = gh::get_latest_release_version_tag(&owner, &name).await?;
-    Ok((current, latest))
+    let latest_opt = gh::get_latest_release_version_tag(&owner, &name).await?;
+    let latest = latest_opt.ok_or_else(|| "latest version missing".to_string())?;
+    Ok((current_trimmed, latest))
 }
 
 #[cfg(target_os = "windows")]
@@ -61,8 +71,7 @@ pub async fn check_and_apply_now() -> Result<bool, String> {
     let Some((owner, name)) = parse_github_repo_env() else {
         return Err("FRAMEWORK_CONTROL_UPDATE_REPO not set".into());
     };
-    let (current, latest_opt) = get_current_and_latest().await?;
-    let latest = match latest_opt { Some(v) => v, None => return Ok(false) };
+    let (current, latest) = get_current_and_latest().await?;
     if latest <= current {
         return Ok(false);
     }
@@ -72,10 +81,13 @@ pub async fn check_and_apply_now() -> Result<bool, String> {
     let preferred_exts: &[&str] = &[".pkg", ".dmg"];
     #[cfg(all(unix, not(target_os = "macos")))]
     let preferred_exts: &[&str] = &[".deb", ".rpm", ".AppImage"];
-    let Some(installer_url) = gh::get_latest_release_url_ending_with(&owner, &name, preferred_exts).await.map_err(|e| {
-        error!("update: fetch assets failed: {}", e);
-        e
-    })? else {
+    let Some(installer_url) = gh::get_latest_release_url_ending_with(&owner, &name, preferred_exts)
+        .await
+        .map_err(|e| {
+            error!("update: fetch assets failed: {}", e);
+            e
+        })?
+    else {
         error!("update: no installer asset in latest release");
         return Err("installer asset not found".into());
     };

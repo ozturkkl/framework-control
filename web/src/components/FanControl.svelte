@@ -131,8 +131,8 @@
   async function pollLiveOnce() {
     try {
       const res = await DefaultService.getThermal();
-      if (!res.ok) return;
-      const { temps, rpms } = parseThermalOutput(res.stdout);
+      const temps = res.temps;
+      const rpms = res.rpms;
       const t = pickTempForSensor(temps, sensor);
       if (t !== null) liveTemp = t;
       // Always update RPM - set to 0 if no RPM detected
@@ -223,8 +223,8 @@
 
   onMount(async () => {
     try {
-      const { ok, config } = await DefaultService.getConfig();
-      if (ok && config) {
+      const config = await DefaultService.getConfig();
+      if (config) {
         // map backend mode to UI mode (accept lowercase or capitalized)
         const m = config.fan.mode;
         switch (m) {
@@ -260,7 +260,7 @@
     }
     // Load calibration from fan if present
     try {
-      const { ok, config } = await DefaultService.getConfig();
+      const config = await DefaultService.getConfig();
       const cal = config?.fan?.calibration;
       if (cal?.points) calibrationPoints = cal.points as [number, number][];
     } catch (_) {}
@@ -299,8 +299,7 @@
       const patch: PartialConfig = { fan: fanPatch } as any;
       try {
         console.log("Saving Fan Control:", patch);
-        const res = await DefaultService.setConfig(token, patch);
-        if (!res.ok) throw new Error("Failed to save config");
+        await DefaultService.setConfig(token, patch);
         if (successTimeout) {
           clearTimeout(successTimeout);
           successTimeout = null;

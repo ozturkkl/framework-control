@@ -3,22 +3,15 @@
   import { onMount } from "svelte";
   import Icon from "@iconify/svelte";
   import ShortcutInstaller from "./ShortcutInstaller.svelte";
-  import {
-    DefaultService,
-    OpenAPI,
-    type ConfigEnvelope,
-    type UpdateCheckEnvelope,
-    type UpdateResult,
-    type PartialConfig,
-  } from "../api";
+  import { DefaultService, OpenAPI, type PartialConfig } from "../api";
   import { gtSemver } from "../lib/semver";
   const dispatch = createEventDispatcher();
   function close() {
     dispatch("close");
   }
 
-  let currentVersion: string | null = null;
-  let latestVersion: string | null = null;
+  let currentVersion: string;
+  let latestVersion: string;
   let newVersionAvailable: boolean = false;
 
   let autoInstall: boolean = false;
@@ -33,11 +26,9 @@
   async function checkUpdate() {
     try {
       isChecking = true;
-      const data: UpdateCheckEnvelope = await DefaultService.checkUpdate();
-      if (!data.ok) throw new Error();
-      currentVersion =
-        (data.current_version ?? null)?.toString().trim() || null;
-      latestVersion = (data.latest_version ?? null)?.toString().trim() || null;
+      const data = await DefaultService.checkUpdate();
+      currentVersion = data.current_version?.toString().trim();
+      latestVersion = data.latest_version?.toString().trim();
       console.debug("[SettingsModal] checkUpdate result", {
         currentVersion,
         latestVersion,
@@ -55,8 +46,8 @@
     applying = true;
     try {
       const auth = `Bearer ${OpenAPI.TOKEN}`;
-      const res: UpdateResult = await DefaultService.applyUpdate(auth, {});
-      if (!res.ok) throw new Error();
+      await DefaultService.applyUpdate(auth, {});
+      await new Promise((resolve) => setTimeout(resolve, 5000));
       errorMessage = null;
     } catch (e) {
       errorMessage = "Failed to apply update!";
@@ -68,8 +59,8 @@
 
   async function loadBackendUpdatePrefs() {
     try {
-      const cfg: ConfigEnvelope = await DefaultService.getConfig();
-      autoInstall = !!cfg?.config?.updates?.auto_install;
+      const cfg = await DefaultService.getConfig();
+      autoInstall = !!cfg?.updates?.auto_install;
       errorMessage = null;
     } catch {
       autoInstall = false;
@@ -86,8 +77,7 @@
       const body: PartialConfig = {
         updates: { auto_install: nextValue },
       } as PartialConfig;
-      const res: UpdateResult = await DefaultService.setConfig(auth, body);
-      if (!res.ok) throw new Error();
+      await DefaultService.setConfig(auth, body);
       errorMessage = null;
       // If enabling auto-install, reuse existing applyUpdate() and then re-check
       if (nextValue && newVersionAvailable) {
@@ -114,8 +104,7 @@
         const body: PartialConfig = {
           updates: { auto_install: false },
         } as PartialConfig;
-        const res: UpdateResult = await DefaultService.setConfig(auth, body);
-        if (!res.ok) throw new Error();
+        await DefaultService.setConfig(auth, body);
         errorMessage = null;
       } catch {
         autoInstall = true;
@@ -277,5 +266,6 @@
       <button class="btn" on:click={close}>Close</button>
     </div>
   </div>
-  <button class="modal-backdrop" on:click={close} aria-label="Close settings"></button>
+  <button class="modal-backdrop" on:click={close} aria-label="Close settings"
+  ></button>
 </div>
