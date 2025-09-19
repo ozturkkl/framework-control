@@ -16,9 +16,10 @@
   const installerUrl: string = import.meta.env?.VITE_INSTALLER_URL || "";
 
   let pollId: ReturnType<typeof setInterval> | null = null;
-    
+
   // Hosted vs embedded detection
-  const apiOrigin = new URL(OpenAPI.BASE || "/api", window.location.href).origin;
+  const apiOrigin = new URL(OpenAPI.BASE || "/api", window.location.href)
+    .origin;
   const isHosted = window.location.origin !== apiOrigin;
 
   // Service update info for mismatch gate
@@ -33,7 +34,8 @@
     mode: "Auto" | "Manual" | "Curve"
   ): string {
     if (!isHealthy) return "md:col-span-4";
-    if (!cliPresent) return "md:col-span-4 opacity-50 pointer-events-none select-none";
+    if (!cliPresent)
+      return "md:col-span-4 opacity-50 pointer-events-none select-none";
     if (pid === "telemetry")
       return mode === "Curve"
         ? "md:col-start-1 md:col-span-5 md:row-start-1 md:row-span-1"
@@ -56,28 +58,26 @@
     // One-shot update check to decide mismatch gating (ignore paused setting)
     try {
       const res = await DefaultService.checkUpdate();
-      serviceCurrentVersion = (res.current_version ?? null)?.toString().trim() || null;
-      serviceLatestVersion = (res.latest_version ?? null)?.toString().trim() || null;
-      const updateAvailable = serviceCurrentVersion && serviceLatestVersion
-        ? gtSemver(serviceLatestVersion, serviceCurrentVersion)
-        : false;
+      serviceCurrentVersion =
+        (res.current_version ?? null)?.toString().trim() || null;
+      serviceLatestVersion =
+        (res.latest_version ?? null)?.toString().trim() || null;
+      const updateAvailable =
+        serviceCurrentVersion && serviceLatestVersion
+          ? gtSemver(serviceLatestVersion, serviceCurrentVersion)
+          : false;
       showMismatchGate = isHosted && updateAvailable;
     } catch {}
   });
 
   async function pollHealthOnce() {
     try {
-      const res = await fetch(`${OpenAPI.BASE}/health`, { credentials: "omit" });
-      if (res.ok) {
-        const j = await res.json();
-        healthy = !!j.ok;
-        cliPresent = j.cli_present !== undefined ? !!j.cli_present : true;
-        return;
-      }
+      const res = await DefaultService.health();
+      healthy = true;
+      cliPresent = res.cli_present;
     } catch {
-      // fall through
+      healthy = false;
     }
-    healthy = false;
   }
   onDestroy(() => {
     if (pollId) clearInterval(pollId);
@@ -85,7 +85,11 @@
 </script>
 
 <main class="min-h-screen flex items-center justify-center px-6 py-12">
-  <div class="w-full max-w-6xl mx-auto space-y-4" inert={showMismatchGate} aria-hidden={showMismatchGate}>
+  <div
+    class="w-full max-w-6xl mx-auto space-y-4"
+    inert={showMismatchGate}
+    aria-hidden={showMismatchGate}
+  >
     <section in:fade={{ duration: 200 }}>
       <DeviceHeader {healthy} {installerUrl} {cliPresent} />
     </section>
@@ -122,7 +126,11 @@
             </Panel>
           {:else}
             <Panel title="Fan Control" expandable={healthy}>
-              <div slot="header" class:hidden={!healthy} class="flex items-center gap-2">
+              <div
+                slot="header"
+                class:hidden={!healthy}
+                class="flex items-center gap-2"
+              >
                 <div class="join border border-primary/35">
                   <input
                     type="radio"
@@ -176,8 +184,8 @@
     <VersionMismatchModal
       serviceCurrent={serviceCurrentVersion}
       serviceLatest={serviceLatestVersion}
-      apiOrigin={apiOrigin}
-      installerUrl={installerUrl}
+      {apiOrigin}
+      {installerUrl}
     />
   {/if}
 </main>

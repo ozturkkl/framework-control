@@ -132,7 +132,7 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                 if let Some(tgt) = active_target {
                     let mut decision = "hold";
                     let mut reason = "last==next";
-                    
+
                     let next = match last_duty {
                         Some(prev) if curve_cfg.rate_limit_pct_per_step < 100 => {
                             apply_rate_limit(prev, tgt, curve_cfg.rate_limit_pct_per_step)
@@ -176,45 +176,25 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
 /// Get temperature from thermal sensors
 async fn get_sensor_temperature(cli: &FrameworkTool, sensor: &str) -> Option<i32> {
     match cli.thermal().await {
-        Ok(output) => parse_temperature(&output, sensor),
+        Ok(output) => {
+            // Prefer exact key; fallback to case-insensitive match; fallback to "APU"
+            if let Some(v) = output.temps.get(sensor) {
+                return Some(*v);
+            }
+            if let Some((_, v)) = output
+                .temps
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(sensor))
+            {
+                return Some(*v);
+            }
+            output.temps.get("APU").copied()
+        }
         Err(e) => {
             debug!("Failed to read thermal data: {}", e);
             None
         }
     }
-}
-
-/// Parse temperature from thermal output
-/// Looks for lines like "APU:    62 C" or "CPU:    55 C"
-fn parse_temperature(output: &str, sensor: &str) -> Option<i32> {
-    // First try to find the specific sensor
-    let sensor_prefix = format!("{}:", sensor);
-
-    for line in output.lines() {
-        let trimmed = line.trim();
-
-        // Check if this line contains our sensor
-        if trimmed.contains(&sensor_prefix) {
-            // Extract temperature value (looking for pattern: "number C")
-            if let Some(c_pos) = trimmed.rfind(" C") {
-                // Get the substring before " C"
-                let before_c = &trimmed[..c_pos];
-                // Extract the last word (should be the temperature number)
-                if let Some(temp_str) = before_c.split_whitespace().last() {
-                    if let Ok(temp) = temp_str.parse::<i32>() {
-                        return Some(temp);
-                    }
-                }
-            }
-        }
-    }
-
-    // Fallback: try "APU" if original sensor not found
-    if sensor != "APU" {
-        return parse_temperature(output, "APU");
-    }
-
-    None
 }
 
 /// Calculate fan duty from temperature using the curve points
@@ -265,15 +245,6 @@ fn apply_rate_limit(current: u32, target: u32, max_change: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_temperature() {
-        let output = "  F75303_Local:   45 C\n  F75303_CPU:     55 C\n  APU:          62 C\n";
-
-        assert_eq!(parse_temperature(output, "APU"), Some(62));
-        assert_eq!(parse_temperature(output, "F75303_CPU"), Some(55));
-        assert_eq!(parse_temperature(output, "CPU"), None); // Exact match required
-    }
 
     #[test]
     fn test_calculate_duty_from_curve() {

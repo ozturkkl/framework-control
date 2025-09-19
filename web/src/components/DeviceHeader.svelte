@@ -5,49 +5,49 @@
   const repoLink = "https://github.com/ozturkkl/framework-control/tree/main";
   const LID_CLOSED = `${import.meta.env.BASE_URL}assets/lid-closed.jpg`;
   const LID_OPEN = `${import.meta.env.BASE_URL}assets/lid-open.jpg`;
-  import {
-    DefaultService,
-    type SystemInfoEnvelope as SystemInfo,
-  } from "../api";
-  import { parseFrameworkVersions, getScreenResolution } from "../lib/device";
+  import { DefaultService, type SystemInfo } from "../api";
+  import { getScreenResolution } from "../lib/device";
   import Icon from "@iconify/svelte";
   import SettingsModal from "./SettingsModal.svelte";
-  import { OpenAPI } from "../api";
   import { gtSemver } from "../lib/semver";
 
-  let versionsText: string | null = null;
+  let triedToFetchVersions = false;
   let displayTitle = "Your Laptop";
   let bios: string | null = null;
   let sys: SystemInfo = {
-    ok: false,
-    cpu: "...",
+    cpu: "",
     memory_total_mb: 0,
-    os: "...",
-    dgpu: "...",
+    os: "",
+    dgpu: "",
   };
 
   const screenRes = getScreenResolution();
 
-  $: if (healthy && versionsText === null) {
+  $: if (healthy && !triedToFetchVersions) {
     (async () => {
       try {
         const v = await DefaultService.getVersions();
-        versionsText = v.stdout ?? "";
-        const s = parseFrameworkVersions(versionsText);
-        if (s.mainboardType) displayTitle = s.mainboardType;
-        if (s.uefiVersion) bios = s.uefiVersion;
+        if (v.mainboard_type) displayTitle = v.mainboard_type;
+        if (v.uefi_version) bios = v.uefi_version;
       } catch {
         console.error("Failed to fetch versions");
+      } finally {
+        triedToFetchVersions = true;
       }
     })();
   }
 
-  $: if (healthy && sys.ok === false) {
+  $: if (healthy && (!sys || !sys.cpu)) {
     (async () => {
       try {
         sys = await DefaultService.getSystemInfo();
       } catch {
-        sys.ok = false;
+        sys = {
+          cpu: "Unknown CPU",
+          memory_total_mb: 0,
+          os: "Unknown",
+          dgpu: "Unknown GPU",
+        };
       }
     })();
   }
@@ -89,13 +89,7 @@
 
   async function checkServiceUpdateOnce() {
     try {
-      const res = await fetch(`${OpenAPI.BASE}/update/check`, {
-        credentials: "omit",
-      });
-      if (!res.ok) {
-        return;
-      }
-      const j = await res.json();
+      const j = await DefaultService.checkUpdate();
       currentServiceVersion =
         (j.current_version ?? null)?.toString().trim() || null;
       latestServiceVersion =
