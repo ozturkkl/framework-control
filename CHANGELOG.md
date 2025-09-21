@@ -1,9 +1,12 @@
 ## Unreleased
 
+- Power control moved to config-based model:
+  - Added `power` section to config with `tdp_watts`, `thermal_limit_c`.
+  - New background task applies power settings at boot and on config changes.
 - Windows shortcuts: Brave app-mode support with `.url` fallback; improved detection and status.
 - Backend: refactor CLI wrapper into `service/src/cli/` module (`framework_tool.rs`), preparing for additional CLIs (e.g., RyzenAdj, inputmodule-rs).
 - Backend: add `service/src/utils/` with `github.rs` and `wget.rs` for shared release/winget helpers.
- - Breaking: `/api/power`, `/api/version` and `/api/thermal` now return parsed JSON (typed)
+- Breaking: `/api/power`, `/api/version` and `/api/thermal` now return parsed JSON (typed)
 
 ## 0.3.3 - 2025-09-01
 
@@ -20,5 +23,3 @@
 ## 0.1.0 - 2025-09-01
 
 - Initial tracked changelog. Use Unreleased above for next changes.
-
-

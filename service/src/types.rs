@@ -7,6 +7,8 @@ pub struct Config {
     #[serde(default)]
     pub fan: FanControlConfig,
     #[serde(default)]
+    pub power: PowerConfig,
+    #[serde(default)]
     pub updates: UpdatesConfig,
 }
 
@@ -14,6 +16,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             fan: FanControlConfig::default(),
+            power: PowerConfig::default(),
             updates: UpdatesConfig::default(),
         }
     }
@@ -34,12 +37,11 @@ pub enum FanControlMode {
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct FanControlConfig {
     #[serde(default)]
-    pub mode: FanControlMode,
+    pub mode: Option<FanControlMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manual: Option<ManualConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub curve: Option<CurveConfig>,
-    /// Optional calibration at the root to allow updates without touching curve config
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration: Option<FanCalibration>,
 }
@@ -61,8 +63,6 @@ pub struct CurveConfig {
     pub hysteresis_c: u32,
     #[serde(default = "default_rate_limit_pct_per_step")]
     pub rate_limit_pct_per_step: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub calibration: Option<FanCalibration>,
 }
 
 fn default_sensor() -> String {
@@ -111,32 +111,15 @@ pub struct Empty {}
 
 #[derive(Debug, Clone, Deserialize, Object)]
 pub struct PartialConfig {
-    pub fan: Option<PartialFanControlConfig>,
-    pub updates: Option<PartialUpdatesConfig>,
-}
-
-#[derive(Debug, Clone, Deserialize, Object, Default)]
-pub struct PartialFanControlConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<FanControlMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub manual: Option<ManualConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub curve: Option<CurveConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub calibration: Option<FanCalibration>,
+    pub fan: Option<FanControlConfig>,
+    pub power: Option<PowerConfig>,
+    pub updates: Option<UpdatesConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct UpdatesConfig {
     #[serde(default)]
     pub auto_install: bool,
-}
-
-#[derive(Debug, Clone, Deserialize, Object, Default)]
-pub struct PartialUpdatesConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auto_install: Option<bool>,
 }
 
 // Fan calibration types
@@ -153,4 +136,15 @@ pub struct FanCalibration {
 pub struct ErrorEnvelope {
     pub code: String,
     pub message: String,
+}
+
+// Power config stored in Config and applied at boot (and on set)
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct PowerConfig {
+    /// Desired package power in Watts (applied to STAPM/FAST/SLOW equally)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tdp_watts: Option<u32>,
+    /// Tctl thermal limit in degrees Celsius
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thermal_limit_c: Option<u32>,
 }

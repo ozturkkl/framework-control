@@ -38,12 +38,14 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `service/src/state.rs`: shared `AppState` (config RwLock, CLI handle, auth helper)
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
-  - `service/src/tasks/*`: background tasks (e.g., apply fan settings at boot)
+  - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings)
   - `service/src/cli/`: CLI integrations namespace
     - `framework_tool.rs`: wrapper for `framework_tool` (resolution, install, helpers)
+    - `ryzen_adj.rs`: wrapper for `ryzenadj` (resolution, GitHub releases download, helpers)
     - `mod.rs`: re-exports `FrameworkTool` and `resolve_or_install`
   - `service/src/utils/`: shared helpers
     - `github.rs`: GitHub repo/release helpers (fetch, parse, asset selection)
+    - `download.rs`: download utilities. `download_to_path(url, root_dir)` now takes a root directory and returns the final created path (dir for zips, file for non-zips). The low-level raw file helper is internal-only.
     - `wget.rs`: winget resolution and install helpers (Windows)
 - CLI dependency: `framework_tool` (from `framework-system`). Service wraps it rather than linking low-level driver libraries directly.
 
@@ -55,6 +57,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Integrates `FanControl.svelte` for Auto/Manual/Curve config
 - API client: `web/src/api/*` generated from OpenAPI (`scripts/gen-api.mjs`)
 - Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`)
+  - `PowerControl.svelte`: power controls (TDP, thermal limit)
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
 - Shared utilities: `web/src/lib/*`
 - Frontend API usage guideline (do not bypass):
@@ -116,6 +119,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 - `framework-system`: houses `framework_tool` and `framework_lib`
 - `inputmodule-rs`: firmware and tooling for Framework 16 input modules (e.g., `qtpy/src/main.rs` @main.rs for USB CDC commands + LED control)
+ - `RyzenAdj`: third-party CLI to adjust AMD Ryzen power/thermal parameters; downloaded from GitHub releases when missing.
 
 ### Roadmap (per README)
 

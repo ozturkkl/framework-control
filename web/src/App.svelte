@@ -5,6 +5,7 @@
   import { DefaultService } from "./api";
   import DeviceHeader from "./components/DeviceHeader.svelte";
   import FanControl from "./components/FanControl.svelte";
+  import PowerControl from "./components/PowerControl.svelte";
   import Panel from "./components/Panel.svelte";
   import { OpenAPI } from "./api";
   import VersionMismatchModal from "./components/VersionMismatchModal.svelte";
@@ -113,16 +114,20 @@
               </ul>
             </Panel>
           {:else if pid === "power"}
-            <Panel title="Power (Coming soon)" expandable={healthy}>
-              <div class="text-sm opacity-80">
-                Quick view of charger state and battery health at a glance,
-                powered by the Framework CLI.
-              </div>
-              <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
-                <li>Charger presence, voltage/current, SoC</li>
-                <li>Battery details like cycle count</li>
-                <li>Future: configurable charge rate/current limits</li>
-              </ul>
+            <Panel title="Power" expandable={healthy}>
+              {#if healthy && cliPresent}
+                <PowerControl />
+              {:else}
+                <div class="text-sm opacity-80">
+                  Quick view of charger state and battery health at a glance,
+                  powered by the Framework CLI. And RyzenAdj.
+                </div>
+                <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
+                  <li>Charger presence, voltage/current, SoC</li>
+                  <li>Battery details like cycle count</li>
+                  <li>Future: configurable charge rate/current limits</li>
+                </ul>
+              {/if}
             </Panel>
           {:else}
             <Panel title="Fan Control" expandable={healthy}>

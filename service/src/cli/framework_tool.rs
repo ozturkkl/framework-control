@@ -1,4 +1,6 @@
-use super::framework_tool_parser::{parse_power, parse_thermal, parse_versions, PowerParsed, ThermalParsed, VersionsParsed};
+use super::framework_tool_parser::{
+    parse_power, parse_thermal, parse_versions, PowerParsed, ThermalParsed, VersionsParsed,
+};
 use crate::utils::{download as dl, github as gh, wget as wg};
 use tokio::process::Command;
 use tracing::{error, info, warn};
@@ -163,29 +165,14 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     .await
     .map_err(|e| format!("failed to resolve framework_tool asset: {e}"))?
     .ok_or_else(|| "framework_tool asset not found in latest release".to_string())?;
-    let dest_path = base_dir.join(&filename).to_string_lossy().to_string();
-
     info!(
-        "Attempting direct download of framework_tool to '{}' from '{}'",
-        dest_path, url
+        "Attempting direct download of framework_tool into '{}' from '{}'",
+        base_dir.to_string_lossy(),
+        url
     );
-    if let Some(parent) = std::path::Path::new(&dest_path).parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
+    let final_path = dl::download_to_path(&url, &base_dir.to_string_lossy().to_string()).await?;
 
-    dl::download_to_file(&url, &dest_path).await?;
-
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = std::fs::metadata(&dest_path) {
-            let mut perms = meta.permissions();
-            perms.set_mode(0o755);
-            let _ = std::fs::set_permissions(&dest_path, perms);
-        }
-    }
-
-    if let Ok(meta) = std::fs::metadata(&dest_path) {
+    if let Ok(meta) = std::fs::metadata(&final_path) {
         info!("downloaded size: {} bytes", meta.len());
     }
     Ok(())

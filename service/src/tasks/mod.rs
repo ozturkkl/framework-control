@@ -3,12 +3,21 @@ use crate::update::check_and_apply_now;
 use tracing::{error, info};
 
 pub async fn boot(state: &AppState) {
-    if let Some(cli) = &state.cli {
-        let cli_clone = cli.clone();
+    if let Some(framework_tool) = &state.framework_tool {
+        let cli_clone = framework_tool.clone();
         let cfg_clone = state.config.clone();
         // The loop reads config each tick; no restart/cancel complexity needed
         tokio::spawn(async move {
             crate::tasks::fan_curve::run(cli_clone, cfg_clone).await;
+        });
+    }
+
+    // Power settings task: apply once at boot and whenever config changes (polled)
+    if let Some(_ryzen) = &state.ryzenadj {
+        let ryz_clone = state.ryzenadj.clone();
+        let cfg_clone = state.config.clone();
+        tokio::spawn(async move {
+            crate::tasks::power::run(ryz_clone, cfg_clone).await;
         });
     }
 
@@ -34,5 +43,6 @@ pub async fn boot(state: &AppState) {
 }
 
 pub mod fan_curve;
+pub mod power;
 
 
