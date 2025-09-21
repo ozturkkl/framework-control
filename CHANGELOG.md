@@ -1,6 +1,6 @@
 ## Unreleased
 
-- Power control moved to config-based model:
+- Power control:
   - Added `power` section to config with `tdp_watts`, `thermal_limit_c`.
   - New background task applies power settings at boot and on config changes.
 - Windows shortcuts: Brave app-mode support with `.url` fallback; improved detection and status.
