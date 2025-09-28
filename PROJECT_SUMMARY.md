@@ -29,6 +29,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
     - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
+- `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
     - `GET /update/check`: check for latest version from update feed (see env below)
     - `POST /update/apply`: install the update (auth required)
   - Helpers: GPU detection via PowerShell on Windows
@@ -38,7 +39,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `service/src/state.rs`: shared `AppState` (config RwLock, CLI handle, auth helper)
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
-  - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings)
+- `service/src/cli/ryzen_adj.rs`: RyzenAdj wrapper and on-demand install helper
+  - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings; auto-update checks)
   - `service/src/cli/`: CLI integrations namespace
     - `framework_tool.rs`: wrapper for `framework_tool` (resolution, install, helpers)
     - `ryzen_adj.rs`: wrapper for `ryzenadj` (resolution, GitHub releases download, helpers)
@@ -47,6 +49,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `github.rs`: GitHub repo/release helpers (fetch, parse, asset selection)
     - `download.rs`: download utilities. `download_to_path(url, root_dir)` now takes a root directory and returns the final created path (dir for zips, file for non-zips). The low-level raw file helper is internal-only.
     - `wget.rs`: winget resolution and install helpers (Windows)
+    - `fs.rs`: filesystem helpers (e.g., `copy_dir_replace(src, dst)`)
 - CLI dependency: `framework_tool` (from `framework-system`). Service wraps it rather than linking low-level driver libraries directly.
 
 ### Frontend Web UI (Svelte)
@@ -77,6 +80,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Env: `web/.env.local`
   - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
   - `VITE_CONTROL_TOKEN` (bearer token for write ops)
+  - `VITE_INSTALLER_URL` (MSI URL for "Download Service" button)
 - Build/dev:
   - `npm i && npm run dev` (dev)
   - `npm run build` (generates `web/dist` used by service/static)

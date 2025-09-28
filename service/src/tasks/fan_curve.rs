@@ -7,7 +7,7 @@ use crate::cli::FrameworkTool;
 use crate::types::{Config, FanControlMode};
 
 /// Main fan control task that runs continuously based on config
-pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
+pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: Arc<tokio::sync::RwLock<Config>>) {
     info!("Fan control task started");
 
     let mut last_duty: Option<u32> = None;
@@ -23,6 +23,16 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
         let poll_interval = match (&mode, &config.curve) {
             (FanControlMode::Curve, Some(c)) => Duration::from_millis(c.poll_ms),
             _ => Duration::from_millis(500),
+        };
+
+        // Obtain current FrameworkTool from shared state; if missing, wait for next cadence and retry
+        let maybe_cli = { cli_lock.read().await.clone() };
+        let cli = match maybe_cli {
+            Some(c) => c,
+            None => {
+                sleep(poll_interval).await;
+                continue;
+            }
         };
 
         // Handle based on current mode

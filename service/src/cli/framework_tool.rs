@@ -17,7 +17,12 @@ impl FrameworkTool {
     pub async fn new() -> Result<Self, String> {
         let path = resolve_framework_tool().await?;
         info!("framework_tool resolved at: {}", path);
-        Ok(Self { path })
+        let cli = Self { path };
+        // Validate the binary is runnable with a lightweight call.
+        if let Err(e) = cli.versions().await {
+            return Err(format!("framework_tool not runnable: {}", e));
+        }
+        Ok(cli)
     }
 
     pub async fn power(&self) -> Result<PowerParsed, String> {
@@ -92,12 +97,6 @@ async fn resolve_framework_tool() -> Result<String, String> {
             }
         }
     }
-    if let Ok(p) = std::env::var("FRAMEWORK_TOOL_PATH") {
-        let path = std::path::Path::new(&p);
-        if path.exists() {
-            return Ok(p);
-        }
-    }
 
     if let Ok(p) = which("framework_tool") {
         return Ok(p.to_string_lossy().to_string());
@@ -132,11 +131,14 @@ pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
         warn!("direct download fallback failed: {}", err);
     }
 
-    // 5) Final resolve attempt
+    // 5) Final resolve attempt (post direct-download)
     match FrameworkTool::new().await {
         Ok(cli) => Ok(cli),
         Err(e) => {
-            error!("framework_tool not found after attempted installs: {}", e);
+            error!(
+                "framework_tool not found or not runnable after attempted installs: {}",
+                e
+            );
             Err(e)
         }
     }

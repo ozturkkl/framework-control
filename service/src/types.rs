@@ -148,3 +148,16 @@ pub struct PowerConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thermal_limit_c: Option<u32>,
 }
+
+// Combined power response used by /power
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct PowerResponse {
+    /// Framework CLI power fields (flattened)
+    #[oai(flatten)]
+    pub power: crate::cli::framework_tool_parser::PowerParsed,
+    /// RyzenAdj presence and parsed info
+    pub ryzenadj_installed: bool,
+    #[oai(flatten)]
+    #[oai(skip_serializing_if = "Option::is_none")]
+    pub ryzenadj: Option<crate::cli::ryzen_adj_parser::RyzenAdjInfo>,
+}

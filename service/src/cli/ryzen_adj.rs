@@ -1,6 +1,7 @@
+use crate::cli::ryzen_adj_parser::{self, RyzenAdjInfo};
 use crate::utils::{download as dl, github as gh};
 use tokio::process::Command;
-use tracing::{error, info, warn};
+use tracing::info;
 use which::which;
 
 /// Thin wrapper around the `ryzenadj` CLI.
@@ -14,7 +15,11 @@ impl RyzenAdj {
     pub async fn new() -> Result<Self, String> {
         let path = resolve_ryzenadj().await?;
         info!("ryzenadj resolved at: {}", path);
-        Ok(Self { path })
+        let cli = Self { path };
+        if let Err(e) = cli.info().await {
+            return Err(format!("ryzenadj not runnable: {}", e));
+        }
+        Ok(cli)
     }
 
     /// Set TDP by applying stapm/fast/slow limits equally (expects watts)
@@ -37,6 +42,12 @@ impl RyzenAdj {
     pub async fn set_thermal_limit_c(&self, celsius: u32) -> Result<(), String> {
         let _ = self.run(&["--tctl-temp", &celsius.to_string()]).await?;
         Ok(())
+    }
+
+    /// Get parsed info from ryzenadj `--info` output
+    pub async fn info(&self) -> Result<RyzenAdjInfo, String> {
+        let raw = self.run(&["--info"]).await?;
+        Ok(ryzen_adj_parser::parse_info(&raw))
     }
 
     async fn run(&self, args: &[&str]) -> Result<String, String> {
@@ -98,12 +109,6 @@ async fn resolve_ryzenadj() -> Result<String, String> {
             }
         }
     }
-    if let Ok(p) = std::env::var("RYZENADJ_PATH") {
-        let path = std::path::Path::new(&p);
-        if path.exists() {
-            return Ok(p);
-        }
-    }
 
     if let Ok(p) = which("ryzenadj") {
         return Ok(p.to_string_lossy().to_string());
@@ -113,28 +118,6 @@ async fn resolve_ryzenadj() -> Result<String, String> {
     }
 
     Err("ryzenadj not found".into())
-}
-
-/// Resolve ryzenadj, attempting installation if not present.
-pub async fn resolve_or_install_ryzenadj() -> Result<RyzenAdj, String> {
-    // 1) Try resolve immediately
-    if let Ok(cli) = RyzenAdj::new().await {
-        return Ok(cli);
-    }
-
-    // 2) Try direct download once from GitHub Releases
-    if let Err(err) = attempt_install_via_direct_download().await {
-        warn!("ryzenadj direct download failed: {}", err);
-    }
-
-    // 3) Final resolve attempt
-    match RyzenAdj::new().await {
-        Ok(cli) => Ok(cli),
-        Err(e) => {
-            error!("ryzenadj not found after attempted install: {}", e);
-            Err(e)
-        }
-    }
 }
 
 /// Fallback: direct download of ryzenadj from GitHub Releases (Windows/Linux)
@@ -173,12 +156,18 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     if final_p.is_dir() {
         let stable_dir = base_dir.join("ryzenadj");
         if stable_dir != final_p {
-            // Remove any previous directory and move the new one into place
             if stable_dir.exists() {
-                let _ = std::fs::remove_dir_all(&stable_dir);
+                info!(
+                    "existing ryzenadj dir found at '{}', merging new contents",
+                    stable_dir.to_string_lossy()
+                );
+                crate::utils::fs::copy_dir_replace(&final_p, &stable_dir);
+                // Best-effort cleanup of temporary extracted directory
+                let _ = std::fs::remove_dir_all(&final_p);
+            } else {
+                std::fs::rename(&final_p, &stable_dir)
+                    .map_err(|e| format!("failed to move install dir into stable location: {e}"))?;
             }
-            std::fs::rename(&final_p, &stable_dir)
-                .map_err(|e| format!("failed to move install dir into stable location: {e}"))?;
         }
     }
     Ok(())

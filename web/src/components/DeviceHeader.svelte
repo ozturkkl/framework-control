@@ -141,12 +141,10 @@
               {:else}
                 <a
                   class="btn btn-error btn-sm mr-0 no-underline inline-flex items-center gap-2"
-                  href={repoLink}
-                  target="_blank"
-                  rel="noreferrer noopener"
+                  href={installerUrl}
                 >
                   <Icon icon="mdi:alert-circle-outline" class="w-4 h-4" />
-                  <span>framework_tool missing — Install</span>
+                  <span>framework_tool missing — Reinstall</span>
                 </a>
               {/if}
               <button

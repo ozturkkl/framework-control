@@ -385,6 +385,7 @@ dependencies = [
  "dotenvy",
  "poem",
  "poem-openapi",
+ "regex",
  "reqwest",
  "rust-embed",
  "serde",

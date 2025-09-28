@@ -19,15 +19,29 @@ enum ApiErrorResponse {
 
 type ApiResult<T> = Result<Json<T>, ApiErrorResponse>;
 
-fn require_framework_tool(
+async fn require_framework_tool_async(
     state: &AppState,
 ) -> Result<crate::cli::framework_tool::FrameworkTool, ApiErrorResponse> {
-    match state.framework_tool.as_ref() {
-        Some(cli) => Ok(cli.clone()),
+    let cli_opt = { state.framework_tool.read().await.clone() };
+    match cli_opt {
+        Some(cli) => Ok(cli),
         None => Err(ApiErrorResponse::ServiceUnavailable(Json(
             crate::types::ErrorEnvelope {
                 code: "cli_unavailable".into(),
                 message: "framework_tool not found".into(),
+            },
+        ))),
+    }
+}
+
+async fn require_ryzenadj_async(state: &AppState) -> Result<crate::cli::ryzen_adj::RyzenAdj, ApiErrorResponse> {
+    let cli_opt = { state.ryzenadj.read().await.clone() };
+    match cli_opt {
+        Some(cli) => Ok(cli),
+        None => Err(ApiErrorResponse::ServiceUnavailable(Json(
+            crate::types::ErrorEnvelope {
+                code: "ryzenadj_unavailable".into(),
+                message: "ryzenadj not found".into(),
             },
         ))),
     }
@@ -64,7 +78,7 @@ impl Api {
     /// Health: returns overall service health and CLI presence
     #[oai(path = "/health", method = "get", operation_id = "health")]
     async fn health(&self, state: Data<&AppState>) -> ApiResult<Health> {
-        let cli_present = state.framework_tool.is_some();
+        let cli_present = state.framework_tool.read().await.is_some();
         let service_version = env!("CARGO_PKG_VERSION").to_string();
         Ok(Json(Health {
             cli_present,
@@ -72,14 +86,52 @@ impl Api {
         }))
     }
 
-    #[oai(path = "/power", method = "get", operation_id = "getPower")]
-    async fn get_power(
+    /// RyzenAdj: install on demand
+    #[oai(
+        path = "/ryzenadj/install",
+        method = "post",
+        operation_id = "installRyzenadj"
+    )]
+    async fn install_ryzenadj(
         &self,
         state: Data<&AppState>,
-    ) -> ApiResult<crate::cli::framework_tool_parser::PowerParsed> {
-        let cli = require_framework_tool(&state)?;
-        let v = cli.power().await.map_err(map_cli_err)?;
-        Ok(Json(v))
+        #[oai(name = "Authorization")] auth: Header<String>,
+    ) -> ApiResult<Empty> {
+        require_auth(&state, &auth)?;
+        match crate::cli::ryzen_adj::attempt_install_via_direct_download().await {
+            Ok(_) => {
+                // Validate resolve, but do not spawn another task (boot task will pick it up)
+                match crate::cli::ryzen_adj::RyzenAdj::new().await {
+                    Ok(_cli) => Ok(Json(Empty {})),
+                    Err(e) => {
+                        error!("ryzenadj resolve after install failed: {}", e);
+                        Err(bad_gateway("ryzenadj_unavailable", e))
+                    }
+                }
+            }
+            Err(e) => Err(bad_gateway("install_failed", e)),
+        }
+    }
+
+    #[oai(path = "/power", method = "get", operation_id = "getPower")]
+    async fn get_power(&self, state: Data<&AppState>) -> ApiResult<crate::types::PowerResponse> {
+        let cli = require_framework_tool_async(&state).await?;
+        let p = cli.power().await.map_err(map_cli_err)?;
+
+        // Populate RyzenAdj info if available; do not fail the call if missing
+        let mut ryzenadj_installed = false;
+        let mut ryzenadj: Option<crate::cli::ryzen_adj_parser::RyzenAdjInfo> = None;
+        if let Ok(ryz) = require_ryzenadj_async(&state).await {
+            if let Ok(parsed) = ryz.info().await {
+                ryzenadj_installed = true;
+                ryzenadj = Some(parsed);
+            }
+        }
+        Ok(Json(crate::types::PowerResponse {
+            power: p,
+            ryzenadj_installed,
+            ryzenadj,
+        }))
     }
 
     /// Update: check for latest version from update feed
@@ -121,7 +173,7 @@ impl Api {
         &self,
         state: Data<&AppState>,
     ) -> ApiResult<crate::cli::framework_tool_parser::ThermalParsed> {
-        let cli = require_framework_tool(&state)?;
+        let cli = require_framework_tool_async(&state).await?;
         let v = cli.thermal().await.map_err(map_cli_err)?;
         Ok(Json(v))
     }
@@ -132,7 +184,7 @@ impl Api {
         &self,
         state: Data<&AppState>,
     ) -> ApiResult<crate::cli::framework_tool_parser::VersionsParsed> {
-        let cli = require_framework_tool(&state)?;
+        let cli = require_framework_tool_async(&state).await?;
         let v = cli.versions().await.map_err(map_cli_err)?;
         Ok(Json(v))
     }

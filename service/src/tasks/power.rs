@@ -8,18 +8,23 @@ use crate::types::Config;
 
 /// Power task: periodically reads config.power and applies via RyzenAdj
 /// Strategy: poll every 2s and apply if values differ from last applied
-pub async fn run(ryzenadj: Option<RyzenAdj>, cfg: Arc<tokio::sync::RwLock<Config>>) {
-    let Some(ryz) = ryzenadj else {
-        warn!("power task: ryzenadj not available; skipping");
-        return;
-    };
+pub async fn run(ryzenadj_lock: Arc<tokio::sync::RwLock<Option<RyzenAdj>>>, cfg: Arc<tokio::sync::RwLock<Config>>) {
     info!("Power task started");
 
     let mut last_tdp: Option<u32> = None;
     let mut last_thermal: Option<u32> = None;
-    // Power profile removed
 
     loop {
+        // Obtain current RyzenAdj from shared state; if missing, wait and retry
+        let maybe_ryz = { ryzenadj_lock.read().await.clone() };
+        let ryz = match maybe_ryz {
+            Some(r) => r,
+            None => {
+                sleep(Duration::from_secs(3)).await;
+                continue;
+            }
+        };
+
         let cfg_power = { cfg.read().await.power.clone() };
 
         // Apply TDP if changed and present
