@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use poem_openapi::{Enum, Object};
 use serde::{Deserialize, Serialize};
 
@@ -8,9 +10,19 @@ pub struct Config {
     pub fan: FanControlConfig,
     #[serde(default)]
     pub updates: UpdatesConfig,
+    #[serde(default = "default_high_temperature_threshold")]
+    pub high_temperature_threshold: u32
 }
 
-impl Default for Config { fn default() -> Self { Self { fan: FanControlConfig::default(), updates: UpdatesConfig::default() } } }
+impl Default for Config { 
+    fn default() -> Self { 
+        Self { 
+            fan: FanControlConfig::default(), 
+            updates: UpdatesConfig::default(),
+            high_temperature_threshold: default_high_temperature_threshold(),
+        } 
+    } 
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Enum, Default)]
 #[serde(rename_all = "lowercase")]
@@ -55,6 +67,7 @@ fn default_points() -> Vec<[u32; 2]> { vec![[40, 0], [60, 40], [75, 80], [85, 10
 fn default_poll_ms() -> u64 { 2000 }
 fn default_hysteresis_c() -> u32 { 2 }
 fn default_rate_limit_pct_per_step() -> u32 { 100 }
+fn default_high_temperature_threshold() -> u32 { 100 }
 
 // API envelope types
 #[derive(Serialize, Object)]
@@ -73,6 +86,12 @@ pub struct ConfigEnvelope {
 #[derive(Serialize, Object)]
 pub struct UpdateResult {
     pub ok: bool,
+}
+
+#[derive(Serialize, Object)]
+pub struct TemperaturesResult {
+    pub ok: bool,
+    pub temps: HashMap<String, String>
 }
 
 #[derive(Serialize, Object)]

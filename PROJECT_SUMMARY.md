@@ -44,7 +44,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Renders panels: Telemetry, Power, Fan Control; layout adapts to fan mode
   - Integrates `FanControl.svelte` for Auto/Manual/Curve config
 - API client: `web/src/api/*` generated from OpenAPI (`scripts/gen-api.mjs`)
-- Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`)
+- Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`, `Telemetry.svelte`)
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
 - Shared utilities: `web/src/lib/*`
 - Frontend API usage guideline (do not bypass):

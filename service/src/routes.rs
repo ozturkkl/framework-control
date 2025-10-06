@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use crate::config; // for save/load
 use crate::shortcuts;
+use crate::types::TemperaturesResult;
 use crate::update::{check_and_apply_now, get_current_and_latest};
 use crate::state::AppState;
 use crate::types::{
@@ -90,25 +93,25 @@ impl Api {
 
     /// Thermal info
     #[oai(path = "/thermal", method = "get", operation_id = "getThermal")]
-    async fn get_thermal(&self, state: Data<&AppState>) -> Json<CliOutput> {
+    async fn get_thermal(&self, state: Data<&AppState>) -> Json<TemperaturesResult> {
         let Some(cli) = &state.cli else {
-            return Json(CliOutput {
+            return Json(TemperaturesResult {
                 ok: false,
-                stdout: None,
-                error: Some("framework_tool not found".into()),
+                temps: HashMap::new()
             });
         };
         match cli.thermal().await {
-            Ok(output) => Json(CliOutput {
+            Ok(output) => Json(TemperaturesResult {
                 ok: true,
-                stdout: Some(output),
-                error: None,
+                temps: parse_temperatures(output)
             }),
-            Err(e) => Json(CliOutput {
-                ok: false,
-                stdout: None,
-                error: Some(e),
-            }),
+            Err(e) => {
+                error!("apply update failed: {}", e);
+                Json(TemperaturesResult {
+                    ok: false,
+                    temps: HashMap::new()
+                })
+            },
         }
     }
 
@@ -312,4 +315,35 @@ fn pick_dedicated_gpu(names: &[String]) -> Option<String> {
         }
     }
     best
+}
+
+/// Parse the temperature from the string given by frameworks' tools into a map
+fn parse_temperatures(temperatures: String) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    for line in temperatures.split(['\n', '\r']) {
+        let trimmed_line = line.trim();
+        if trimmed_line.len() > 0 {
+            let parts = trimmed_line.split(":").collect::<Vec<&str>>();
+            if parts.len() == 2 && parts[1].ends_with(['C', 'F']) {
+                map.insert(parts[0].trim().to_string(), parts[1].trim().to_string());
+            }
+        }
+    }
+    return map;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_temperature() {
+        let output = "  F75303_Local:   45 C\n  F75303_CPU:     55 C\n  APU:          62 C\n";
+        let temps = parse_temperatures(output.to_string());
+
+        assert_eq!(temps.get(&"F75303_Local".to_string()), Some(&"45 C".to_string()));
+        assert_eq!(temps.get(&"F75303_CPU".to_string()), Some(&"55 C".to_string()));
+        assert_eq!(temps.get(&"APU".to_string()), Some(&"62 C".to_string()));
+        assert_eq!(temps.get(&"dwada".to_string()), None);
+    }
 }

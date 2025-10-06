@@ -9,6 +9,7 @@
   import { OpenAPI } from "./api";
   import VersionMismatchModal from "./components/VersionMismatchModal.svelte";
   import { gtSemver } from "./lib/semver";
+  import Telemetry from "./components/Telemetry.svelte";
 
   let healthy: boolean = false;
   let cliPresent: boolean = true;
@@ -97,17 +98,7 @@
           class={"col-span-12 " + panelGridClasses(pid, healthy, fanMode)}
         >
           {#if pid === "telemetry"}
-            <Panel title="Telemetry (Coming soon)" expandable={healthy}>
-              <div class="text-sm opacity-80">
-                Live temps and fan RPM read locally via the service. Nothing
-                leaves your machine.
-              </div>
-              <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
-                <li>Temps and fan RPM</li>
-                <li>AC/battery status and basic battery info</li>
-                <li>Time‑series charts & live updates</li>
-              </ul>
-            </Panel>
+            <Telemetry bind:healthy />
           {:else if pid === "power"}
             <Panel title="Power (Coming soon)" expandable={healthy}>
               <div class="text-sm opacity-80">

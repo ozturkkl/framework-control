@@ -64,6 +64,7 @@
           </button>
         </div>
         <slot />
+        <slot name="expended-only" />
       </div>
     </div>
     <button class="modal-backdrop" aria-label="Close overlay" on:click={() => (isExpanded = false)}></button>
