@@ -9,6 +9,7 @@
   } from "../api";
   import Icon from "@iconify/svelte";
   import { deepMerge } from "../lib/utils";
+  import UiSlider from "./UiSlider.svelte";
 
   const TDP_MIN = 5;
   const TDP_MAX = 120;
@@ -269,150 +270,40 @@
       class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))] pt-2"
     >
       <div
-        class="card bg-base-200 min-w-0 transition-transform duration-100"
+        class="transition-transform duration-100"
         class:scale-[0.985]={!powerConfig[activeProfile].tdp_watts.enabled}
       >
-        <div class="card-body gap-2 py-3 pt-2 px-5">
-          <div class="flex items-center justify-between">
-            <div
-              class="flex items-center gap-1.5"
-              class:opacity-60={!powerConfig[activeProfile].tdp_watts.enabled}
-            >
-              {#if activeProfile === "ac"}
-                <Icon
-                  icon="mdi:power-plug-outline"
-                  class="w-4 h-4 text-primary/80"
-                />
-              {:else}
-                <Icon
-                  icon="mdi:battery-outline"
-                  class="w-4 h-3 text-secondary/80"
-                />
-              {/if}
-              <h3 class="card-title text-sm">TDP Limit</h3>
-            </div>
-            <div class="flex items-center gap-2 text-xs">
-              <span
-                class="font-medium tabular-nums w-16 text-right"
-                class:opacity-60={!powerConfig[activeProfile].tdp_watts.enabled}
-                >{Math.round(powerConfig[activeProfile].tdp_watts.value)} W</span
-              >
-              <span
-                class:opacity-60={!powerConfig[activeProfile].tdp_watts.enabled}
-                >•</span
-              >
-              <label
-                class="label cursor-pointer gap-2 text-xs flex-row-reverse"
-              >
-                <input
-                  type="checkbox"
-                  class="checkbox checkbox-xs"
-                  class:checkbox-success={powerConfig[activeProfile].tdp_watts
-                    .enabled}
-                  bind:checked={powerConfig[activeProfile].tdp_watts.enabled}
-                  on:change={onToggleTdp}
-                />
-                <span class="label-text">Enabled</span>
-              </label>
-            </div>
-          </div>
-          <div
-            class="flex items-center gap-3"
-            class:opacity-60={!powerConfig[activeProfile].tdp_watts.enabled}
-          >
-            <div class="relative flex-1 flex items-center">
-              {#if activeProfile === "battery"}
-                <div
-                  aria-hidden="true"
-                  class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full pointer-events-none bg-secondary/50 z-10"
-                  style={`left: ${((TDP_BATTERY_MAX - TDP_MIN) / (TDP_MAX - TDP_MIN)) * 100}%; right: 0;`}
-                />
-              {/if}
-              <input
-                type="range"
-                min={TDP_MIN}
-                max={TDP_MAX}
-                step="1"
-                bind:value={powerConfig[activeProfile].tdp_watts.value}
-                class="range range-sm w-full relative z-20"
-                on:input={onInputTdp}
-                on:change={onChangeTdp}
-              />
-            </div>
-          </div>
-        </div>
+        <UiSlider
+          label="TDP Limit"
+          icon={activeProfile === "ac" ? "mdi:power-plug-outline" : "mdi:battery-outline"}
+          unit="W"
+          min={TDP_MIN}
+          max={TDP_MAX}
+          step={1}
+          hasEnabled={true}
+          bind:enabled={powerConfig[activeProfile].tdp_watts.enabled}
+          capMax={activeProfile === "battery" ? TDP_BATTERY_MAX : null}
+          bind:value={powerConfig[activeProfile].tdp_watts.value}
+          on:input={onInputTdp}
+          on:change={onChangeTdp}
+        />
       </div>
       <div
-        class="card bg-base-200 min-w-0 transition-transform duration-100"
-        class:scale-[0.985]={!powerConfig[activeProfile].thermal_limit_c
-          .enabled}
+        class="transition-transform duration-100"
+        class:scale-[0.985]={!powerConfig[activeProfile].thermal_limit_c.enabled}
       >
-        <div class="card-body gap-2 py-3 pt-2 px-5">
-          <div class="flex items-center justify-between">
-            <div
-              class="flex items-center gap-1.5"
-              class:opacity-60={!powerConfig[activeProfile].thermal_limit_c
-                .enabled}
-            >
-              {#if activeProfile === "ac"}
-                <Icon
-                  icon="mdi:power-plug-outline"
-                  class="w-4 h-4 text-primary/80"
-                />
-              {:else}
-                <Icon
-                  icon="mdi:battery-outline"
-                  class="w-4 h-3 text-secondary/80"
-                />
-              {/if}
-              <h3 class="card-title text-sm">Thermal Limit</h3>
-            </div>
-            <div class="flex items-center gap-2 text-xs">
-              <span
-                class="font-medium tabular-nums w-16 text-right"
-                class:opacity-60={!powerConfig[activeProfile].thermal_limit_c
-                  .enabled}
-                >{Math.round(
-                  powerConfig[activeProfile].thermal_limit_c.value ?? 100
-                )} °C</span
-              >
-              <span
-                class:opacity-60={!powerConfig[activeProfile].thermal_limit_c
-                  .enabled}>•</span
-              >
-              <label
-                class="label cursor-pointer gap-2 text-xs flex-row-reverse"
-              >
-                <input
-                  type="checkbox"
-                  class="checkbox checkbox-xs"
-                  class:checkbox-success={powerConfig[activeProfile]
-                    .thermal_limit_c.enabled}
-                  bind:checked={
-                    powerConfig[activeProfile].thermal_limit_c.enabled
-                  }
-                  on:change={onToggleThermal}
-                />
-                <span class="label-text">Enabled</span>
-              </label>
-            </div>
-          </div>
-          <div
-            class="flex items-center gap-3"
-            class:opacity-60={!powerConfig[activeProfile].thermal_limit_c
-              .enabled}
-          >
-            <input
-              type="range"
-              min="50"
-              max="100"
-              step="1"
-              bind:value={powerConfig[activeProfile].thermal_limit_c.value}
-              class="range range-sm flex-1"
-              on:change={onChangeThermal}
-            />
-          </div>
-        </div>
+        <UiSlider
+          label="Thermal Limit"
+          icon={activeProfile === "ac" ? "mdi:power-plug-outline" : "mdi:battery-outline"}
+          unit="°C"
+          min={50}
+          max={100}
+          step={1}
+          hasEnabled={true}
+          bind:enabled={powerConfig[activeProfile].thermal_limit_c.enabled}
+          bind:value={powerConfig[activeProfile].thermal_limit_c.value}
+          on:change={onChangeThermal}
+        />
       </div>
     </div>
   {/if}
