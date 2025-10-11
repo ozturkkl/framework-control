@@ -1,9 +1,12 @@
 ## Unreleased
 
-- Power control:
-  - Added `power` section to config with `tdp_watts`, `thermal_limit_c`.
-  - New background task applies power settings at boot and on config changes.
-  - Install on demand, notify user if install is not completed due to anti-virus false positive.
+- Backend: Add minimal 2s TTL cache to reduce CLI load in some cases. Cache is returned only within TTL; cache is cleared and errors are propagated on failures.
+- Web: New `Telemetry.svelte` mini-card in Telemetry panel showing live TDP (W), Thermal (°C), and Battery % with charging state;
+- Power config/UI:
+  - Power config redesigned with AC/Battery profiles and per-setting enabled flags.
+  - Power task selects profile based on AC presence and applies enabled values.
+- Backend: Power task now includes a conservative TDP reapply mechanism (quiet-window + cooldown, with tolerance) that reads current TDP from `ryzenadj --info` and re-applies the user preference only when the OS/driver adjustments have settled. This improves reliability without fighting calibration behavior.
+- Install on demand, notify user if install is not completed due to anti-virus false positive.
 - Windows shortcuts: Brave app-mode support with `.url` fallback; improved detection and status.
 - Backend: refactor CLI wrapper into `service/src/cli/` module (`framework_tool.rs`), preparing for additional CLIs (e.g., RyzenAdj, inputmodule-rs).
 - Backend: add `service/src/utils/` with `github.rs` and `wget.rs` for shared release/winget helpers.

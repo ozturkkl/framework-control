@@ -6,6 +6,7 @@
   import DeviceHeader from "./components/DeviceHeader.svelte";
   import FanControl from "./components/FanControl.svelte";
   import PowerControl from "./components/PowerControl.svelte";
+  import Telemetry from "./components/Telemetry.svelte";
   import Panel from "./components/Panel.svelte";
   import { OpenAPI } from "./api";
   import VersionMismatchModal from "./components/VersionMismatchModal.svelte";
@@ -102,16 +103,20 @@
           class={"col-span-12 " + panelGridClasses(pid, healthy, fanMode)}
         >
           {#if pid === "telemetry"}
-            <Panel title="Telemetry (Coming soon)" expandable={healthy}>
-              <div class="text-sm opacity-80">
-                Live temps and fan RPM read locally via the service. Nothing
-                leaves your machine.
-              </div>
-              <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
-                <li>Temps and fan RPM</li>
-                <li>AC/battery status and basic battery info</li>
-                <li>Time‑series charts & live updates</li>
-              </ul>
+            <Panel title="Telemetry" expandable={healthy}>
+              {#if healthy && cliPresent}
+                <Telemetry />
+              {:else}
+                <div class="text-sm opacity-80">
+                  Live temps and fan RPM read locally via the service. Nothing
+                  leaves your machine.
+                </div>
+                <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
+                  <li>Temps, power, and fan RPM</li>
+                  <li>AC/battery status and basic battery info</li>
+                  <li>Time‑series charts & live updates</li>
+                </ul>
+              {/if}
             </Panel>
           {:else if pid === "power"}
             <Panel title="Power" expandable={healthy}>
@@ -123,7 +128,7 @@
                   powered by the Framework CLI. And RyzenAdj.
                 </div>
                 <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
-                  <li>Charger presence, voltage/current, SoC</li>
+                  <li>TDP and thermal limit controls</li>
                   <li>Battery details like cycle count</li>
                   <li>Future: configurable charge rate/current limits</li>
                 </ul>

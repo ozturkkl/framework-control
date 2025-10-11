@@ -1,5 +1,7 @@
 use crate::cli::ryzen_adj_parser::{self, RyzenAdjInfo};
+use crate::utils::global_cache;
 use crate::utils::{download as dl, github as gh};
+use std::time::Duration;
 use tokio::process::Command;
 use tracing::info;
 use which::which;
@@ -16,7 +18,7 @@ impl RyzenAdj {
         let path = resolve_ryzenadj().await?;
         info!("ryzenadj resolved at: {}", path);
         let cli = Self { path };
-        if let Err(e) = cli.info().await {
+        if let Err(e) = cli.info_with_error_cache(false).await {
             return Err(format!("ryzenadj not runnable: {}", e));
         }
         Ok(cli)
@@ -46,8 +48,18 @@ impl RyzenAdj {
 
     /// Get parsed info from ryzenadj `--info` output
     pub async fn info(&self) -> Result<RyzenAdjInfo, String> {
-        let raw = self.run(&["--info"]).await?;
-        Ok(ryzen_adj_parser::parse_info(&raw))
+        self.info_with_error_cache(true).await
+    }
+
+    /// Variant of `info` that allows callers to opt out of error caching.
+    /// Useful for validation flows after install where we want fresh attempts
+    async fn info_with_error_cache(&self, cache_errors: bool) -> Result<RyzenAdjInfo, String> {
+        const INFO_TTL: Duration = Duration::from_millis(2000);
+        global_cache::cache_get_or_update("ryzenadj.info", INFO_TTL, cache_errors, || async {
+            let raw = self.run(&["--info"]).await?;
+            Ok(ryzen_adj_parser::parse_info(&raw))
+        })
+        .await
     }
 
     async fn run(&self, args: &[&str]) -> Result<String, String> {
@@ -66,7 +78,7 @@ impl RyzenAdj {
             .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| format!("spawn failed: {e}"))?;
-        let output = timeout(Duration::from_secs(5), child.wait_with_output())
+        let output = timeout(Duration::from_secs(60), child.wait_with_output())
             .await
             .map_err(|_| "ryzenadj timed out".to_string())
             .and_then(|res| res.map_err(|e| format!("wait failed: {e}")))?;

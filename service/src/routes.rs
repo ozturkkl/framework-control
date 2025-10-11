@@ -226,11 +226,17 @@ impl Api {
         }
         if let Some(pow) = req.power {
             let mut new_pow = merged.power.clone();
-            if let Some(v) = pow.tdp_watts {
-                new_pow.tdp_watts = Some(v);
+            if let Some(ac_in) = pow.ac {
+                let mut ac = new_pow.ac.unwrap_or_default();
+                if let Some(s) = ac_in.tdp_watts { ac.tdp_watts = Some(s); }
+                if let Some(s) = ac_in.thermal_limit_c { ac.thermal_limit_c = Some(s); }
+                new_pow.ac = Some(ac);
             }
-            if let Some(v) = pow.thermal_limit_c {
-                new_pow.thermal_limit_c = Some(v);
+            if let Some(bat_in) = pow.battery {
+                let mut bat = new_pow.battery.unwrap_or_default();
+                if let Some(s) = bat_in.tdp_watts { bat.tdp_watts = Some(s); }
+                if let Some(s) = bat_in.thermal_limit_c { bat.thermal_limit_c = Some(s); }
+                new_pow.battery = Some(bat);
             }
             merged.power = new_pow;
         }

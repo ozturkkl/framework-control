@@ -140,13 +140,25 @@ pub struct ErrorEnvelope {
 
 // Power config stored in Config and applied at boot (and on set)
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct SettingU32 {
+    /// Whether this setting should be applied
+    pub enabled: bool,
+    /// The last chosen value (kept even when disabled)
+    pub value: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct PowerProfile {
+    pub tdp_watts: Option<SettingU32>,
+    pub thermal_limit_c: Option<SettingU32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct PowerConfig {
-    /// Desired package power in Watts (applied to STAPM/FAST/SLOW equally)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tdp_watts: Option<u32>,
-    /// Tctl thermal limit in degrees Celsius
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thermal_limit_c: Option<u32>,
+    /// Profile used when AC power is present (plugged in / charging)
+    pub ac: Option<PowerProfile>,
+    /// Profile used when running on battery (not charging)
+    pub battery: Option<PowerProfile>,
 }
 
 // Combined power response used by /power

@@ -14,8 +14,9 @@ pub async fn boot(state: &AppState) {
     {
         let ryz_clone = state.ryzenadj.clone();
         let cfg_clone = state.config.clone();
+        let ft_clone = state.framework_tool.clone();
         tokio::spawn(async move {
-            crate::tasks::power::run(ryz_clone, cfg_clone).await;
+            crate::tasks::power::run(ryz_clone, cfg_clone, ft_clone).await;
         });
     }
 

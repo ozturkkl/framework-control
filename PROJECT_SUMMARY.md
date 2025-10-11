@@ -35,12 +35,13 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Helpers: GPU detection via PowerShell on Windows
 - Other key files:
   - `service/src/config.rs`: load/save config JSON in `C:\ProgramData\FrameworkControl\config.json`
-  - `service/src/types.rs`: API/request/response and config types
+  - `service/src/types.rs`: API/request/response and config types (power config now has AC/Battery profiles with enabled flags)
   - `service/src/state.rs`: shared `AppState` (config RwLock, CLI handle, auth helper)
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
 - `service/src/cli/ryzen_adj.rs`: RyzenAdj wrapper and on-demand install helper
   - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings; auto-update checks)
+  - `service/src/tasks/power.rs`: selects AC/Battery profile based on AC presence and applies enabled TDP/thermal values. Adds a "sticky but patient" TDP reapply: polls current TDP via `ryzenadj --info`, waits for a quiet window (no drift) before reapplying, and rate-limits reapply attempts. This avoids fighting the OS/driver's gradual adjustments while keeping the user's requested TDP in effect.
   - `service/src/cli/`: CLI integrations namespace
     - `framework_tool.rs`: wrapper for `framework_tool` (resolution, install, helpers)
     - `ryzen_adj.rs`: wrapper for `ryzenadj` (resolution, GitHub releases download, helpers)
@@ -60,7 +61,10 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Integrates `FanControl.svelte` for Auto/Manual/Curve config
 - API client: `web/src/api/*` generated from OpenAPI (`scripts/gen-api.mjs`)
 - Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`)
-  - `PowerControl.svelte`: power controls (TDP, thermal limit)
+  - `PowerControl.svelte`: power controls with AC/Battery tabs; per-setting Enabled checkbox; compact layout
+    - Battery mode: TDP slider visually shows an unreachable segment beyond 60 W (error tint) while the actual range remains 5–120 W; input is clamped to 60 W on battery.
+    - Remembers last selected AC/Battery tab via `localStorage` key `fc.power.activeProfile`.
+  - `Telemetry.svelte`: compact live readouts card (TDP W, Thermal °C, Battery % + charging state) polling `/api/power`
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
 - Shared utilities: `web/src/lib/*`
 - Frontend API usage guideline (do not bypass):

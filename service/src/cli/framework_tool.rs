@@ -1,7 +1,8 @@
 use super::framework_tool_parser::{
     parse_power, parse_thermal, parse_versions, PowerParsed, ThermalParsed, VersionsParsed,
 };
-use crate::utils::{download as dl, github as gh, wget as wg};
+use crate::utils::{download as dl, github as gh, wget as wg, global_cache};
+use std::time::Duration;
 use tokio::process::Command;
 use tracing::{error, info, warn};
 use which::which;
@@ -26,13 +27,21 @@ impl FrameworkTool {
     }
 
     pub async fn power(&self) -> Result<PowerParsed, String> {
-        let out = self.run(&["--power"]).await?;
-        Ok(parse_power(&out))
+        const TTL: Duration = Duration::from_millis(2000);
+        global_cache::cache_get_or_update("framework_tool.power", TTL, true, || async {
+            let out = self.run(&["--power"]).await?;
+            Ok(parse_power(&out))
+        })
+        .await
     }
 
     pub async fn thermal(&self) -> Result<ThermalParsed, String> {
-        let out = self.run(&["--thermal"]).await?;
-        Ok(parse_thermal(&out))
+        const TTL: Duration = Duration::from_millis(1000);
+        global_cache::cache_get_or_update("framework_tool.thermal", TTL, true, || async {
+            let out = self.run(&["--thermal"]).await?;
+            Ok(parse_thermal(&out))
+        })
+        .await
     }
 
     pub async fn versions(&self) -> Result<VersionsParsed, String> {
@@ -65,7 +74,7 @@ impl FrameworkTool {
             .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| format!("spawn failed: {e}"))?;
-        let output = timeout(Duration::from_secs(5), child.wait_with_output())
+        let output = timeout(Duration::from_secs(60), child.wait_with_output())
             .await
             .map_err(|_| "framework_tool timed out".to_string())
             .and_then(|res| res.map_err(|e| format!("wait failed: {e}")))?;

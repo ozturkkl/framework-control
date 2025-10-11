@@ -433,20 +433,20 @@
 
 <svelte:window on:pointerup={endDrag} on:pointercancel={endDrag} />
 
-<div class="relative min-h-16 flex flex-col justify-center">
+<span
+  class="pointer-events-none select-none absolute top-[1.4rem] left-[19rem] inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow transition duration-200 ease-out"
+  style="opacity: {success ? 1 : 0}; transform: scale({success ? 1 : 0.9});"
+  aria-hidden="true"
+>
+  <Icon icon="mdi:check" class="text-base" />
+</span>
+
+<div class="relative min-h-16 flex flex-col justify-center my-auto">
   {#if error}
     <div class="alert alert-error text-sm">
       <span>{error}</span>
     </div>
   {/if}
-
-  <span
-    class="pointer-events-none select-none absolute top-[-38px] left-[275px] inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow transition duration-200 ease-out"
-    style="opacity: {success ? 1 : 0}; transform: scale({success ? 1 : 0.9});"
-    aria-hidden="true"
-  >
-    <Icon icon="mdi:check" class="text-base" />
-  </span>
 
   {#if mode === "Auto"}
     <div class="text-lg opacity-80">
@@ -817,7 +817,3 @@
     on:cancel={closeCalibration}
   />
 {/if}
-
-<style>
-  /* Removed CSS transform-based pulse to avoid SVG transform-origin issues */
-</style>
