@@ -31,9 +31,9 @@
   });
 </script>
 
-<div class="card bg-base-200 min-w-0">
-  <div class="card-body py-2 px-3">
-    <div class="flex items-center justify-between text-xs">
+<div class="pt-2">
+  <div class="bg-base-200 min-w-0 rounded-xl">
+    <div class="py-2 px-3 flex items-center justify-between text-xs">
       <div class="flex items-center gap-2">
         <span class="inline-flex items-center gap-1">
           <Icon
@@ -51,7 +51,7 @@
           <span class="tabular-nums text-xs">{currentThermal ?? "—"} °C</span>
         </span>
       </div>
-      <div class="text-[10px] hidden sm:flex items-center gap-1">
+      <div class="text-[10px] flex items-center gap-1">
         <span class={`inline-flex items-center gap-1`}>
           <Icon
             icon={acPresent ? "mdi:battery-charging" : "mdi:battery"}

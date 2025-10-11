@@ -64,6 +64,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `PowerControl.svelte`: power controls with AC/Battery tabs; per-setting Enabled checkbox; compact layout
     - Battery mode: TDP slider visually shows an unreachable segment beyond 60 W (error tint) while the actual range remains 5–120 W; input is clamped to 60 W on battery.
     - Remembers last selected AC/Battery tab via `localStorage` key `fc.power.activeProfile`.
+    - Intel gating: Uses `/api/system` to detect CPU vendor and shows an AMD-only notice on Intel systems (RyzenAdj-based controls not supported on Intel yet).
   - `Telemetry.svelte`: compact live readouts card (TDP W, Thermal °C, Battery % + charging state) polling `/api/power`
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
 - Shared utilities: `web/src/lib/*`

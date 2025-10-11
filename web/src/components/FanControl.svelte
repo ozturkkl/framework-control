@@ -441,7 +441,7 @@
   <Icon icon="mdi:check" class="text-base" />
 </span>
 
-<div class="relative min-h-16 flex flex-col justify-center my-auto">
+<div class="relative flex flex-col justify-center my-auto pt-2">
   {#if error}
     <div class="alert alert-error text-sm">
       <span>{error}</span>
@@ -449,27 +449,25 @@
   {/if}
 
   {#if mode === "Auto"}
-    <div class="text-lg opacity-80">
+    <div class="text-md opacity-80">
       Fan will be controlled by the default firmware curve.
     </div>
   {/if}
 
   {#if mode === "Manual"}
-    <div class="form-control">
-      <label class="label" for="manual-duty">
-        <span class="label-text">Manual duty: {manualDutyPct}%</span>
-      </label>
-      <input
-        id="manual-duty"
-        type="range"
-        min="0"
-        max="100"
-        step="1"
-        class="range"
-        bind:value={manualDutyPct}
-        on:input={save}
-      />
-    </div>
+    <label class="label pt-0" for="manual-duty">
+      <span class="label-text">Manual duty: {manualDutyPct}%</span>
+    </label>
+    <input
+      id="manual-duty"
+      type="range"
+      min="0"
+      max="100"
+      step="1"
+      class="range"
+      bind:value={manualDutyPct}
+      on:input={save}
+    />
   {/if}
 
   {#if mode === "Curve"}

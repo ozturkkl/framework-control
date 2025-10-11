@@ -14,6 +14,10 @@
   const TDP_MAX = 120;
   const TDP_BATTERY_MAX = 60;
 
+  // Basic CPU vendor detection to gate AMD-only controls
+  let isIntel: boolean = false;
+  let detectedCpu: string | null = null;
+
   let activeProfile: keyof PowerConfig = "ac";
   const ACTIVE_PROFILE_KEY = "fc.power.activeProfile";
   function setActiveProfile(profile: keyof PowerConfig) {
@@ -86,6 +90,13 @@
 
   onMount(async () => {
     hasCheckedInstallStatus = false;
+    try {
+      const sys = await DefaultService.getSystemInfo();
+      detectedCpu = sys?.cpu || "";
+      isIntel = detectedCpu.toLowerCase().includes("intel");
+    } catch (_) {
+      isIntel = false;
+    }
     try {
       const saved = localStorage.getItem(ACTIVE_PROFILE_KEY);
       if (saved === "ac" || saved === "battery") {
@@ -191,65 +202,71 @@
   {/if}
 </div>
 
-<div class="space-y-3 my-auto">
-  {#if !hasCheckedInstallStatus}
-    <div class="card bg-base-200">
-      <div class="card-body gap-3 py-3 px-5">
-        <h3 class="card-title text-md">Checking requirements…</h3>
-        <div class="flex items-center gap-2 text-sm opacity-80">
-          <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
-          <span>Detecting current power helper status</span>
-        </div>
+<div class="my-auto">
+  {#if isIntel}
+    <div>
+      <h3 class="text-lg font-bold mb-2 text-center">
+        Intel systems not yet supported
+      </h3>
+      <div class="text-sm opacity-80 text-center">
+        Power controls are currently available only on AMD Ryzen systems via
+        RyzenAdj. Your CPU appears to be{#if detectedCpu}: <b>{detectedCpu}</b
+          >{/if}.
+      </div>
+    </div>
+  {:else if !hasCheckedInstallStatus}
+    <div>
+      <h3 class="text-lg font-bold mb-2 text-center">Checking requirements…</h3>
+      <div class="flex items-center justify-center gap-2 text-sm opacity-80">
+        <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+        <span>Detecting current power helper status</span>
       </div>
     </div>
   {:else if !ryzenInstalled}
-    <div class="card bg-base-200">
-      <div class="card-body gap-2 py-3 px-5">
-        <h3 class="card-title text-md">Enable power controls</h3>
-        <ul class="list-disc pl-5 text-sm space-y-1 opacity-80">
-          <li>This requires a small helper to be installed.</li>
-          <li>May trigger antivirus warnings on your system.</li>
-          <li>
-            Adjusting power settings can cause instability and crashes and may
-            even (though rarely) damage your hardware. We take no
-            responsibility!
-          </li>
-        </ul>
-        <div class="mt-1 flex items-center gap-2">
-          <label class="label cursor-pointer justify-start gap-2">
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              bind:checked={agreed}
-            />
-            <span class="label-text text-sm"
-              >I agree to the above and <span class="text-primary"
-                >understand the risks!</span
-              ></span
-            >
-          </label>
-          <button
-            class="btn btn-primary btn-sm"
-            disabled={!agreed || installingRyzenAdj}
-            on:click={installRyzenAdj}
+    <div>
+      <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
+      <ul class="list-disc pl-5 text-sm space-y-1 opacity-80">
+        <li>This requires a small helper to be installed.</li>
+        <li>May trigger antivirus warnings on your system.</li>
+        <li>
+          Adjusting power settings can cause instability and crashes and may
+          even (though rarely) damage your hardware. We take no responsibility!
+        </li>
+      </ul>
+      <div class="mt-1 flex items-center justify-between">
+        <label class="label cursor-pointer justify-start gap-2">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-sm"
+            bind:checked={agreed}
+          />
+          <span class="label-text text-sm"
+            >I agree to the above and <span class="text-primary"
+              >understand the risks!</span
+            ></span
           >
-            {#if installingRyzenAdj}
-              <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
-              Installing...
-            {:else}
-              <Icon icon="mdi:download-outline" class="w-4 h-4" />
-              Install
-            {/if}
-          </button>
-        </div>
-        {#if errorMessage}
-          <div class="text-xs text-error">{errorMessage}</div>
-        {/if}
+        </label>
+        <button
+          class="btn btn-primary btn-sm"
+          disabled={!agreed || installingRyzenAdj}
+          on:click={installRyzenAdj}
+        >
+          {#if installingRyzenAdj}
+            <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+            Installing...
+          {:else}
+            <Icon icon="mdi:download-outline" class="w-4 h-4" />
+            Install
+          {/if}
+        </button>
       </div>
+      {#if errorMessage}
+        <div class="text-xs text-error">{errorMessage}</div>
+      {/if}
     </div>
   {:else}
     <div
-      class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
+      class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))] pt-2"
     >
       <div
         class="card bg-base-200 min-w-0 transition-transform duration-100"

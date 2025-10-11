@@ -35,22 +35,22 @@
     isHealthy: boolean,
     mode: "Auto" | "Manual" | "Curve"
   ): string {
-    if (!isHealthy) return "md:col-span-4";
+    if (!isHealthy) return "lg:col-span-4";
     if (!cliPresent)
-      return "md:col-span-4 opacity-50 pointer-events-none select-none";
+      return "lg:col-span-4 opacity-50 pointer-events-none select-none";
     if (pid === "telemetry")
       return mode === "Curve"
-        ? "md:col-start-1 md:col-span-5 md:row-start-1 md:row-span-1"
-        : "md:col-start-1 md:col-span-6 md:row-start-1 md:row-span-3";
+        ? "lg:col-start-1 lg:col-span-5 lg:row-start-1 lg:row-span-1"
+        : "lg:col-start-1 lg:col-span-6 lg:row-start-1 lg:row-span-3";
     if (pid === "power")
       return mode === "Curve"
-        ? "md:col-start-1 md:col-span-5 md:row-start-2 md:row-span-1"
-        : "md:col-start-7 md:col-span-6 md:row-start-2 md:row-span-2";
+        ? "lg:col-start-1 lg:col-span-5 lg:row-start-2 lg:row-span-1"
+        : "lg:col-start-7 lg:col-span-6 lg:row-start-2 lg:row-span-2";
     if (pid === "fan")
       return mode === "Curve"
-        ? "md:col-start-6 md:col-span-7 md:row-start-1 md:row-span-2"
-        : "md:col-start-7 md:col-span-6 md:row-start-1 md:row-span-1";
-    return "md:col-span-4";
+        ? "lg:col-start-6 lg:col-span-7 lg:row-start-1 lg:row-span-2"
+        : "lg:col-start-7 lg:col-span-6 lg:row-start-1 lg:row-span-1";
+    return "lg:col-span-4";
   }
   onMount(async () => {
     await pollHealthOnce();
@@ -96,7 +96,7 @@
       <DeviceHeader {healthy} {installerUrl} {cliPresent} />
     </section>
 
-    <section class="grid gap-4 md:grid-cols-12 md:auto-rows-fr">
+    <section class="grid gap-4 lg:grid-cols-12 lg:auto-rows-fr">
       {#each ["telemetry", "power", "fan"] as pid (pid)}
         <div
           animate:flip={{ duration: 200 }}

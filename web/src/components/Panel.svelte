@@ -15,12 +15,12 @@
   // Shared classes to keep collapsed/expanded views consistent
   const headerRowClass = "flex items-center justify-between";
   const headerLeftClass = "flex items-center gap-3";
-  const bodyClass = "card-body flex flex-col gap-3 p-5";
-  $: collapsedCardClass = `card bg-base-100 shadow transition-all duration-300 h-full ${className}`;
-  $: expandedCardClass = `card bg-base-100 shadow-xl w-full max-w-5xl ${className}`;
+  const bodyClass = "flex flex-col p-5 h-full";
 </script>
 
-<div class={collapsedCardClass}>
+<div
+  class={`card bg-base-100 shadow transition-all duration-300 h-full ${className}`}
+>
   <div class={bodyClass}>
     <div class={headerRowClass}>
       <div class={headerLeftClass}>
@@ -66,9 +66,10 @@
         <slot />
       </div>
     </div>
-    <button class="modal-backdrop" aria-label="Close overlay" on:click={() => (isExpanded = false)}></button>
+    <button
+      class="modal-backdrop"
+      aria-label="Close overlay"
+      on:click={() => (isExpanded = false)}
+    ></button>
   </div>
 {/if}
-
-<style>
-</style>
