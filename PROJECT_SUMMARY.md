@@ -42,6 +42,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
 - `service/src/cli/ryzen_adj.rs`: RyzenAdj wrapper and on-demand install helper
   - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings; auto-update checks)
+  - `service/src/tasks/fan_curve.rs`: fan control task supports sensors-only curves (max of selected sensors).
   - `service/src/tasks/power.rs`: selects AC/Battery profile based on AC presence and applies enabled TDP/thermal values. Adds a "sticky but patient" TDP reapply: polls current TDP via `ryzenadj --info`, waits for a quiet window (no drift) before reapplying, and rate-limits reapply attempts. This avoids fighting the OS/driver's gradual adjustments while keeping the user's requested TDP in effect.
   - `service/src/cli/`: CLI integrations namespace
     - `framework_tool.rs`: wrapper for `framework_tool` (resolution, install, helpers)
@@ -67,8 +68,9 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - Remembers last selected AC/Battery tab via `localStorage` key `fc.power.activeProfile`.
     - Intel gating: Uses `/api/system` to detect CPU vendor and shows an AMD-only notice on Intel systems (RyzenAdj-based controls not supported on Intel yet).
     - Adds a "Remove helper" action to uninstall the downloaded RyzenAdj via `POST /api/ryzenadj/uninstall`.
-  - `Telemetry.svelte`: compact live readouts card (TDP W, Thermal °C, Battery % + charging state) polling `/api/power`
+- `Telemetry.svelte`: compact live readouts card (TDP W, Thermal °C, Battery % + charging state) polling `/api/power`
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
+  - `MultiSelect.svelte`: daisyUI-based multi-select (dropdown + checkboxes) with an optional right-aligned `itemRight` slot per option (used to display live sensor temperatures in `FanControl.svelte`).
 - Shared utilities: `web/src/lib/*`
 - Frontend API usage guideline (do not bypass):
 
@@ -107,6 +109,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 - Persisted at `C:\ProgramData\FrameworkControl\config.json`
 - Fan modes: Auto, Manual duty, Curve (with hysteresis, rate limiting, calibration)
+  - Curve config: `sensors: string[]` (no defaults; empty means skip applying and log, the front end will try to populate after fetching). The UI displays the latest temperature next to each sensor in the selector.
 - Write operations require `FRAMEWORK_CONTROL_TOKEN` (Bearer auth header)
 - Updates:
   - `FRAMEWORK_CONTROL_UPDATE_REPO`: GitHub repo to check (format `owner/repo` or `https://github.com/owner/repo`). `GET /api/update/check` uses GitHub Releases API to fetch the latest tag and MSI asset URL; `POST /api/update/apply` downloads that MSI and launches `msiexec` on Windows.

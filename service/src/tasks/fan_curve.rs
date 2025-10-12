@@ -89,14 +89,12 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
                     sleep(poll_interval).await;
                     continue;
                 };
-                // 1. Read temperature
-                let temp = match get_sensor_temperature(&cli, &curve_cfg.sensor).await {
-                    Some(t) => t,
-                    None => {
-                        warn!("Failed to read temperature, continuing...");
-                        sleep(poll_interval).await;
-                        continue;
-                    }
+                // 1. Read temperatures and select based on sensors (max across selection)
+                let temp = get_max_sensor_temperature(&cli, &curve_cfg.sensors).await;
+                let Some(temp) = temp else {
+                    warn!("Failed to select temperature, continuing...");
+                    sleep(poll_interval).await;
+                    continue;
                 };
                 // If we just entered Curve mode, anchor hysteresis and clear target to avoid stale state
                 if last_mode != Some(FanControlMode::Curve) {
@@ -184,28 +182,22 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
     }
 }
 
-/// Get temperature from thermal sensors
-async fn get_sensor_temperature(cli: &FrameworkTool, sensor: &str) -> Option<i32> {
-    match cli.thermal().await {
-        Ok(output) => {
-            // Prefer exact key; fallback to case-insensitive match; fallback to "APU"
-            if let Some(v) = output.temps.get(sensor) {
-                return Some(*v);
-            }
-            if let Some((_, v)) = output
-                .temps
-                .iter()
-                .find(|(k, _)| k.eq_ignore_ascii_case(sensor))
-            {
-                return Some(*v);
-            }
-            output.temps.get("APU").copied()
+/// Read thermal and return the maximum temperature across the provided sensors.
+async fn get_max_sensor_temperature(cli: &FrameworkTool, sensors: &[String]) -> Option<i32> {
+    let output = cli.thermal().await.ok()?;
+    let temps = &output.temps; // BTreeMap<String, i32>
+    let mut best: Option<i32> = None;
+    for name in sensors {
+        if let Some(&v) = temps.get(name) {
+            best = Some(match best { Some(b) => b.max(v), None => v });
+            continue;
         }
-        Err(e) => {
-            debug!("Failed to read thermal data: {}", e);
-            None
+        if let Some((_, v)) = temps.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) {
+            let v = *v;
+            best = Some(match best { Some(b) => b.max(v), None => v });
         }
     }
+    best
 }
 
 /// Calculate fan duty from temperature using the curve points
