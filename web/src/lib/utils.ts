@@ -31,17 +31,33 @@ export function throttleDebounce<Args extends unknown[], R>(
 export function deepMerge<T>(
   target: T,
   source: Partial<T>,
-  noMergeNulls = false
+  noMergeNulls = false,
+  concatArrays = false
 ) {
   Object.entries(source).forEach(([key, value]) => {
+    if (noMergeNulls && (value === null || value === undefined)) return;
+
+    // Handle arrays explicitly (replace by default; concat if enabled)
+    if (Array.isArray(value)) {
+      const current = target[key as keyof T] as unknown;
+      const next = concatArrays
+        ? [
+            ...(Array.isArray(current) ? (current as unknown[]) : []),
+            ...value
+          ]
+        : value.slice();
+      target[key as keyof T] = next as T[keyof T];
+      return;
+    }
+
     if (value instanceof Object) {
       target[key as keyof T] = deepMerge(
         target[key as keyof T],
         value as T[keyof T],
-        noMergeNulls
+        noMergeNulls,
+        concatArrays
       );
     } else {
-      if (noMergeNulls && (value === null || value === undefined)) return;
       target[key as keyof T] = value as T[keyof T];
     }
   });
