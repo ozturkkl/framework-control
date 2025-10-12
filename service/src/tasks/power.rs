@@ -65,8 +65,8 @@ async fn tick(
         {
             // Constants: simple, conservative
             const TDP_TOLERANCE_W: u32 = 2; // within +/- 2W is OK
-            const QUIET_WINDOW_SECS: u64 = 60; // wait for no drift for 20s
-            const REAPPLY_COOLDOWN_SECS: u64 = 120; // do not reapply more often than every 90s
+            const QUIET_WINDOW_SECS: u64 = 60; // wait for no drift for 60s
+            const REAPPLY_COOLDOWN_SECS: u64 = 120; // do not reapply more often than every 120s
             const INFO_POLL_SECS: u64 = 5; // refresh current TDP every 5s
 
             let now = Instant::now();
