@@ -7,7 +7,7 @@ use crate::cli::FrameworkTool;
 use crate::types::{Config, FanControlMode};
 
 /// Main fan control task that runs continuously based on config
-pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
+pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: Arc<tokio::sync::RwLock<Config>>) {
     info!("Fan control task started");
 
     let mut last_duty: Option<u32> = None;
@@ -19,13 +19,24 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
         let loop_started = std::time::Instant::now();
         let config = cfg.read().await.fan.clone();
         // Loop cadence: use curve.poll_ms while in Curve mode with a curve present; otherwise a small fixed cadence
-        let poll_interval = match (&config.mode, &config.curve) {
+        let mode = config.mode.unwrap_or(FanControlMode::Disabled);
+        let poll_interval = match (&mode, &config.curve) {
             (FanControlMode::Curve, Some(c)) => Duration::from_millis(c.poll_ms),
             _ => Duration::from_millis(500),
         };
 
+        // Obtain current FrameworkTool from shared state; if missing, wait for next cadence and retry
+        let maybe_cli = { cli_lock.read().await.clone() };
+        let cli = match maybe_cli {
+            Some(c) => c,
+            None => {
+                sleep(poll_interval).await;
+                continue;
+            }
+        };
+
         // Handle based on current mode
-        match &config.mode {
+        match &mode {
             // Disabled: let firmware handle it
             FanControlMode::Disabled => {
                 if last_mode != Some(FanControlMode::Disabled) {
@@ -56,9 +67,6 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                             last_duty = Some(duty);
                             debug!("Manual: Set {}%", duty);
                         }
-                    } else {
-                        let cur = duty;
-                        debug!("Manual: Holding {}%", cur);
                     }
                 } else {
                     // No manual duty set, fall back to auto
@@ -149,7 +157,9 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                             last_duty = Some(next);
                         }
                     }
-                    debug!(
+
+                    if decision != "hold" {
+                        debug!(
                         "CurveLoop: temp={}°C, inst_target={}%, active_target={}%, anchor={}°C, hys={}°C, last_duty={:?}%, next={}%, step_limit={}%, decision={}, reason={}",
                         temp,
                         curve_target,
@@ -159,9 +169,10 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                         last_duty,
                         next,
                         curve_cfg.rate_limit_pct_per_step,
-                        decision,
-                        reason
-                    );
+                            decision,
+                            reason
+                        );
+                    }
                 }
                 last_mode = Some(FanControlMode::Curve);
             }

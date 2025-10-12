@@ -1,5 +1,8 @@
-use super::framework_tool_parser::{parse_power, parse_thermal, parse_versions, PowerParsed, ThermalParsed, VersionsParsed};
-use crate::utils::{download as dl, github as gh, wget as wg};
+use super::framework_tool_parser::{
+    parse_power, parse_thermal, parse_versions, PowerParsed, ThermalParsed, VersionsParsed,
+};
+use crate::utils::{download as dl, github as gh, wget as wg, global_cache};
+use std::time::Duration;
 use tokio::process::Command;
 use tracing::{error, info, warn};
 use which::which;
@@ -15,17 +18,30 @@ impl FrameworkTool {
     pub async fn new() -> Result<Self, String> {
         let path = resolve_framework_tool().await?;
         info!("framework_tool resolved at: {}", path);
-        Ok(Self { path })
+        let cli = Self { path };
+        // Validate the binary is runnable with a lightweight call.
+        if let Err(e) = cli.versions().await {
+            return Err(format!("framework_tool not runnable: {}", e));
+        }
+        Ok(cli)
     }
 
     pub async fn power(&self) -> Result<PowerParsed, String> {
-        let out = self.run(&["--power"]).await?;
-        Ok(parse_power(&out))
+        const TTL: Duration = Duration::from_millis(2000);
+        global_cache::cache_get_or_update("framework_tool.power", TTL, true, || async {
+            let out = self.run(&["--power"]).await?;
+            Ok(parse_power(&out))
+        })
+        .await
     }
 
     pub async fn thermal(&self) -> Result<ThermalParsed, String> {
-        let out = self.run(&["--thermal"]).await?;
-        Ok(parse_thermal(&out))
+        const TTL: Duration = Duration::from_millis(1000);
+        global_cache::cache_get_or_update("framework_tool.thermal", TTL, true, || async {
+            let out = self.run(&["--thermal"]).await?;
+            Ok(parse_thermal(&out))
+        })
+        .await
     }
 
     pub async fn versions(&self) -> Result<VersionsParsed, String> {
@@ -58,7 +74,7 @@ impl FrameworkTool {
             .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| format!("spawn failed: {e}"))?;
-        let output = timeout(Duration::from_secs(5), child.wait_with_output())
+        let output = timeout(Duration::from_secs(60), child.wait_with_output())
             .await
             .map_err(|_| "framework_tool timed out".to_string())
             .and_then(|res| res.map_err(|e| format!("wait failed: {e}")))?;
@@ -88,12 +104,6 @@ async fn resolve_framework_tool() -> Result<String, String> {
                     return Ok(s.to_string());
                 }
             }
-        }
-    }
-    if let Ok(p) = std::env::var("FRAMEWORK_TOOL_PATH") {
-        let path = std::path::Path::new(&p);
-        if path.exists() {
-            return Ok(p);
         }
     }
 
@@ -130,11 +140,14 @@ pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
         warn!("direct download fallback failed: {}", err);
     }
 
-    // 5) Final resolve attempt
+    // 5) Final resolve attempt (post direct-download)
     match FrameworkTool::new().await {
         Ok(cli) => Ok(cli),
         Err(e) => {
-            error!("framework_tool not found after attempted installs: {}", e);
+            error!(
+                "framework_tool not found or not runnable after attempted installs: {}",
+                e
+            );
             Err(e)
         }
     }
@@ -163,29 +176,14 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     .await
     .map_err(|e| format!("failed to resolve framework_tool asset: {e}"))?
     .ok_or_else(|| "framework_tool asset not found in latest release".to_string())?;
-    let dest_path = base_dir.join(&filename).to_string_lossy().to_string();
-
     info!(
-        "Attempting direct download of framework_tool to '{}' from '{}'",
-        dest_path, url
+        "Attempting direct download of framework_tool into '{}' from '{}'",
+        base_dir.to_string_lossy(),
+        url
     );
-    if let Some(parent) = std::path::Path::new(&dest_path).parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
+    let final_path = dl::download_to_path(&url, &base_dir.to_string_lossy().to_string()).await?;
 
-    dl::download_to_file(&url, &dest_path).await?;
-
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = std::fs::metadata(&dest_path) {
-            let mut perms = meta.permissions();
-            perms.set_mode(0o755);
-            let _ = std::fs::set_permissions(&dest_path, perms);
-        }
-    }
-
-    if let Ok(meta) = std::fs::metadata(&dest_path) {
+    if let Ok(meta) = std::fs::metadata(&final_path) {
         info!("downloaded size: {} bytes", meta.len());
     }
     Ok(())

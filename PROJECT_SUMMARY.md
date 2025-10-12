@@ -29,22 +29,29 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
     - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
+ - `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
+ - `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required)
     - `GET /update/check`: check for latest version from update feed (see env below)
     - `POST /update/apply`: install the update (auth required)
   - Helpers: GPU detection via PowerShell on Windows
 - Other key files:
   - `service/src/config.rs`: load/save config JSON in `C:\ProgramData\FrameworkControl\config.json`
-  - `service/src/types.rs`: API/request/response and config types
+  - `service/src/types.rs`: API/request/response and config types (power config now has AC/Battery profiles with enabled flags)
   - `service/src/state.rs`: shared `AppState` (config RwLock, CLI handle, auth helper)
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
-  - `service/src/tasks/*`: background tasks (e.g., apply fan settings at boot)
+- `service/src/cli/ryzen_adj.rs`: RyzenAdj wrapper and on-demand install helper
+  - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings; auto-update checks)
+  - `service/src/tasks/power.rs`: selects AC/Battery profile based on AC presence and applies enabled TDP/thermal values. Adds a "sticky but patient" TDP reapply: polls current TDP via `ryzenadj --info`, waits for a quiet window (no drift) before reapplying, and rate-limits reapply attempts. This avoids fighting the OS/driver's gradual adjustments while keeping the user's requested TDP in effect.
   - `service/src/cli/`: CLI integrations namespace
     - `framework_tool.rs`: wrapper for `framework_tool` (resolution, install, helpers)
-    - `mod.rs`: re-exports `FrameworkTool` and `resolve_or_install`
+    - `ryzen_adj.rs`: wrapper for `ryzenadj` (resolution, GitHub releases download, helpers)
+    - `mod.rs`: re-exports `FrameworkTool` and `RyzenAdj`
   - `service/src/utils/`: shared helpers
     - `github.rs`: GitHub repo/release helpers (fetch, parse, asset selection)
+    - `download.rs`: download utilities. `download_to_path(url, root_dir)` now takes a root directory and returns the final created path (dir for zips, file for non-zips). The low-level raw file helper is internal-only.
     - `wget.rs`: winget resolution and install helpers (Windows)
+    - `fs.rs`: filesystem helpers (e.g., `copy_dir_replace(src, dst)`)
 - CLI dependency: `framework_tool` (from `framework-system`). Service wraps it rather than linking low-level driver libraries directly.
 
 ### Frontend Web UI (Svelte)
@@ -55,6 +62,12 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Integrates `FanControl.svelte` for Auto/Manual/Curve config
 - API client: `web/src/api/*` generated from OpenAPI (`scripts/gen-api.mjs`)
 - Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`)
+  - `PowerControl.svelte`: power controls with AC/Battery tabs; per-setting Enabled checkbox; compact layout
+    - Battery mode: TDP slider visually shows an unreachable segment beyond 60 W (error tint) while the actual range remains 5–120 W; input is clamped to 60 W on battery.
+    - Remembers last selected AC/Battery tab via `localStorage` key `fc.power.activeProfile`.
+    - Intel gating: Uses `/api/system` to detect CPU vendor and shows an AMD-only notice on Intel systems (RyzenAdj-based controls not supported on Intel yet).
+    - Adds a "Remove helper" action to uninstall the downloaded RyzenAdj via `POST /api/ryzenadj/uninstall`.
+  - `Telemetry.svelte`: compact live readouts card (TDP W, Thermal °C, Battery % + charging state) polling `/api/power`
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
 - Shared utilities: `web/src/lib/*`
 - Frontend API usage guideline (do not bypass):
@@ -74,6 +87,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Env: `web/.env.local`
   - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
   - `VITE_CONTROL_TOKEN` (bearer token for write ops)
+  - `VITE_INSTALLER_URL` (MSI URL for "Download Service" button)
 - Build/dev:
   - `npm i && npm run dev` (dev)
   - `npm run build` (generates `web/dist` used by service/static)
@@ -116,6 +130,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 - `framework-system`: houses `framework_tool` and `framework_lib`
 - `inputmodule-rs`: firmware and tooling for Framework 16 input modules (e.g., `qtpy/src/main.rs` @main.rs for USB CDC commands + LED control)
+ - `RyzenAdj`: third-party CLI to adjust AMD Ryzen power/thermal parameters; downloaded from GitHub releases when missing.
 
 ### Roadmap (per README)
 

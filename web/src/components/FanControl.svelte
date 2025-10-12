@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { DefaultService } from "../api";
-  import type { Config, PartialConfig, PartialFanControlConfig } from "../api";
+  import type { Config, PartialConfig, FanControlConfig } from "../api";
   import { throttleDebounce } from "../lib/utils";
   import { parseThermalOutput, pickTempForSensor } from "../lib/thermal";
   import { cubicSplineInterpolate } from "../lib/spline";
   import CalibrationModal from "./CalibrationModal.svelte";
+  import UiSlider from "./UiSlider.svelte";
   import Icon from "@iconify/svelte";
 
   let error: string | null = null;
@@ -282,7 +283,7 @@
       // Build minimal patch for new backend API
       const backendMode =
         mode === "Manual" ? "manual" : mode === "Curve" ? "curve" : "disabled";
-      const fanPatch: PartialFanControlConfig = { mode: backendMode };
+      const fanPatch: FanControlConfig = { mode: backendMode };
       if (backendMode === "manual") {
         fanPatch.manual = {
           duty_pct: clamp(manualDutyPct, 0, 100),
@@ -433,43 +434,51 @@
 
 <svelte:window on:pointerup={endDrag} on:pointercancel={endDrag} />
 
-<div class="relative min-h-16 flex flex-col justify-center">
+<!-- preload icons -->
+<div class="hidden">
+  <Icon icon="mdi:speedometer-slow" />
+  <Icon icon="mdi:thermometer-lines" />
+  <Icon icon="mdi:timer-outline" />
+  <Icon icon="mdi:fan" />
+  <Icon icon="mdi:backup-restore" />
+  <Icon icon="mdi:arrow-left" />
+  <Icon icon="mdi:cog-outline" />
+</div>
+
+<span
+  class="pointer-events-none select-none absolute top-[1.4rem] left-[19rem] inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow transition duration-200 ease-out"
+  style="opacity: {success ? 1 : 0}; transform: scale({success ? 1 : 0.9});"
+  aria-hidden="true"
+>
+  <Icon icon="mdi:check" class="text-base" />
+</span>
+
+<div class="relative flex flex-col justify-center my-auto pt-2">
   {#if error}
     <div class="alert alert-error text-sm">
       <span>{error}</span>
     </div>
   {/if}
 
-  <span
-    class="pointer-events-none select-none absolute top-[-38px] left-[275px] inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow transition duration-200 ease-out"
-    style="opacity: {success ? 1 : 0}; transform: scale({success ? 1 : 0.9});"
-    aria-hidden="true"
-  >
-    <Icon icon="mdi:check" class="text-base" />
-  </span>
-
   {#if mode === "Auto"}
-    <div class="text-lg opacity-80">
+    <div class="text-md opacity-80">
       Fan will be controlled by the default firmware curve.
     </div>
   {/if}
 
   {#if mode === "Manual"}
-    <div class="form-control">
-      <label class="label" for="manual-duty">
-        <span class="label-text">Manual duty: {manualDutyPct}%</span>
-      </label>
-      <input
-        id="manual-duty"
-        type="range"
-        min="0"
-        max="100"
-        step="1"
-        class="range"
-        bind:value={manualDutyPct}
-        on:input={save}
-      />
-    </div>
+    <UiSlider
+      label="Manual duty"
+      icon={"mdi:fan"}
+      unit="%"
+      min={0}
+      max={100}
+      step={1}
+      hasEnabled={false}
+      bind:value={manualDutyPct}
+      on:input={save}
+      on:change={save}
+    />
   {/if}
 
   {#if mode === "Curve"}
@@ -733,74 +742,51 @@
               </div>
             </div>
           {:else}
-            <div class="p-6 space-y-10">
-              <div class="form-control">
-                <div class="flex flex-col gap-2">
-                  <label for="poll-ms" class="label-text"
-                    >Poll interval: {pollMs} ms</label
-                  >
-                  <input
-                    id="poll-ms"
-                    type="range"
-                    min="200"
-                    max="5000"
-                    step="100"
-                    class="range range-xs w-full"
-                    bind:value={pollMs}
-                    on:input={save}
-                  />
-                </div>
-              </div>
+            <div class="space-y-5 pt-2">
+              <UiSlider
+                label="Poll interval"
+                icon="mdi:timer-outline"
+                unit="ms"
+                min={200}
+                max={5000}
+                step={100}
+                bind:value={pollMs}
+                on:input={save}
+              />
 
-              <div class="form-control">
-                <div class="flex flex-col gap-2">
-                  <label for="hysteresis-c" class="label-text"
-                    >Hysteresis: {hysteresisC} °C</label
-                  >
-                  <input
-                    id="hysteresis-c"
-                    type="range"
-                    min="1"
-                    max="10"
-                    step="1"
-                    class="range range-xs w-full"
-                    bind:value={hysteresisC}
-                    on:input={save}
-                  />
-                </div>
-              </div>
+              <UiSlider
+                label="Hysteresis"
+                icon="mdi:thermometer-lines"
+                unit="°C"
+                min={1}
+                max={10}
+                step={1}
+                bind:value={hysteresisC}
+                on:input={save}
+              />
 
-              <div class="form-control">
-                <div class="flex flex-col gap-2">
-                  <label for="rate-limit" class="label-text"
-                    >Rate limit per step: {rateLimitPctPerStep}%</label
-                  >
-                  <input
-                    id="rate-limit"
-                    type="range"
-                    min="1"
-                    max="100"
-                    step="1"
-                    class="range range-xs w-full"
-                    bind:value={rateLimitPctPerStep}
-                    on:input={save}
-                  />
-                </div>
-              </div>
+              <UiSlider
+                label="Rate limit per step"
+                icon="mdi:speedometer-slow"
+                unit="%"
+                min={1}
+                max={100}
+                step={1}
+                bind:value={rateLimitPctPerStep}
+                on:input={save}
+              />
 
-              <div class="form-control">
-                <div class="flex items-center justify-between gap-2">
-                  <div class="text-xs opacity-70">
-                    Calibration aligns live RPM to duty curve.
-                  </div>
-                  <button
-                    class="btn btn-xs"
-                    on:click={openCalibration}
-                    aria-label="Recalibrate fan"
-                  >
-                    Recalibrate
-                  </button>
+              <div class="flex items-center justify-between gap-2 px-4 mb-3">
+                <div class="text-xs opacity-70">
+                  Calibration aligns live RPM to duty curve.
                 </div>
+                <button
+                  class="btn btn-sm"
+                  on:click={openCalibration}
+                  aria-label="Recalibrate fan"
+                >
+                  Recalibrate
+                </button>
               </div>
             </div>
           {/if}
@@ -817,7 +803,3 @@
     on:cancel={closeCalibration}
   />
 {/if}
-
-<style>
-  /* Removed CSS transform-based pulse to avoid SVG transform-origin issues */
-</style>

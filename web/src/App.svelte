@@ -5,6 +5,8 @@
   import { DefaultService } from "./api";
   import DeviceHeader from "./components/DeviceHeader.svelte";
   import FanControl from "./components/FanControl.svelte";
+  import PowerControl from "./components/PowerControl.svelte";
+  import Telemetry from "./components/Telemetry.svelte";
   import Panel from "./components/Panel.svelte";
   import { OpenAPI } from "./api";
   import VersionMismatchModal from "./components/VersionMismatchModal.svelte";
@@ -33,22 +35,22 @@
     isHealthy: boolean,
     mode: "Auto" | "Manual" | "Curve"
   ): string {
-    if (!isHealthy) return "md:col-span-4";
+    if (!isHealthy) return "lg:col-span-4";
     if (!cliPresent)
-      return "md:col-span-4 opacity-50 pointer-events-none select-none";
+      return "lg:col-span-4 opacity-50 pointer-events-none select-none";
     if (pid === "telemetry")
       return mode === "Curve"
-        ? "md:col-start-1 md:col-span-5 md:row-start-1 md:row-span-1"
-        : "md:col-start-1 md:col-span-6 md:row-start-1 md:row-span-3";
+        ? "lg:col-start-1 lg:col-span-5 lg:row-start-1 lg:row-span-1"
+        : "lg:col-start-1 lg:col-span-6 lg:row-start-1 lg:row-span-3";
     if (pid === "power")
       return mode === "Curve"
-        ? "md:col-start-1 md:col-span-5 md:row-start-2 md:row-span-1"
-        : "md:col-start-7 md:col-span-6 md:row-start-2 md:row-span-2";
+        ? "lg:col-start-1 lg:col-span-5 lg:row-start-2 lg:row-span-1"
+        : "lg:col-start-7 lg:col-span-6 lg:row-start-2 lg:row-span-2";
     if (pid === "fan")
       return mode === "Curve"
-        ? "md:col-start-6 md:col-span-7 md:row-start-1 md:row-span-2"
-        : "md:col-start-7 md:col-span-6 md:row-start-1 md:row-span-1";
-    return "md:col-span-4";
+        ? "lg:col-start-6 lg:col-span-7 lg:row-start-1 lg:row-span-2"
+        : "lg:col-start-7 lg:col-span-6 lg:row-start-1 lg:row-span-1";
+    return "lg:col-span-4";
   }
   onMount(async () => {
     await pollHealthOnce();
@@ -94,35 +96,43 @@
       <DeviceHeader {healthy} {installerUrl} {cliPresent} />
     </section>
 
-    <section class="grid gap-4 md:grid-cols-12 md:auto-rows-fr">
+    <section class="grid gap-4 lg:grid-cols-12 lg:auto-rows-fr">
       {#each ["telemetry", "power", "fan"] as pid (pid)}
         <div
           animate:flip={{ duration: 200 }}
           class={"col-span-12 " + panelGridClasses(pid, healthy, fanMode)}
         >
           {#if pid === "telemetry"}
-            <Panel title="Telemetry (Coming soon)" expandable={healthy}>
-              <div class="text-sm opacity-80">
-                Live temps and fan RPM read locally via the service. Nothing
-                leaves your machine.
-              </div>
-              <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
-                <li>Temps and fan RPM</li>
-                <li>AC/battery status and basic battery info</li>
-                <li>Time‑series charts & live updates</li>
-              </ul>
+            <Panel title="Telemetry" expandable={healthy}>
+              {#if healthy && cliPresent}
+                <Telemetry />
+              {:else}
+                <div class="text-sm opacity-80">
+                  Live temps and fan RPM read locally via the service. Nothing
+                  leaves your machine.
+                </div>
+                <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
+                  <li>Temps, power, and fan RPM</li>
+                  <li>AC/battery status and basic battery info</li>
+                  <li>Time‑series charts & live updates</li>
+                </ul>
+              {/if}
             </Panel>
           {:else if pid === "power"}
-            <Panel title="Power (Coming soon)" expandable={healthy}>
-              <div class="text-sm opacity-80">
-                Quick view of charger state and battery health at a glance,
-                powered by the Framework CLI.
-              </div>
-              <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
-                <li>Charger presence, voltage/current, SoC</li>
-                <li>Battery details like cycle count</li>
-                <li>Future: configurable charge rate/current limits</li>
-              </ul>
+            <Panel title="Power" expandable={healthy}>
+              {#if healthy && cliPresent}
+                <PowerControl />
+              {:else}
+                <div class="text-sm opacity-80">
+                  Quick view of charger state and battery health at a glance,
+                  powered by the Framework CLI. And RyzenAdj.
+                </div>
+                <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
+                  <li>TDP and thermal limit controls</li>
+                  <li>Battery details like cycle count</li>
+                  <li>Future: configurable charge rate/current limits</li>
+                </ul>
+              {/if}
             </Panel>
           {:else}
             <Panel title="Fan Control" expandable={healthy}>

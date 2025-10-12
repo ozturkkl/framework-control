@@ -19,11 +19,12 @@ enum ApiErrorResponse {
 
 type ApiResult<T> = Result<Json<T>, ApiErrorResponse>;
 
-fn require_cli(
+async fn require_framework_tool_async(
     state: &AppState,
 ) -> Result<crate::cli::framework_tool::FrameworkTool, ApiErrorResponse> {
-    match state.cli.as_ref() {
-        Some(cli) => Ok(cli.clone()),
+    let cli_opt = { state.framework_tool.read().await.clone() };
+    match cli_opt {
+        Some(cli) => Ok(cli),
         None => Err(ApiErrorResponse::ServiceUnavailable(Json(
             crate::types::ErrorEnvelope {
                 code: "cli_unavailable".into(),
@@ -33,11 +34,29 @@ fn require_cli(
     }
 }
 
-fn bad_gateway(code: &str, message: String) -> ApiErrorResponse {
-    ApiErrorResponse::BadGateway(Json(crate::types::ErrorEnvelope { code: code.into(), message }))
+async fn require_ryzenadj_async(state: &AppState) -> Result<crate::cli::ryzen_adj::RyzenAdj, ApiErrorResponse> {
+    let cli_opt = { state.ryzenadj.read().await.clone() };
+    match cli_opt {
+        Some(cli) => Ok(cli),
+        None => Err(ApiErrorResponse::ServiceUnavailable(Json(
+            crate::types::ErrorEnvelope {
+                code: "ryzenadj_unavailable".into(),
+                message: "ryzenadj not found".into(),
+            },
+        ))),
+    }
 }
 
-fn map_cli_err(e: String) -> ApiErrorResponse { bad_gateway("cli_failed", e) }
+fn bad_gateway(code: &str, message: String) -> ApiErrorResponse {
+    ApiErrorResponse::BadGateway(Json(crate::types::ErrorEnvelope {
+        code: code.into(),
+        message,
+    }))
+}
+
+fn map_cli_err(e: String) -> ApiErrorResponse {
+    bad_gateway("cli_failed", e)
+}
 
 fn bearer_from_header(auth: &Header<String>) -> &str {
     auth.0.as_str().strip_prefix("Bearer ").unwrap_or("").trim()
@@ -59,7 +78,7 @@ impl Api {
     /// Health: returns overall service health and CLI presence
     #[oai(path = "/health", method = "get", operation_id = "health")]
     async fn health(&self, state: Data<&AppState>) -> ApiResult<Health> {
-        let cli_present = state.cli.is_some();
+        let cli_present = state.framework_tool.read().await.is_some();
         let service_version = env!("CARGO_PKG_VERSION").to_string();
         Ok(Json(Health {
             cli_present,
@@ -67,19 +86,94 @@ impl Api {
         }))
     }
 
+    /// RyzenAdj: install on demand
+    #[oai(
+        path = "/ryzenadj/install",
+        method = "post",
+        operation_id = "installRyzenadj"
+    )]
+    async fn install_ryzenadj(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "Authorization")] auth: Header<String>,
+    ) -> ApiResult<Empty> {
+        require_auth(&state, &auth)?;
+        match crate::cli::ryzen_adj::attempt_install_via_direct_download().await {
+            Ok(_) => {
+                // Validate resolve, but do not spawn another task (boot task will pick it up)
+                match crate::cli::ryzen_adj::RyzenAdj::new().await {
+                    Ok(_cli) => Ok(Json(Empty {})),
+                    Err(e) => {
+                        error!("ryzenadj resolve after install failed: {}", e);
+                        Err(bad_gateway("ryzenadj_unavailable", e))
+                    }
+                }
+            }
+            Err(e) => Err(bad_gateway("install_failed", e)),
+        }
+    }
+
+    /// RyzenAdj: uninstall and remove any downloaded artifacts
+    #[oai(
+        path = "/ryzenadj/uninstall",
+        method = "post",
+        operation_id = "uninstallRyzenadj"
+    )]
+    async fn uninstall_ryzenadj(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "Authorization")] auth: Header<String>,
+    ) -> ApiResult<Empty> {
+        require_auth(&state, &auth)?;
+        match crate::cli::ryzen_adj::remove_installed_files().await {
+            Ok(_) => {
+                // Clear from in-memory state so UI reflects removal soon
+                {
+                    let mut w = state.ryzenadj.write().await;
+                    *w = None;
+                }
+                Ok(Json(Empty {}))
+            }
+            Err(e) => {
+                error!("uninstall ryzenadj failed: {}", e);
+                Err(bad_gateway("uninstall_failed", e))
+            }
+        }
+    }
+
     #[oai(path = "/power", method = "get", operation_id = "getPower")]
-    async fn get_power(&self, state: Data<&AppState>) -> ApiResult<crate::cli::framework_tool_parser::PowerParsed> {
-        let cli = require_cli(&state)?;
-        let v = cli.power().await.map_err(map_cli_err)?;
-        Ok(Json(v))
+    async fn get_power(&self, state: Data<&AppState>) -> ApiResult<crate::types::PowerResponse> {
+        let cli = require_framework_tool_async(&state).await?;
+        let p = cli.power().await.map_err(map_cli_err)?;
+
+        // Populate RyzenAdj info if available; do not fail the call if missing
+        let mut ryzenadj_installed = false;
+        let mut ryzenadj: Option<crate::cli::ryzen_adj_parser::RyzenAdjInfo> = None;
+        if let Ok(ryz) = require_ryzenadj_async(&state).await {
+            if let Ok(parsed) = ryz.info().await {
+                ryzenadj_installed = true;
+                ryzenadj = Some(parsed);
+            }
+        }
+        Ok(Json(crate::types::PowerResponse {
+            power: p,
+            ryzenadj_installed,
+            ryzenadj,
+        }))
     }
 
     /// Update: check for latest version from update feed
     #[oai(path = "/update/check", method = "get", operation_id = "checkUpdate")]
     async fn check_update(&self) -> ApiResult<UpdateCheck> {
         match get_current_and_latest().await {
-            Ok((current, latest)) => Ok(Json(UpdateCheck { current_version: current, latest_version: latest })),
-            Err(e) => { error!("update check failed: {}", e); Err(bad_gateway("update_check_failed", e)) }
+            Ok((current, latest)) => Ok(Json(UpdateCheck {
+                current_version: current,
+                latest_version: latest,
+            })),
+            Err(e) => {
+                error!("update check failed: {}", e);
+                Err(bad_gateway("update_check_failed", e))
+            }
         }
     }
 
@@ -103,16 +197,22 @@ impl Api {
 
     /// Thermal (parsed)
     #[oai(path = "/thermal", method = "get", operation_id = "getThermal")]
-    async fn get_thermal(&self, state: Data<&AppState>) -> ApiResult<crate::cli::framework_tool_parser::ThermalParsed> {
-        let cli = require_cli(&state)?;
+    async fn get_thermal(
+        &self,
+        state: Data<&AppState>,
+    ) -> ApiResult<crate::cli::framework_tool_parser::ThermalParsed> {
+        let cli = require_framework_tool_async(&state).await?;
         let v = cli.thermal().await.map_err(map_cli_err)?;
         Ok(Json(v))
     }
 
     /// Framework versions (parsed)
     #[oai(path = "/versions", method = "get", operation_id = "getVersions")]
-    async fn get_versions(&self, state: Data<&AppState>) -> ApiResult<crate::cli::framework_tool_parser::VersionsParsed> {
-        let cli = require_cli(&state)?;
+    async fn get_versions(
+        &self,
+        state: Data<&AppState>,
+    ) -> ApiResult<crate::cli::framework_tool_parser::VersionsParsed> {
+        let cli = require_framework_tool_async(&state).await?;
         let v = cli.versions().await.map_err(map_cli_err)?;
         Ok(Json(v))
     }
@@ -139,7 +239,7 @@ impl Api {
             let mut new_fan = merged.fan.clone();
             // Overwrite sections only if provided
             if let Some(m) = fan.mode {
-                new_fan.mode = m;
+                new_fan.mode = Some(m);
             }
             if let Some(man) = fan.manual {
                 new_fan.manual = Some(man);
@@ -152,11 +252,25 @@ impl Api {
             }
             merged.fan = new_fan;
         }
+        if let Some(pow) = req.power {
+            let mut new_pow = merged.power.clone();
+            if let Some(ac_in) = pow.ac {
+                let mut ac = new_pow.ac.unwrap_or_default();
+                if let Some(s) = ac_in.tdp_watts { ac.tdp_watts = Some(s); }
+                if let Some(s) = ac_in.thermal_limit_c { ac.thermal_limit_c = Some(s); }
+                new_pow.ac = Some(ac);
+            }
+            if let Some(bat_in) = pow.battery {
+                let mut bat = new_pow.battery.unwrap_or_default();
+                if let Some(s) = bat_in.tdp_watts { bat.tdp_watts = Some(s); }
+                if let Some(s) = bat_in.thermal_limit_c { bat.thermal_limit_c = Some(s); }
+                new_pow.battery = Some(bat);
+            }
+            merged.power = new_pow;
+        }
         if let Some(up) = req.updates {
             let mut new_up = merged.updates.clone();
-            if let Some(ai) = up.auto_install {
-                new_up.auto_install = ai;
-            }
+            new_up.auto_install = up.auto_install;
             merged.updates = new_up;
         }
         if let Err(e) = config::save(&merged) {
@@ -192,13 +306,21 @@ impl Api {
         }))
     }
 
-    #[oai(path = "/shortcuts/status", method = "get", operation_id = "getShortcutsStatus")]
+    #[oai(
+        path = "/shortcuts/status",
+        method = "get",
+        operation_id = "getShortcutsStatus"
+    )]
     async fn get_shortcuts_status(&self) -> ApiResult<ShortcutsStatus> {
         let installed = shortcuts::shortcuts_exist();
         Ok(Json(ShortcutsStatus { installed }))
     }
 
-    #[oai(path = "/shortcuts/create", method = "post", operation_id = "createShortcuts")]
+    #[oai(
+        path = "/shortcuts/create",
+        method = "post",
+        operation_id = "createShortcuts"
+    )]
     async fn create_shortcuts(
         &self,
         state: Data<&AppState>,
@@ -214,8 +336,14 @@ impl Api {
             .expect("FRAMEWORK_CONTROL_PORT must be valid");
 
         match shortcuts::create_shortcuts(port).await {
-            Ok(_) => { info!("Shortcuts created successfully"); Ok(Json(Empty {})) }
-            Err(e) => { error!("Failed to create shortcuts: {}", e); Err(bad_gateway("shortcuts_failed", e)) }
+            Ok(_) => {
+                info!("Shortcuts created successfully");
+                Ok(Json(Empty {}))
+            }
+            Err(e) => {
+                error!("Failed to create shortcuts: {}", e);
+                Err(bad_gateway("shortcuts_failed", e))
+            }
         }
     }
 }
