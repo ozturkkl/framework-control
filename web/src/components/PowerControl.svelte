@@ -10,6 +10,7 @@
   import Icon from "@iconify/svelte";
   import { deepMerge } from "../lib/utils";
   import UiSlider from "./UiSlider.svelte";
+  import { tooltipClamp } from "../lib/tooltipClamp";
 
   const TDP_MIN = 5;
   const TDP_MAX = 120;
@@ -29,6 +30,7 @@
   }
 
   let installingRyzenAdj: boolean = false;
+  let uninstallingRyzenAdj: boolean = false;
   let errorMessage: string | null = null;
   let ryzenInstalled: boolean = false;
   let infoPoll: ReturnType<typeof setInterval> | null = null;
@@ -127,7 +129,12 @@
     try {
       const auth = `Bearer ${OpenAPI.TOKEN}`;
       await DefaultService.installRyzenadj(auth);
-      await getRyzenAdjInstalled();
+      // getInstalled a couple times to see if the installed will turn true
+      for (let i = 0; i < 5; i++) {
+        await getRyzenAdjInstalled();
+        if (ryzenInstalled) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
     } catch (e) {
       errorMessage = "Failed to install, check your antivirus settings!";
     } finally {
@@ -135,34 +142,29 @@
     }
   }
 
-  function onToggleTdp(ev: Event) {
-    const value = powerConfig[activeProfile].tdp_watts.value;
-    const enabled = powerConfig[activeProfile].tdp_watts.enabled;
-    setPower(activeProfile, "tdp_watts", enabled, value);
+  async function uninstallRyzenAdj() {
+    uninstallingRyzenAdj = true;
+    errorMessage = null;
+    try {
+      const auth = `Bearer ${OpenAPI.TOKEN}`;
+      await DefaultService.uninstallRyzenadj(auth);
+      await getRyzenAdjInstalled();
+    } catch (e) {
+      errorMessage = e instanceof Error ? e.message : String(e);
+    } finally {
+      uninstallingRyzenAdj = false;
+    }
   }
+
   function onChangeTdp(ev: Event) {
     const value = powerConfig[activeProfile].tdp_watts.value;
     const enabled = powerConfig[activeProfile].tdp_watts.enabled;
     setPower(activeProfile, "tdp_watts", enabled, value);
   }
-  function onToggleThermal(ev: Event) {
-    const value = powerConfig[activeProfile].thermal_limit_c.value;
-    const enabled = powerConfig[activeProfile].thermal_limit_c.enabled;
-    setPower(activeProfile, "thermal_limit_c", enabled, value);
-  }
   function onChangeThermal(ev: Event) {
     const value = powerConfig[activeProfile].thermal_limit_c.value;
     const enabled = powerConfig[activeProfile].thermal_limit_c.enabled;
     setPower(activeProfile, "thermal_limit_c", enabled, value);
-  }
-
-  function onInputTdp(ev: Event) {
-    if (activeProfile === "battery") {
-      const current = powerConfig[activeProfile].tdp_watts.value;
-      if (current > TDP_BATTERY_MAX) {
-        powerConfig[activeProfile].tdp_watts.value = TDP_BATTERY_MAX;
-      }
-    }
   }
 </script>
 
@@ -177,7 +179,7 @@
 
 <!-- Overlay status positioned into the parent header area -->
 <div
-  class="absolute top-[1.4rem] left-24 right-14 flex items-center justify-start gap-2 text-sm"
+  class="absolute top-[1.4rem] left-24 right-14 flex items-center justify-between gap-2 text-sm"
 >
   {#if hasCheckedInstallStatus && ryzenInstalled}
     <div class="join border border-primary/35">
@@ -199,6 +201,24 @@
         on:change={() => setActiveProfile("battery")}
         checked={activeProfile === "battery"}
       />
+    </div>
+    <div
+      class="tooltip"
+      data-tip="Remove the RyzenAdj helper. You can reinstall later from here."
+    >
+      <button
+        class="btn btn-ghost btn-xs"
+        aria-label="Remove helper"
+        use:tooltipClamp
+        on:click={uninstallRyzenAdj}
+        disabled={uninstallingRyzenAdj}
+      >
+        {#if uninstallingRyzenAdj}
+          <Icon icon="mdi:loading" class="w-3.5 h-3.5 animate-spin" />
+        {:else}
+          <Icon icon="mdi:trash-can-outline" class="w-3.5 h-3.5" />
+        {/if}
+      </button>
     </div>
   {/if}
 </div>
@@ -227,7 +247,14 @@
     <div>
       <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
       <ul class="list-disc pl-5 text-sm space-y-1 opacity-80">
-        <li>This requires a small helper to be installed.</li>
+        <li>
+          This requires a small helper <a
+            href="https://github.com/FlyGoat/RyzenAdj"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-link px-0">RyzenAdj</a
+          > to be installed.
+        </li>
         <li>May trigger antivirus warnings on your system.</li>
         <li>
           Adjusting power settings can cause instability and crashes and may
@@ -275,7 +302,9 @@
       >
         <UiSlider
           label="TDP Limit"
-          icon={activeProfile === "ac" ? "mdi:power-plug-outline" : "mdi:battery-outline"}
+          icon={activeProfile === "ac"
+            ? "mdi:power-plug-outline"
+            : "mdi:battery-outline"}
           unit="W"
           min={TDP_MIN}
           max={TDP_MAX}
@@ -284,17 +313,19 @@
           bind:enabled={powerConfig[activeProfile].tdp_watts.enabled}
           capMax={activeProfile === "battery" ? TDP_BATTERY_MAX : null}
           bind:value={powerConfig[activeProfile].tdp_watts.value}
-          on:input={onInputTdp}
           on:change={onChangeTdp}
         />
       </div>
       <div
         class="transition-transform duration-100"
-        class:scale-[0.985]={!powerConfig[activeProfile].thermal_limit_c.enabled}
+        class:scale-[0.985]={!powerConfig[activeProfile].thermal_limit_c
+          .enabled}
       >
         <UiSlider
           label="Thermal Limit"
-          icon={activeProfile === "ac" ? "mdi:power-plug-outline" : "mdi:battery-outline"}
+          icon={activeProfile === "ac"
+            ? "mdi:power-plug-outline"
+            : "mdi:battery-outline"}
           unit="°C"
           min={50}
           max={100}

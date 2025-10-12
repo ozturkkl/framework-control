@@ -1,20 +1,40 @@
 ## Unreleased
 
-- Backend: Add minimal 2s TTL cache to reduce CLI load in some cases. Cache is returned only within TTL; cache is cleared and errors are propagated on failures.
-- Web: New `Telemetry.svelte` mini-card in Telemetry panel showing live TDP (W), Thermal (°C), and Battery % with charging state;
-- Power config/UI:
-  - Power config redesigned with AC/Battery profiles and per-setting enabled flags.
-  - Power task selects profile based on AC presence and applies enabled values.
-- Backend: Power task now includes a conservative TDP reapply mechanism (quiet-window + cooldown, with tolerance) that reads current TDP from `ryzenadj --info` and re-applies the user preference only when the OS/driver adjustments have settled. This improves reliability without fighting calibration behavior.
-- Install on demand, notify user if install is not completed due to anti-virus false positive.
-- Windows shortcuts: Brave app-mode support with `.url` fallback; improved detection and status.
-- Backend: refactor CLI wrapper into `service/src/cli/` module (`framework_tool.rs`), preparing for additional CLIs (e.g., RyzenAdj, inputmodule-rs).
-- Backend: add `service/src/utils/` with `github.rs` and `wget.rs` for shared release/winget helpers.
-- Breaking: `/api/power`, `/api/version` and `/api/thermal` now return parsed JSON (typed)
-- Windows installer: validate `framework_tool` binary after WinGet resolve and fall back to direct download if the WinGet link is broken.
-- Improved detection of missing `framework_tool`. Just in time state resolver to keep the state updated on changes.
-- Web: Power panel now detects Intel CPUs via `/api/system` and shows an AMD-only notice; RyzenAdj-based controls remain AMD-only.
-- Other minor bug fixes & improvements.
+
+## 0.4.0 - 2025-10-12
+
+### Backend: Power management, CLI, and reliability
+- Add AC/Battery power profiles with per-setting enabled flags; task auto-selects by AC presence and applies only enabled values.
+- Implement conservative TDP reapply (quiet window + cooldown, tolerance) using `ryzenadj --info` for improved stability.
+- Add minimal 2s TTL cache to reduce repeated CLI calls; clear cache and propagate errors on failures.
+- Refactor CLI wrappers under `service/src/cli/` (e.g., `framework_tool.rs`, `ryzen_adj.rs`) for future tool integrations.
+
+### Frontend Web UI: Telemetry, power controls, shortcuts
+- Add `Telemetry.svelte`: compact live card showing TDP (W), Thermal (°C), Battery % + charging state via `/api/power`.
+- Power panel: AC/Battery tabs, per-setting Enabled flags, AMD-only gating on Intel (via `/api/system`), battery-range hinting.
+- Shortcut install: streamlined flow assumes success if API returns; UI reflects created state.
+
+### Shared utilities and developer experience
+- Introduce `service/src/utils/` modules: `github`, `wget`, `download`, `zip_extract`, `fs`, `global_cache`.
+- Typed, parsed responses across routes to align with generated OpenAPI models.
+
+### Installation and packaging
+- Validate `framework_tool` after WinGet; fall back to direct download if resolution fails or tool is missing.
+- On-demand RyzenAdj install endpoint with clear errors if installation is blocked (e.g., AV).
+- MSI build/docs updated for new env variables and features.
+
+### Breaking changes
+- `/api/power`, `/api/thermal`, and `/api/versions` now return parsed, typed JSON objects.
+- Frontend policy: always use the generated OpenAPI client (`DefaultService`, `OpenAPI`); do not use `fetch` directly.
+
+### Documentation and versioning
+- Update `PROJECT_SUMMARY.md` and `README.md` for new endpoints, UI components, CLI wrappers, and OpenAPI usage.
+- Bump service version to `0.4.0`; update dependencies as needed.
+
+### Other improvements
+- Windows shortcuts: Brave app-mode support with `.url` fallback; improved detection/status.
+- Improved detection and state reporting for missing `framework_tool`.
+- Miscellaneous fixes and UI polish.
 
 ## 0.3.3 - 2025-09-01
 

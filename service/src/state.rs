@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::cli::{resolve_or_install, FrameworkTool, RyzenAdj};
+use crate::cli::{FrameworkTool, RyzenAdj};
+use crate::cli::framework_tool::resolve_or_install;
 use crate::types::Config;
 
 #[derive(Clone)]

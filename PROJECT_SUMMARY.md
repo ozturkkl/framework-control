@@ -29,7 +29,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
     - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
-- `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
+ - `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
+ - `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required)
     - `GET /update/check`: check for latest version from update feed (see env below)
     - `POST /update/apply`: install the update (auth required)
   - Helpers: GPU detection via PowerShell on Windows
@@ -45,7 +46,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `service/src/cli/`: CLI integrations namespace
     - `framework_tool.rs`: wrapper for `framework_tool` (resolution, install, helpers)
     - `ryzen_adj.rs`: wrapper for `ryzenadj` (resolution, GitHub releases download, helpers)
-    - `mod.rs`: re-exports `FrameworkTool` and `resolve_or_install`
+    - `mod.rs`: re-exports `FrameworkTool` and `RyzenAdj`
   - `service/src/utils/`: shared helpers
     - `github.rs`: GitHub repo/release helpers (fetch, parse, asset selection)
     - `download.rs`: download utilities. `download_to_path(url, root_dir)` now takes a root directory and returns the final created path (dir for zips, file for non-zips). The low-level raw file helper is internal-only.
@@ -65,6 +66,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - Battery mode: TDP slider visually shows an unreachable segment beyond 60 W (error tint) while the actual range remains 5–120 W; input is clamped to 60 W on battery.
     - Remembers last selected AC/Battery tab via `localStorage` key `fc.power.activeProfile`.
     - Intel gating: Uses `/api/system` to detect CPU vendor and shows an AMD-only notice on Intel systems (RyzenAdj-based controls not supported on Intel yet).
+    - Adds a "Remove helper" action to uninstall the downloaded RyzenAdj via `POST /api/ryzenadj/uninstall`.
   - `Telemetry.svelte`: compact live readouts card (TDP W, Thermal °C, Battery % + charging state) polling `/api/power`
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
 - Shared utilities: `web/src/lib/*`

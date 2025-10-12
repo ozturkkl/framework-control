@@ -113,6 +113,34 @@ impl Api {
         }
     }
 
+    /// RyzenAdj: uninstall and remove any downloaded artifacts
+    #[oai(
+        path = "/ryzenadj/uninstall",
+        method = "post",
+        operation_id = "uninstallRyzenadj"
+    )]
+    async fn uninstall_ryzenadj(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "Authorization")] auth: Header<String>,
+    ) -> ApiResult<Empty> {
+        require_auth(&state, &auth)?;
+        match crate::cli::ryzen_adj::remove_installed_files().await {
+            Ok(_) => {
+                // Clear from in-memory state so UI reflects removal soon
+                {
+                    let mut w = state.ryzenadj.write().await;
+                    *w = None;
+                }
+                Ok(Json(Empty {}))
+            }
+            Err(e) => {
+                error!("uninstall ryzenadj failed: {}", e);
+                Err(bad_gateway("uninstall_failed", e))
+            }
+        }
+    }
+
     #[oai(path = "/power", method = "get", operation_id = "getPower")]
     async fn get_power(&self, state: Data<&AppState>) -> ApiResult<crate::types::PowerResponse> {
         let cli = require_framework_tool_async(&state).await?;

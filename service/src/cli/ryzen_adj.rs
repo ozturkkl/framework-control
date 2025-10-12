@@ -184,3 +184,38 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Remove any ryzenadj artifacts that we may have downloaded alongside the service.
+/// This targets both a nested `ryzenadj/` directory and a root-level `ryzenadj(.exe)` file.
+pub async fn remove_installed_files() -> Result<(), String> {
+    // Determine base directory next to the running service binary
+    let base_dir = match std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+    {
+        Some(p) => p,
+        None => return Err("could not resolve service directory for uninstall".into()),
+    };
+
+    // Remove nested ryzenadj directory if present
+    let nested_dir = base_dir.join("ryzenadj");
+    if nested_dir.exists() {
+        if let Err(e) = std::fs::remove_dir_all(&nested_dir) {
+            return Err(format!("failed to remove ryzenadj dir: {e}"));
+        }
+    }
+
+    // Remove root-level binary if present (Windows: .exe, others: no extension)
+    let root_bin = if cfg!(windows) {
+        base_dir.join("ryzenadj.exe")
+    } else {
+        base_dir.join("ryzenadj")
+    };
+    if root_bin.exists() {
+        if let Err(e) = std::fs::remove_file(&root_bin) {
+            return Err(format!("failed to remove ryzenadj binary: {e}"));
+        }
+    }
+
+    Ok(())
+}
