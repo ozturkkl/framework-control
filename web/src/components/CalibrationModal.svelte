@@ -1,7 +1,6 @@
 <script lang="ts">
   import { DefaultService } from "../api";
   import type { PartialConfig } from "../api";
-  import { parseThermalOutput } from "../lib/thermal";
   import { createEventDispatcher } from "svelte";
   import { tweened } from "svelte/motion";
   import { get } from "svelte/store";
@@ -63,13 +62,11 @@
       if (cancelled) return 0;
       try {
         const res = await DefaultService.getThermal();
-        if (res.ok) {
-          const { rpms } = parseThermalOutput(res.stdout);
-          const rpm = rpms.length ? Math.max(...rpms) : 0;
-          if (rpm > 0) {
-            buf.push(rpm);
-            if (buf.length > WINDOW) buf.shift();
-          }
+        const rpms = res.rpms ?? [];
+        const rpm = rpms.length ? Math.max(...rpms) : 0;
+        if (rpm > 0) {
+          buf.push(rpm);
+          if (buf.length > WINDOW) buf.shift();
         }
       } catch {}
 
@@ -106,8 +103,8 @@
     info = "Starting calibration";
     // Snapshot current mode so we can restore it later
     try {
-      const { ok, config } = await DefaultService.getConfig();
-      if (ok && config?.fan?.mode) {
+      const config = await DefaultService.getConfig();
+      if (config?.fan?.mode) {
         prevMode = config.fan.mode;
       }
     } catch {}

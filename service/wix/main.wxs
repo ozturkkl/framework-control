@@ -159,7 +159,15 @@
                             DiskId='1'
                             Source='$(var.CargoTargetBinDir)\framework-control-service.exe'
                             KeyPath='yes'/>
+                        <!-- Clean up helper artifacts created at runtime during uninstall -->
+                        <RemoveFile Id='RemoveRyzenAdjExe' Name='ryzenadj.exe' On='uninstall' Directory='APPLICATIONFOLDER'/>
+                        <RemoveFile Id='RemoveRyzenAdjNested' Name='*' On='uninstall' Directory='RyzenAdjDir'/>
+                        <RemoveFolder Id='RemoveRyzenAdjFolder' Directory='RyzenAdjDir' On='uninstall'/>
                     </Component>
+
+                    <!-- Define the nested helper directory under install folder -->
+                    <Directory Id='RyzenAdjDir' Name='ryzenadj'>
+                    </Directory>
                     
                     <!-- Marker file for shortcut creation -->
                     <Component Id='ShortcutMarker' Guid='*'>

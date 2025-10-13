@@ -7,7 +7,7 @@ use crate::cli::FrameworkTool;
 use crate::types::{Config, FanControlMode};
 
 /// Main fan control task that runs continuously based on config
-pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
+pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: Arc<tokio::sync::RwLock<Config>>) {
     info!("Fan control task started");
 
     let mut last_duty: Option<u32> = None;
@@ -19,13 +19,24 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
         let loop_started = std::time::Instant::now();
         let config = cfg.read().await.fan.clone();
         // Loop cadence: use curve.poll_ms while in Curve mode with a curve present; otherwise a small fixed cadence
-        let poll_interval = match (&config.mode, &config.curve) {
+        let mode = config.mode.unwrap_or(FanControlMode::Disabled);
+        let poll_interval = match (&mode, &config.curve) {
             (FanControlMode::Curve, Some(c)) => Duration::from_millis(c.poll_ms),
             _ => Duration::from_millis(500),
         };
 
+        // Obtain current FrameworkTool from shared state; if missing, wait for next cadence and retry
+        let maybe_cli = { cli_lock.read().await.clone() };
+        let cli = match maybe_cli {
+            Some(c) => c,
+            None => {
+                sleep(poll_interval).await;
+                continue;
+            }
+        };
+
         // Handle based on current mode
-        match &config.mode {
+        match &mode {
             // Disabled: let firmware handle it
             FanControlMode::Disabled => {
                 if last_mode != Some(FanControlMode::Disabled) {
@@ -56,9 +67,6 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                             last_duty = Some(duty);
                             debug!("Manual: Set {}%", duty);
                         }
-                    } else {
-                        let cur = duty;
-                        debug!("Manual: Holding {}%", cur);
                     }
                 } else {
                     // No manual duty set, fall back to auto
@@ -81,14 +89,12 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                     sleep(poll_interval).await;
                     continue;
                 };
-                // 1. Read temperature
-                let temp = match get_sensor_temperature(&cli, &curve_cfg.sensor).await {
-                    Some(t) => t,
-                    None => {
-                        warn!("Failed to read temperature, continuing...");
-                        sleep(poll_interval).await;
-                        continue;
-                    }
+                // 1. Read temperatures and select based on sensors (max across selection)
+                let temp = get_max_sensor_temperature(&cli, &curve_cfg.sensors).await;
+                let Some(temp) = temp else {
+                    warn!("Failed to select temperature, continuing...");
+                    sleep(poll_interval).await;
+                    continue;
                 };
                 // If we just entered Curve mode, anchor hysteresis and clear target to avoid stale state
                 if last_mode != Some(FanControlMode::Curve) {
@@ -132,7 +138,7 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                 if let Some(tgt) = active_target {
                     let mut decision = "hold";
                     let mut reason = "last==next";
-                    
+
                     let next = match last_duty {
                         Some(prev) if curve_cfg.rate_limit_pct_per_step < 100 => {
                             apply_rate_limit(prev, tgt, curve_cfg.rate_limit_pct_per_step)
@@ -149,7 +155,9 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                             last_duty = Some(next);
                         }
                     }
-                    debug!(
+
+                    if decision != "hold" {
+                        debug!(
                         "CurveLoop: temp={}°C, inst_target={}%, active_target={}%, anchor={}°C, hys={}°C, last_duty={:?}%, next={}%, step_limit={}%, decision={}, reason={}",
                         temp,
                         curve_target,
@@ -159,9 +167,10 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
                         last_duty,
                         next,
                         curve_cfg.rate_limit_pct_per_step,
-                        decision,
-                        reason
-                    );
+                            decision,
+                            reason
+                        );
+                    }
                 }
                 last_mode = Some(FanControlMode::Curve);
             }
@@ -173,48 +182,22 @@ pub async fn run(cli: FrameworkTool, cfg: Arc<tokio::sync::RwLock<Config>>) {
     }
 }
 
-/// Get temperature from thermal sensors
-async fn get_sensor_temperature(cli: &FrameworkTool, sensor: &str) -> Option<i32> {
-    match cli.thermal().await {
-        Ok(output) => parse_temperature(&output, sensor),
-        Err(e) => {
-            debug!("Failed to read thermal data: {}", e);
-            None
+/// Read thermal and return the maximum temperature across the provided sensors.
+async fn get_max_sensor_temperature(cli: &FrameworkTool, sensors: &[String]) -> Option<i32> {
+    let output = cli.thermal().await.ok()?;
+    let temps = &output.temps; // BTreeMap<String, i32>
+    let mut best: Option<i32> = None;
+    for name in sensors {
+        if let Some(&v) = temps.get(name) {
+            best = Some(match best { Some(b) => b.max(v), None => v });
+            continue;
+        }
+        if let Some((_, v)) = temps.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) {
+            let v = *v;
+            best = Some(match best { Some(b) => b.max(v), None => v });
         }
     }
-}
-
-/// Parse temperature from thermal output
-/// Looks for lines like "APU:    62 C" or "CPU:    55 C"
-fn parse_temperature(output: &str, sensor: &str) -> Option<i32> {
-    // First try to find the specific sensor
-    let sensor_prefix = format!("{}:", sensor);
-
-    for line in output.lines() {
-        let trimmed = line.trim();
-
-        // Check if this line contains our sensor
-        if trimmed.contains(&sensor_prefix) {
-            // Extract temperature value (looking for pattern: "number C")
-            if let Some(c_pos) = trimmed.rfind(" C") {
-                // Get the substring before " C"
-                let before_c = &trimmed[..c_pos];
-                // Extract the last word (should be the temperature number)
-                if let Some(temp_str) = before_c.split_whitespace().last() {
-                    if let Ok(temp) = temp_str.parse::<i32>() {
-                        return Some(temp);
-                    }
-                }
-            }
-        }
-    }
-
-    // Fallback: try "APU" if original sensor not found
-    if sensor != "APU" {
-        return parse_temperature(output, "APU");
-    }
-
-    None
+    best
 }
 
 /// Calculate fan duty from temperature using the curve points
@@ -265,15 +248,6 @@ fn apply_rate_limit(current: u32, target: u32, max_change: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_temperature() {
-        let output = "  F75303_Local:   45 C\n  F75303_CPU:     55 C\n  APU:          62 C\n";
-
-        assert_eq!(parse_temperature(output, "APU"), Some(62));
-        assert_eq!(parse_temperature(output, "F75303_CPU"), Some(55));
-        assert_eq!(parse_temperature(output, "CPU"), None); // Exact match required
-    }
 
     #[test]
     fn test_calculate_duty_from_curve() {

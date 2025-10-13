@@ -1,17 +1,18 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { DefaultService } from "../api";
-  import type { Config, PartialConfig, PartialFanControlConfig } from "../api";
+  import type { Config, PartialConfig, FanControlConfig } from "../api";
   import { throttleDebounce } from "../lib/utils";
-  import { parseThermalOutput, pickTempForSensor } from "../lib/thermal";
   import { cubicSplineInterpolate } from "../lib/spline";
   import CalibrationModal from "./CalibrationModal.svelte";
+  import UiSlider from "./UiSlider.svelte";
   import Icon from "@iconify/svelte";
+  import MultiSelect from "./MultiSelect.svelte";
 
   let error: string | null = null;
-  let success: string | null = null;
-  let token = import.meta.env.VITE_CONTROL_TOKEN;
+  let success: boolean | null = null;
   let successTimeout: ReturnType<typeof setTimeout> | null = null;
+  let token = import.meta.env.VITE_CONTROL_TOKEN;
 
   // Live telemetry polling for current temperature and fan RPM
   const LIVE_POLL_MS = 1000;
@@ -21,9 +22,7 @@
 
   // Centralized defaults for the fan control config (backend schema)
   const DEFAULTS = {
-    mode: "disabled",
     curve: {
-      sensor: "APU",
       points: [
         [1, 30],
         [70, 30],
@@ -48,7 +47,10 @@
   let pollMs = DEFAULTS.curve.poll_ms;
   let hysteresisC = DEFAULTS.curve.hysteresis_c;
   let rateLimitPctPerStep = DEFAULTS.curve.rate_limit_pct_per_step;
-  let sensor: string = DEFAULTS.curve.sensor;
+  let selectedSensors: string[] = [];
+  let availableSensors: string[] = [];
+  let latestTemps: Record<string, number> = {};
+  let selectedMaxSensor: string | null = null;
 
   const SHOW_LIVE_KEY = "framework:showLiveRpm";
   let showLive = (() => {
@@ -120,7 +122,7 @@
   async function handleCalibrationDone(pts: [number, number][]) {
     calibrationPoints = pts;
     await pollLiveOnce();
-    success = "Calibrated";
+    success = true;
     closeCalibration();
   }
 
@@ -128,20 +130,30 @@
     showLive = !showLive;
   }
 
+  function pickTempForSelection(
+    temps: Record<string, number>,
+    selections: string[] | null
+  ): number | null {
+    let best: number | null = null;
+
+    if (selections && selections.length > 0) {
+      for (const s of selections) {
+        const t = temps[s];
+        if (!Number.isNaN(t)) {
+          best = Math.max(best ?? 0, t);
+        }
+      }
+    }
+    return best;
+  }
+
   async function pollLiveOnce() {
     try {
       const res = await DefaultService.getThermal();
-      if (!res.ok) return;
-      const { temps, rpms } = parseThermalOutput(res.stdout);
-      const t = pickTempForSensor(temps, sensor);
+      latestTemps = res.temps;
+      const t = pickTempForSelection(latestTemps, selectedSensors);
       if (t !== null) liveTemp = t;
-      // Always update RPM - set to 0 if no RPM detected
-      if (rpms.length) {
-        const rpm = Math.max(...rpms);
-        liveRpm = rpm;
-      } else {
-        liveRpm = 0; // No RPM detected, fan is stopped
-      }
+      liveRpm = Math.max(...res.rpms, 0);
     } catch (_) {
       // Ignore transient errors
     }
@@ -223,8 +235,8 @@
 
   onMount(async () => {
     try {
-      const { ok, config } = await DefaultService.getConfig();
-      if (ok && config) {
+      const config = await DefaultService.getConfig();
+      if (config) {
         // map backend mode to UI mode (accept lowercase or capitalized)
         const m = config.fan.mode;
         switch (m) {
@@ -239,7 +251,10 @@
             break;
         }
         if (config.fan.curve) {
-          sensor = config.fan.curve.sensor;
+          const sensors = config.fan.curve.sensors;
+          if (sensors.length > 0) {
+            selectedSensors = sensors;
+          }
           points = config.fan.curve.points.map(
             (p: any) => [p[0], p[1]] as Point
           );
@@ -258,9 +273,20 @@
     } catch (e: unknown) {
       error = e instanceof Error ? e.message : String(e);
     }
+    // Load available sensors from thermal endpoint
+    try {
+      const t = await DefaultService.getThermal();
+      availableSensors = Object.keys(t.temps);
+      latestTemps = t.temps;
+      // Best-effort: if user has no custom selection and list is empty, select all
+      if (selectedSensors.length === 0 && availableSensors.length > 0) {
+        selectedSensors = availableSensors.slice();
+        save();
+      }
+    } catch (_) {}
     // Load calibration from fan if present
     try {
-      const { ok, config } = await DefaultService.getConfig();
+      const config = await DefaultService.getConfig();
       const cal = config?.fan?.calibration;
       if (cal?.points) calibrationPoints = cal.points as [number, number][];
     } catch (_) {}
@@ -282,14 +308,14 @@
       // Build minimal patch for new backend API
       const backendMode =
         mode === "Manual" ? "manual" : mode === "Curve" ? "curve" : "disabled";
-      const fanPatch: PartialFanControlConfig = { mode: backendMode };
+      const fanPatch: FanControlConfig = { mode: backendMode };
       if (backendMode === "manual") {
         fanPatch.manual = {
           duty_pct: clamp(manualDutyPct, 0, 100),
         };
       } else if (backendMode === "curve") {
         fanPatch.curve = {
-          sensor,
+          sensors: selectedSensors,
           points: points.map((p) => [Math.round(p[0]), Math.round(p[1])]),
           poll_ms: Math.max(200, Math.floor(pollMs)),
           hysteresis_c: Math.max(0, Math.floor(hysteresisC)),
@@ -299,13 +325,12 @@
       const patch: PartialConfig = { fan: fanPatch } as any;
       try {
         console.log("Saving Fan Control:", patch);
-        const res = await DefaultService.setConfig(token, patch);
-        if (!res.ok) throw new Error("Failed to save config");
+        await DefaultService.setConfig(token, patch);
         if (successTimeout) {
           clearTimeout(successTimeout);
           successTimeout = null;
         }
-        success = "Saved";
+        success = true;
         successTimeout = setTimeout(() => {
           success = null;
           successTimeout = null;
@@ -430,47 +455,78 @@
     rateLimitPctPerStep = DEFAULTS.curve.rate_limit_pct_per_step;
     save();
   }
+
+  function tempClass(t: number, selected: boolean) {
+    if (!selected) return "opacity-50";
+    if (t > 98) return "text-error";
+    if (t > 90) return "text-warning";
+    return "text-success";
+  }
+
+  // Track which selected sensor is currently the max
+  $: (function computeSelectedMaxSensor() {
+    let bestName: string | null = null;
+    let best: number | null = null;
+    for (const s of selectedSensors) {
+      const t = latestTemps?.[s];
+      if (typeof t === "number" && !Number.isNaN(t)) {
+        if (best == null || t > best) {
+          best = t;
+          bestName = s;
+        }
+      }
+    }
+    selectedMaxSensor = bestName;
+  })();
 </script>
 
 <svelte:window on:pointerup={endDrag} on:pointercancel={endDrag} />
 
-<div class="relative min-h-16 flex flex-col justify-center">
+<!-- preload icons -->
+<div class="hidden">
+  <Icon icon="mdi:speedometer-slow" />
+  <Icon icon="mdi:thermometer-lines" />
+  <Icon icon="mdi:timer-outline" />
+  <Icon icon="mdi:fan" />
+  <Icon icon="mdi:backup-restore" />
+  <Icon icon="mdi:arrow-left" />
+  <Icon icon="mdi:cog-outline" />
+</div>
+
+<span
+  class="pointer-events-none select-none absolute top-[1.4rem] left-[19rem] inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow transition duration-200 ease-out"
+  style="opacity: {success ? 1 : 0}; transform: scale({success ? 1 : 0.9});"
+  aria-hidden="true"
+>
+  <Icon icon="mdi:check" class="text-base" />
+</span>
+
+<div class="relative flex flex-col justify-center my-auto pt-2">
   {#if error}
     <div class="alert alert-error text-sm">
       <span>{error}</span>
     </div>
   {/if}
 
-  <span
-    class="pointer-events-none select-none absolute top-[-38px] left-[275px] inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow transition duration-200 ease-out"
-    style="opacity: {success ? 1 : 0}; transform: scale({success ? 1 : 0.9});"
-    aria-hidden="true"
-  >
-    <Icon icon="mdi:check" class="text-base" />
-  </span>
-
   {#if mode === "Auto"}
-    <div class="text-lg opacity-80">
+    <div class="text-md opacity-80">
       Fan will be controlled by the default firmware curve.
     </div>
   {/if}
 
   {#if mode === "Manual"}
-    <div class="form-control">
-      <label class="label" for="manual-duty">
-        <span class="label-text">Manual duty: {manualDutyPct}%</span>
-      </label>
-      <input
-        id="manual-duty"
-        type="range"
-        min="0"
-        max="100"
-        step="1"
-        class="range"
-        bind:value={manualDutyPct}
-        on:input={save}
-      />
-    </div>
+    <UiSlider
+      label="Manual duty"
+      icon={"mdi:fan"}
+      unit="%"
+      min={0}
+      max={100}
+      step={1}
+      hasEnabled={false}
+      bind:value={manualDutyPct}
+      on:input={save}
+      on:change={save}
+    />
   {/if}
 
   {#if mode === "Curve"}
@@ -713,95 +769,81 @@
                 {/if}
               </svg>
             </div>
-            <div
-              class="mt-2 flex items-center justify-between gap-2 text-xs opacity-70"
-            >
-              <div class="flex-1 min-w-0">
+            <div class="mt-2 flex items-center justify-between gap-2 text-xs">
+              <div class="flex-1 min-w-0 opacity-70">
                 Double‑click to add. Drag to adjust. Right‑click to delete.
               </div>
               <div
                 class="ml-auto shrink-0 whitespace-nowrap flex items-center gap-2"
               >
-                <select
-                  aria-label="Sensor"
-                  class="select select-bordered select-xs"
-                  bind:value={sensor}
-                  on:change={save}
-                >
-                  <option value="APU">APU</option>
-                  <option value="CPU">CPU</option>
-                </select>
+                <div class="flex items-center gap-2">
+                  <MultiSelect
+                    items={availableSensors}
+                    bind:selected={selectedSensors}
+                    label="Sensors"
+                    on:change={save}
+                  >
+                    <svelte:fragment slot="itemRight" let:item>
+                      {#if latestTemps?.[item] !== undefined}
+                        <span
+                          class={`tabular-nums px-1.5 py-0.5 rounded-full border ${item === selectedMaxSensor ? "border-base-content/50 border-2" : "border-2 border-transparent"} ${tempClass(latestTemps[item], selectedSensors.includes(item))}`}
+                        >
+                          {Math.round(latestTemps[item])} °C
+                        </span>
+                      {:else}
+                        <span class="opacity-60">—</span>
+                      {/if}
+                    </svelte:fragment>
+                  </MultiSelect>
+                </div>
               </div>
             </div>
           {:else}
-            <div class="p-6 space-y-10">
-              <div class="form-control">
-                <div class="flex flex-col gap-2">
-                  <label for="poll-ms" class="label-text"
-                    >Poll interval: {pollMs} ms</label
-                  >
-                  <input
-                    id="poll-ms"
-                    type="range"
-                    min="200"
-                    max="5000"
-                    step="100"
-                    class="range range-xs w-full"
-                    bind:value={pollMs}
-                    on:input={save}
-                  />
-                </div>
-              </div>
+            <div class="space-y-5 pt-2">
+              <UiSlider
+                label="Poll interval"
+                icon="mdi:timer-outline"
+                unit="ms"
+                min={200}
+                max={5000}
+                step={100}
+                bind:value={pollMs}
+                on:input={save}
+              />
 
-              <div class="form-control">
-                <div class="flex flex-col gap-2">
-                  <label for="hysteresis-c" class="label-text"
-                    >Hysteresis: {hysteresisC} °C</label
-                  >
-                  <input
-                    id="hysteresis-c"
-                    type="range"
-                    min="1"
-                    max="10"
-                    step="1"
-                    class="range range-xs w-full"
-                    bind:value={hysteresisC}
-                    on:input={save}
-                  />
-                </div>
-              </div>
+              <UiSlider
+                label="Hysteresis"
+                icon="mdi:thermometer-lines"
+                unit="°C"
+                min={1}
+                max={10}
+                step={1}
+                bind:value={hysteresisC}
+                on:input={save}
+              />
 
-              <div class="form-control">
-                <div class="flex flex-col gap-2">
-                  <label for="rate-limit" class="label-text"
-                    >Rate limit per step: {rateLimitPctPerStep}%</label
-                  >
-                  <input
-                    id="rate-limit"
-                    type="range"
-                    min="1"
-                    max="100"
-                    step="1"
-                    class="range range-xs w-full"
-                    bind:value={rateLimitPctPerStep}
-                    on:input={save}
-                  />
-                </div>
-              </div>
+              <UiSlider
+                label="Rate limit per step"
+                icon="mdi:speedometer-slow"
+                unit="%"
+                min={1}
+                max={100}
+                step={1}
+                bind:value={rateLimitPctPerStep}
+                on:input={save}
+              />
 
-              <div class="form-control">
-                <div class="flex items-center justify-between gap-2">
-                  <div class="text-xs opacity-70">
-                    Calibration aligns live RPM to duty curve.
-                  </div>
-                  <button
-                    class="btn btn-xs"
-                    on:click={openCalibration}
-                    aria-label="Recalibrate fan"
-                  >
-                    Recalibrate
-                  </button>
+              <div class="flex items-center justify-between gap-2 px-4 mb-3">
+                <div class="text-xs opacity-70">
+                  Calibration aligns live RPM to duty curve.
                 </div>
+                <button
+                  class="btn btn-sm"
+                  on:click={openCalibration}
+                  aria-label="Recalibrate fan"
+                >
+                  Recalibrate
+                </button>
               </div>
             </div>
           {/if}
@@ -818,7 +860,3 @@
     on:cancel={closeCalibration}
   />
 {/if}
-
-<style>
-  /* Removed CSS transform-based pulse to avoid SVG transform-origin issues */
-</style>

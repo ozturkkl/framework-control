@@ -29,11 +29,7 @@
       const result = await DefaultService.createShortcuts(
         auth ? `Bearer ${auth}` : ""
       );
-      if (result.ok) {
-        shortcutsCreated = true;
-      } else {
-        error = "Failed to create shortcuts";
-      }
+      shortcutsCreated = true;
     } catch (e) {
       error = "Error creating shortcuts";
       console.error("Failed to create shortcuts:", e);

@@ -5,3 +5,10 @@
 
 /* Disable daisyUI's root scrollbar-gutter to avoid layout shift when modals open */
 html { scrollbar-gutter: auto !important; }
+/* Prevent horizontal page scroll from wide absolutely-positioned elements (e.g., tooltips) */
+html, body { overflow-x: hidden; }
+
+/* Nudge DaisyUI tooltip bubble into viewport by offsetting with margin-left */
+.tooltip.tooltip-clamped:before {
+  margin-left: var(--tc-ml) !important;
+}

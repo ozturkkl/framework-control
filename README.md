@@ -29,6 +29,10 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
 
+- **Power Controls (RyzenAdj)**:
+  - Set TDP (applies STAPM/FAST/SLOW equally)
+  - Set Tctl thermal limit
+
 ## Upcoming Goals
 
 - **TDP Control**: Adjust processor power limits for performance/battery optimization
@@ -46,6 +50,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Backend Service**: Rust (Tokio + Poem + poem-openapi)
   - Exposes HTTP API with OpenAPI generation
   - Executes Framework CLI (`framework_tool`) for all EC interactions
+  - Executes RyzenAdj (`ryzenadj`) for AMD power/thermal adjustments
   - Applies persisted fan-control config at boot
 - **Frontend UI**: Svelte + Vite
   - Responsive panel layout adapting to active fan mode
@@ -75,6 +80,14 @@ cd framework-control/web
 npm i
 npm run dev
 ```
+
+### Frontend API Usage Policy (Important)
+
+- Always use the generated client in `web/src/api` (`DefaultService`, `OpenAPI`) for all calls to the local service.
+- Do NOT use `fetch` directly for service endpoints anywhere in the UI.
+- After changing backend routes or models, regenerate the client:
+  1. Build the service to refresh `web/openapi.json`
+  2. From `framework-control/web`, run: `npm run gen:api`
 
 **Environment Variables**:
 

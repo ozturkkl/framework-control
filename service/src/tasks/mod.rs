@@ -1,33 +1,34 @@
 use crate::state::AppState;
-use crate::update::check_and_apply_now;
 
 pub async fn boot(state: &AppState) {
-    if let Some(cli) = &state.cli {
-        let cli_clone = cli.clone();
+    // Fan curve task: always start; it will wait until framework_tool is available
+    {
+        let ft_clone = state.framework_tool.clone();
         let cfg_clone = state.config.clone();
-        // The loop reads config each tick; no restart/cancel complexity needed
         tokio::spawn(async move {
-            crate::tasks::fan_curve::run(cli_clone, cfg_clone).await;
+            crate::tasks::fan_curve::run(ft_clone, cfg_clone).await;
+        });
+    }
+
+    // Power settings task: start once at boot; it will wait until RyzenAdj is available
+    {
+        let ryz_clone = state.ryzenadj.clone();
+        let cfg_clone = state.config.clone();
+        let ft_clone = state.framework_tool.clone();
+        tokio::spawn(async move {
+            crate::tasks::power::run(ryz_clone, cfg_clone, ft_clone).await;
         });
     }
 
     // Auto-update background task
     {
-        let app_state = state.clone();
+        let cfg_clone = state.config.clone();
         tokio::spawn(async move {
-            loop {
-                // read settings
-                let cfg = app_state.config.read().await.clone();
-                if cfg.updates.auto_install {
-                    let _ = check_and_apply_now().await;
-                }
-                // sleep 6h
-                tokio::time::sleep(std::time::Duration::from_secs(6 * 60 * 60)).await;
-            }
+            crate::tasks::auto_update::run(cfg_clone).await;
         });
     }
 }
 
 pub mod fan_curve;
-
-
+pub mod power;
+pub mod auto_update;
