@@ -6,8 +6,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 
 > ⚠️ **Warning (Framework 16)**
 > At minimum BIOS 3.07 is required for proper EC/fan control behavior.
-> Install the beta BIOS before using this tool or it won't work.
-> Announcement and downloads: https://community.frame.work/t/framework-laptop-16-ryzen-7040-bios-3-06-release-beta/73326
+> Install the [latest BIOS](https://knowledgebase.frame.work/en_us/framework-laptop-16-bios-and-driver-releases-amd-ryzen-7040-series-BkeqkVovp) before using this tool or it won't work.
 
 <img width="1353" height="940" alt="image" src="https://github.com/user-attachments/assets/98565ce4-1093-4b77-a726-75d47752e090" />
 
