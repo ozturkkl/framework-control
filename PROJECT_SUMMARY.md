@@ -73,6 +73,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - `Telemetry.svelte`: now includes a multi-sensor temperature graph backed by `/api/thermal/history` with sensor selector and backend poll-interval control.
   - `TelemetryGraph.svelte`: shared SVG line chart styled like the fan curve editor; distinct, stable colors per sensor.
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
+  - `MultiSelect.svelte`: daisyUI-based multi-select (dropdown + checkboxes) with an optional right-aligned `itemRight` slot per option (used to display live sensor temperatures in `FanControl.svelte`).
 - Shared utilities: `web/src/lib/*`
 - Frontend API usage guideline (do not bypass):
 
@@ -111,6 +112,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 - Persisted at `C:\ProgramData\FrameworkControl\config.json`
 - Fan modes: Auto, Manual duty, Curve (with hysteresis, rate limiting, calibration)
+  - Curve config: `sensors: string[]` (no defaults; empty means skip applying and log, the front end will try to populate after fetching). The UI displays the latest temperature next to each sensor in the selector.
 - Write operations require `FRAMEWORK_CONTROL_TOKEN` (Bearer auth header)
 - Updates:
   - `FRAMEWORK_CONTROL_UPDATE_REPO`: GitHub repo to check (format `owner/repo` or `https://github.com/owner/repo`). `GET /api/update/check` uses GitHub Releases API to fetch the latest tag and MSI asset URL; `POST /api/update/apply` downloads that MSI and launches `msiexec` on Windows.

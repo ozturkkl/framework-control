@@ -56,8 +56,8 @@ pub struct ManualConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct CurveConfig {
-    #[serde(default = "default_sensor")]
-    pub sensor: String,
+    #[serde(default)]
+    pub sensors: Vec<String>,
     #[serde(default = "default_points")]
     pub points: Vec<[u32; 2]>,
     #[serde(default = "default_poll_ms")]
@@ -68,9 +68,6 @@ pub struct CurveConfig {
     pub rate_limit_pct_per_step: u32,
 }
 
-fn default_sensor() -> String {
-    "APU".to_string()
-}
 fn default_points() -> Vec<[u32; 2]> {
     vec![[40, 0], [60, 40], [75, 80], [85, 100]]
 }
