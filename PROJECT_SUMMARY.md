@@ -23,25 +23,28 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /health`: health + version + `cli_present`
     - `GET /power`: parsed power report (ac_present + optional battery info)
     - `GET /thermal`: parsed thermal report (temps map + fan RPMs)
+    - `GET /thermal/history`: recent telemetry samples collected by the service (trimmed by configured retention)
     - `GET /versions`: parsed versions (mainboard_type, uefi_version, etc.)
     - `GET /config`: return persisted config
     - `POST /config`: update config (requires `Authorization: Bearer <token>`)
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
     - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
- - `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
- - `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required)
-    - `GET /update/check`: check for latest version from update feed (see env below)
-    - `POST /update/apply`: install the update (auth required)
-  - Helpers: GPU detection via PowerShell on Windows
+- `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
+- `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required)
+  - `GET /update/check`: check for latest version from update feed (see env below)
+  - `POST /update/apply`: install the update (auth required)
+- Helpers: GPU detection via PowerShell on Windows
 - Other key files:
   - `service/src/config.rs`: load/save config JSON in `C:\ProgramData\FrameworkControl\config.json`
-  - `service/src/types.rs`: API/request/response and config types (power config now has AC/Battery profiles with enabled flags)
+  - `service/src/types.rs`: API/request/response and config types (power config now has AC/Battery profiles with enabled flags). Adds `telemetry` config (`poll_ms`, `retain_seconds`) and telemetry history response types.
   - `service/src/state.rs`: shared `AppState` (config RwLock, CLI handle, auth helper)
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
 - `service/src/cli/ryzen_adj.rs`: RyzenAdj wrapper and on-demand install helper
-  - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings; auto-update checks)
+  - `service/src/tasks/*`: background tasks (apply fan curve; apply power settings; auto-update checks; telemetry history collector)
+  - `service/src/tasks/telemetry.rs`: polls `framework_tool --thermal` at `telemetry.poll_ms` and retains recent samples in-memory (trimmed by `telemetry.retain_seconds`).
+  - `service/src/tasks/fan_curve.rs`: fan control task supports sensors-only curves (max of selected sensors).
   - `service/src/tasks/power.rs`: selects AC/Battery profile based on AC presence and applies enabled TDP/thermal values. Adds a "sticky but patient" TDP reapply: polls current TDP via `ryzenadj --info`, waits for a quiet window (no drift) before reapplying, and rate-limits reapply attempts. This avoids fighting the OS/driver's gradual adjustments while keeping the user's requested TDP in effect.
   - `service/src/cli/`: CLI integrations namespace
     - `framework_tool.rs`: wrapper for `framework_tool` (resolution, install, helpers)
@@ -67,7 +70,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - Remembers last selected AC/Battery tab via `localStorage` key `fc.power.activeProfile`.
     - Intel gating: Uses `/api/system` to detect CPU vendor and shows an AMD-only notice on Intel systems (RyzenAdj-based controls not supported on Intel yet).
     - Adds a "Remove helper" action to uninstall the downloaded RyzenAdj via `POST /api/ryzenadj/uninstall`.
-  - `Telemetry.svelte`: compact live readouts card (TDP W, Thermal °C, Battery % + charging state) polling `/api/power`
+- `Telemetry.svelte`: now includes a multi-sensor temperature graph backed by `/api/thermal/history` with sensor selector and backend poll-interval control.
+  - `TelemetryGraph.svelte`: shared SVG line chart styled like the fan curve editor; distinct, stable colors per sensor.
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
 - Shared utilities: `web/src/lib/*`
 - Frontend API usage guideline (do not bypass):
@@ -130,7 +134,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 - `framework-system`: houses `framework_tool` and `framework_lib`
 - `inputmodule-rs`: firmware and tooling for Framework 16 input modules (e.g., `qtpy/src/main.rs` @main.rs for USB CDC commands + LED control)
- - `RyzenAdj`: third-party CLI to adjust AMD Ryzen power/thermal parameters; downloaded from GitHub releases when missing.
+- `RyzenAdj`: third-party CLI to adjust AMD Ryzen power/thermal parameters; downloaded from GitHub releases when missing.
 
 ### Roadmap (per README)
 

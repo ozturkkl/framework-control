@@ -59,6 +59,11 @@
     },
   };
 
+  let currentTdp: number | undefined;
+  let currentThermal: number | undefined;
+  let acPresent: boolean | undefined;
+  let batteryPct: number | undefined;
+
   async function setPower(
     profile: keyof PowerConfig,
     field: keyof PowerProfile,
@@ -80,10 +85,17 @@
     }
   }
 
-  async function getRyzenAdjInstalled() {
+  async function pollPower() {
     try {
       const resp = await DefaultService.getPower();
       ryzenInstalled = !!resp.ryzenadj_installed;
+
+      acPresent = resp.ac_present;
+      batteryPct = resp.battery?.percentage;
+      const tdp = resp.tdp_watts;
+      const therm = resp.thermal_limit_c;
+      currentTdp = tdp && tdp > 0 ? tdp : undefined;
+      currentThermal = therm && therm > 0 ? therm : undefined;
     } catch (_) {
       ryzenInstalled = false;
     } finally {
@@ -115,8 +127,8 @@
         true
       );
     } catch {}
-    await getRyzenAdjInstalled();
-    infoPoll = setInterval(getRyzenAdjInstalled, 2000);
+    await pollPower();
+    infoPoll = setInterval(pollPower, 2000);
   });
   onDestroy(() => {
     if (infoPoll) clearInterval(infoPoll);
@@ -131,7 +143,7 @@
       await DefaultService.installRyzenadj(auth);
       // getInstalled a couple times to see if the installed will turn true
       for (let i = 0; i < 5; i++) {
-        await getRyzenAdjInstalled();
+        await pollPower();
         if (ryzenInstalled) break;
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
@@ -148,7 +160,7 @@
     try {
       const auth = `Bearer ${OpenAPI.TOKEN}`;
       await DefaultService.uninstallRyzenadj(auth);
-      await getRyzenAdjInstalled();
+      await pollPower();
     } catch (e) {
       errorMessage = e instanceof Error ? e.message : String(e);
     } finally {
@@ -293,8 +305,43 @@
       {/if}
     </div>
   {:else}
+    <div class="bg-base-200 min-w-0 rounded-xl mb-2 mt-2">
+      <div class="py-2 px-3 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1">
+            <Icon
+              icon="mdi:flash-outline"
+              class={`w-4 h-4 ${Number(currentTdp) > 95 ? "brightness-200" : Number(currentTdp) > 60 ? "brightness-150" : "brightness-100"} text-success`}
+            />
+            <span class="tabular-nums text-xs">{currentTdp ?? "—"} W</span>
+          </span>
+          <span class="opacity-60">•</span>
+          <span class="inline-flex items-center gap-1">
+            <Icon
+              icon="mdi:thermometer"
+              class={`w-4 h-4 ${Number(currentThermal) > 95 ? "text-error" : Number(currentThermal) > 90 ? "text-warning" : "text-success"}`}
+            />
+            <span class="tabular-nums text-xs">{currentThermal ?? "—"} °C</span>
+          </span>
+        </div>
+        <div class="text-[10px] flex items-center gap-1">
+          <span class={`inline-flex items-center gap-1`}>
+            <Icon
+              icon={acPresent ? "mdi:battery-charging" : "mdi:battery"}
+              class={`w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`}
+            />
+            <span class="tabular-nums text-xs">{batteryPct ?? "—"}%</span>
+          </span>
+          <span class="text-md opacity-60">•</span>
+          <span
+            class={`text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`}
+            >{acPresent ? "Plugged in" : "On battery"}</span
+          >
+        </div>
+      </div>
+    </div>
     <div
-      class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))] pt-2"
+      class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
     >
       <div
         class="transition-transform duration-100"

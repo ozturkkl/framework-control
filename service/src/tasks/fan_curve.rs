@@ -30,6 +30,9 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
         let cli = match maybe_cli {
             Some(c) => c,
             None => {
+                // CLI missing: clear last duty and active target so we reapply on return
+                last_duty = None;
+                active_target = None;
                 sleep(poll_interval).await;
                 continue;
             }

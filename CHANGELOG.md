@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Reliability: After `framework_tool` becomes unavailable and then reappears, the fan task now forces a reapply (clears cached `last_duty` and re-anchors curve), so Curve/Manual modes engage without needing a config change.
+- Auto update after install will no longer make desktop shortcuts reappear
+- Telemetry: Added temperature sensor values as a graph. Moved the current TDP and thermal limit display to the Power Panel
 
 ## 0.4.0 - 2025-10-12
 
