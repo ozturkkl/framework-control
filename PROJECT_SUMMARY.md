@@ -96,6 +96,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
   - `MultiSelect.svelte`: daisyUI-based multi-select (dropdown + checkboxes) with an optional right-aligned `itemRight` slot per option (used to display live sensor temperatures in `FanControl.svelte`). Each instance now generates a unique ID prefix to avoid cross-instance input/label collisions.
     - Adds dynamic edge-aware alignment: dropdown flips between left/right to stay within the viewport when near edges.
+    - Fix: Prevents invisible overlay after closing by gating visibility/pointer-events on open state and resetting alignment on close.
 - Shared utilities: `web/src/lib/*`
 - Fan Control curve editor shows a compact tooltip next to the focused/dragged point with a colored indicator and bold values (e.g., `30°C · 30%`), avoiding brackets and clamped within the graph bounds.
 - Focused curve points support arrow-key nudging (Shift=±5, Ctrl=±10). Home/End jump to min/max temperature.

@@ -20,6 +20,7 @@
 - Telemetry: Added temperature sensor values as a graph. Moved the current TDP and thermal limit display to the Power Panel
 - Fix: `MultiSelect` now uses per-instance unique input IDs to prevent selection bleeding between Fan Control and Sensors.
 - UX: `MultiSelect` dropdown auto-flips left/right alignment to avoid overflowing off-screen when near viewport edges.
+- Fix: `MultiSelect` dropdown no longer leaves an invisible overlay after closing; visibility and pointer-events are disabled when closed, and alignment resets on close.
 - UX: Tooltips now render via a small portal-based action (`tooltipPortal`) instead of DaisyUI pseudo-elements. This removes modal clipping and prevents transient horizontal scrollbars. Removed the old `tooltipClamp` helper and its CSS.
 - UX: Sensors graph adds a hover crosshair and nearest-point tooltip showing sensor name, value, and relative time.
 - UX: Fan Control curve editor shows a compact tooltip next to the active point (also visible while dragging) with a colored indicator and bold values (e.g., `30°C · 30%`), without brackets and with overflow-aware positioning.
