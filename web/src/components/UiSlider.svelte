@@ -57,7 +57,7 @@
   }
 </script>
 
-<div class="flex flex-col rounded-xl bg-base-200 min-w-0 gap-2 py-3 pt-2 px-5">
+<div class="flex flex-col rounded-xl bg-base-200 min-w-0 gap-2 py-2 px-3">
   <div class="flex items-center justify-between">
     <div
       class="flex items-center gap-1.5"

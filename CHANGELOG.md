@@ -1,8 +1,29 @@
 ## Unreleased
 
+- UX: Migrate all tooltips/popups to the new minimal `web/src/lib/tooltip.ts`; remove legacy `web/src/lib/tooltipPortal.ts` and DaisyUI `.tooltip` usage.
+- UX: Add minimal element-based tooltip action (`web/src/lib/tooltip.ts`) with `visible` flag control, fixed portal positioning, auto vertical flip, and viewport clamping. Deprecates and removes DaisyUI-oriented `tooltipPortal.ts`.
+- UI: Simplify responsive layout. Wide screens now use two columns (healthy) and three columns (pre‑healthy) with auto height using CSS columns; cards no longer equalize heights. Removed flip and header animations so cards snap into place. Removed animations in `DeviceHeader` (image crossfade, width transition, pulsing dot). Moved fan mode selector into `FanControl`.
+- UI: Fan mode selector is now overlaid in the Fan Control panel header (like Power Control).
+- UI: Standardize chart card padding/spacing between Telemetry and Fan Control for better side‑by‑side alignment.
+- UI: Panels now have consistent header-to-content spacing. Header adds margin-bottom; first child content’s top margin/padding is reset for uniformity.
+- Layout: Replace CSS columns with a simple `flex-wrap` layout in `App.svelte` to preserve source order and allow dynamic card heights (2 cols when healthy, 3 cols pre‑healthy).
+- Layout: Unhealthy state now equalizes panel heights per row for a tidier look.
+- Rename: "Telemetry" panel label changed to "Sensors".
+- Rename: Frontend component `Telemetry.svelte` renamed to `Sensors.svelte`.
+- UI: Introduce `GraphPanel.svelte` wrapper to DRY chart card layout (shared padding, sticky settings header, matched settings height). `Sensors.svelte` and Fan Control (Curve) now consume this wrapper.
+- UI: Sensors and Fan Control settings keep the same height as their graph panels; settings content centers when shorter and scrolls vertically when taller to avoid layout shifts.
+- Fix: Settings height measurement now includes the header row to avoid small jumps when header contents differ between graph and settings views.
+- UX: Settings header (with Back button) is sticky while scrolling so the Back action remains visible.
+- Fix: Sticky settings header uses a solid background and no negative margins; horizontal overflow scrollbars removed.
 - Reliability: After `framework_tool` becomes unavailable and then reappears, the fan task now forces a reapply (clears cached `last_duty` and re-anchors curve), so Curve/Manual modes engage without needing a config change.
 - Auto update after install will no longer make desktop shortcuts reappear
 - Telemetry: Added temperature sensor values as a graph. Moved the current TDP and thermal limit display to the Power Panel
+- Fix: `MultiSelect` now uses per-instance unique input IDs to prevent selection bleeding between Fan Control and Sensors.
+- UX: `MultiSelect` dropdown auto-flips left/right alignment to avoid overflowing off-screen when near viewport edges.
+- UX: Tooltips now render via a small portal-based action (`tooltipPortal`) instead of DaisyUI pseudo-elements. This removes modal clipping and prevents transient horizontal scrollbars. Removed the old `tooltipClamp` helper and its CSS.
+- UX: Sensors graph adds a hover crosshair and nearest-point tooltip showing sensor name, value, and relative time.
+- UX: Fan Control curve editor shows a compact tooltip next to the active point (also visible while dragging) with a colored indicator and bold values (e.g., `30°C · 30%`), without brackets and with overflow-aware positioning.
+- UX: Fan Control focused point can be moved with arrow keys (Shift=±5, Ctrl=±10; Home/End to min/max temperature).
 
 ## 0.4.0 - 2025-10-12
 

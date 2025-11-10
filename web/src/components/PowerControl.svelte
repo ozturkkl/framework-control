@@ -10,7 +10,7 @@
   import Icon from "@iconify/svelte";
   import { deepMerge } from "../lib/utils";
   import UiSlider from "./UiSlider.svelte";
-  import { tooltipClamp } from "../lib/tooltipClamp";
+  import { tooltip } from "../lib/tooltip";
 
   const TDP_MIN = 5;
   const TDP_MAX = 120;
@@ -63,6 +63,8 @@
   let currentThermal: number | undefined;
   let acPresent: boolean | undefined;
   let batteryPct: number | undefined;
+  let removeBtn: HTMLButtonElement;
+  let removeTipVisible = false;
 
   async function setPower(
     profile: keyof PowerConfig,
@@ -191,7 +193,7 @@
 
 <!-- Overlay status positioned into the parent header area -->
 <div
-  class="absolute top-[1.4rem] left-24 right-14 flex items-center justify-between gap-2 text-sm"
+  class="absolute top-[0.62rem] left-24 right-14 flex items-center justify-between gap-2 text-sm"
 >
   {#if hasCheckedInstallStatus && ryzenInstalled}
     <div class="join border border-primary/35">
@@ -214,41 +216,47 @@
         checked={activeProfile === "battery"}
       />
     </div>
-    <div
-      class="tooltip"
-      data-tip="Remove the RyzenAdj helper. You can reinstall later from here."
+    <button
+      class="btn btn-ghost btn-xs"
+      aria-label="Remove helper"
+      bind:this={removeBtn}
+      on:mouseenter={() => (removeTipVisible = true)}
+      on:mouseleave={() => (removeTipVisible = false)}
+      on:focus={() => (removeTipVisible = true)}
+      on:blur={() => (removeTipVisible = false)}
+      on:click={uninstallRyzenAdj}
+      disabled={uninstallingRyzenAdj}
     >
-      <button
-        class="btn btn-ghost btn-xs"
-        aria-label="Remove helper"
-        use:tooltipClamp
-        on:click={uninstallRyzenAdj}
-        disabled={uninstallingRyzenAdj}
-      >
-        {#if uninstallingRyzenAdj}
-          <Icon icon="mdi:loading" class="w-3.5 h-3.5 animate-spin" />
-        {:else}
-          <Icon icon="mdi:trash-can-outline" class="w-3.5 h-3.5" />
-        {/if}
-      </button>
+      {#if uninstallingRyzenAdj}
+        <Icon icon="mdi:loading" class="w-3.5 h-3.5 animate-spin" />
+      {:else}
+        <Icon icon="mdi:trash-can-outline" class="w-3.5 h-3.5" />
+      {/if}
+    </button>
+    <div
+      use:tooltip={{
+        anchor: removeBtn,
+        visible: removeTipVisible,
+      }}
+      class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-60 text-center"
+    >
+      Remove the RyzenAdj helper. You can reinstall later from here.
     </div>
   {/if}
 </div>
 
 <div class="my-auto">
   {#if isIntel}
-    <div>
-      <h3 class="text-lg font-bold mb-2 text-center">
-        Intel systems not yet supported
-      </h3>
-      <div class="text-sm opacity-80 text-center">
-        Power controls are currently available only on AMD Ryzen systems via
-        RyzenAdj. Your CPU appears to be{#if detectedCpu}: <b>{detectedCpu}</b
-          >{/if}.
-      </div>
+    <h3 class="text-lg font-bold mb-2 text-center mt-2">
+      Intel systems not yet supported
+    </h3>
+    <div class="text-sm opacity-80 text-center mb-2">
+      Power controls are currently available only on AMD Ryzen systems via
+      RyzenAdj. Your CPU appears to be{#if detectedCpu}: <b>{detectedCpu}</b
+        >{/if}.
     </div>
   {:else if !hasCheckedInstallStatus}
-    <div>
+    <div class="h-[228px] flex items-center justify-center flex-col">
       <h3 class="text-lg font-bold mb-2 text-center">Checking requirements…</h3>
       <div class="flex items-center justify-center gap-2 text-sm opacity-80">
         <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
@@ -256,56 +264,54 @@
       </div>
     </div>
   {:else if !ryzenInstalled}
-    <div>
-      <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
-      <ul class="list-disc pl-5 text-sm space-y-1 opacity-80">
-        <li>
-          This requires a small helper <a
-            href="https://github.com/FlyGoat/RyzenAdj"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn-link px-0">RyzenAdj</a
-          > to be installed.
-        </li>
-        <li>May trigger antivirus warnings on your system.</li>
-        <li>
-          Adjusting power settings can cause instability and crashes and may
-          even (though rarely) damage your hardware. We take no responsibility!
-        </li>
-      </ul>
-      <div class="mt-1 flex items-center justify-between">
-        <label class="label cursor-pointer justify-start gap-2">
-          <input
-            type="checkbox"
-            class="checkbox checkbox-sm"
-            bind:checked={agreed}
-          />
-          <span class="label-text text-sm"
-            >I agree to the above and <span class="text-primary"
-              >understand the risks!</span
-            ></span
-          >
-        </label>
-        <button
-          class="btn btn-primary btn-sm"
-          disabled={!agreed || installingRyzenAdj}
-          on:click={installRyzenAdj}
+    <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
+    <ul class="list-disc pl-5 text-sm space-y-1 opacity-80">
+      <li>
+        This requires a small helper <a
+          href="https://github.com/FlyGoat/RyzenAdj"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-link px-0">RyzenAdj</a
+        > to be installed.
+      </li>
+      <li>May trigger antivirus warnings on your system.</li>
+      <li>
+        Adjusting power settings can cause instability and crashes and may even
+        (though rarely) damage your hardware. We take no responsibility!
+      </li>
+    </ul>
+    <div class="mt-1 flex items-center justify-between">
+      <label class="label cursor-pointer justify-start gap-2">
+        <input
+          type="checkbox"
+          class="checkbox checkbox-sm"
+          bind:checked={agreed}
+        />
+        <span class="label-text text-sm"
+          >I agree to the above and <span class="text-primary"
+            >understand the risks!</span
+          ></span
         >
-          {#if installingRyzenAdj}
-            <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
-            Installing...
-          {:else}
-            <Icon icon="mdi:download-outline" class="w-4 h-4" />
-            Install
-          {/if}
-        </button>
-      </div>
-      {#if errorMessage}
-        <div class="text-xs text-error">{errorMessage}</div>
-      {/if}
+      </label>
+      <button
+        class="btn btn-primary btn-sm"
+        disabled={!agreed || installingRyzenAdj}
+        on:click={installRyzenAdj}
+      >
+        {#if installingRyzenAdj}
+          <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+          Installing...
+        {:else}
+          <Icon icon="mdi:download-outline" class="w-4 h-4" />
+          Install
+        {/if}
+      </button>
     </div>
+    {#if errorMessage}
+      <div class="text-xs text-error">{errorMessage}</div>
+    {/if}
   {:else}
-    <div class="bg-base-200 min-w-0 rounded-xl mb-2 mt-2">
+    <div class="bg-base-200 min-w-0 rounded-xl mb-2">
       <div class="py-2 px-3 flex items-center justify-between text-xs">
         <div class="flex items-center gap-2">
           <span class="inline-flex items-center gap-1">

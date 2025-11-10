@@ -8,7 +8,8 @@ html { scrollbar-gutter: auto !important; }
 /* Prevent horizontal page scroll from wide absolutely-positioned elements (e.g., tooltips) */
 html, body { overflow-x: hidden; }
 
-/* Nudge DaisyUI tooltip bubble into viewport by offsetting with margin-left */
-.tooltip.tooltip-clamped:before {
-  margin-left: var(--tc-ml) !important;
+/* Disable DaisyUI pseudo tooltip when we render via portal */
+.tooltip[data-portal="true"]::before,
+.tooltip[data-portal="true"]::after {
+  display: none !important;
 }

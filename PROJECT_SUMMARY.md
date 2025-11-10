@@ -61,8 +61,9 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 - Entry: `web/src/App.svelte` (@App.svelte)
   - Polls `/health` every second to update `healthy` + `cliPresent`
-  - Renders panels: Telemetry, Power, Fan Control; layout adapts to fan mode
-  - Integrates `FanControl.svelte` for Auto/Manual/Curve config
+- Renders panels: Sensors, Power, Fan Control; responsive layout using simple `flex-wrap` to preserve source order and allow dynamic heights. Mobile: single column; wide: two columns when healthy, three columns when not healthy. Animations removed so cards snap into place.
+  - `FanControl.svelte` contains the Auto/Manual/Curve mode selector, overlaid in the panel header area (like PowerControl).
+  - `DeviceHeader.svelte`: removed image crossfade, width transition, and pulsing update dot animation for a snappier, static header.
 - API client: `web/src/api/*` generated from OpenAPI (`scripts/gen-api.mjs`)
 - Components: `web/src/components/*` (`DeviceHeader.svelte`, `Panel.svelte`, `FanControl.svelte`)
   - `PowerControl.svelte`: power controls with AC/Battery tabs; per-setting Enabled checkbox; compact layout
@@ -70,11 +71,34 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - Remembers last selected AC/Battery tab via `localStorage` key `fc.power.activeProfile`.
     - Intel gating: Uses `/api/system` to detect CPU vendor and shows an AMD-only notice on Intel systems (RyzenAdj-based controls not supported on Intel yet).
     - Adds a "Remove helper" action to uninstall the downloaded RyzenAdj via `POST /api/ryzenadj/uninstall`.
-- `Telemetry.svelte`: now includes a multi-sensor temperature graph backed by `/api/thermal/history` with sensor selector and backend poll-interval control.
-  - `TelemetryGraph.svelte`: shared SVG line chart styled like the fan curve editor; distinct, stable colors per sensor.
+- Tooltips: preferred minimal element-based action is `web/src/lib/tooltip.ts`. Attach it to the tooltip content element; pass an `anchor` (Element or fn returning Element) and a `visible` boolean to control show/hide. It portals to `document.body`, uses fixed positioning, auto-flips above/below, clamps within the viewport, and follows anchor changes (MutationObserver + rAF).
+  - Legacy `web/src/lib/tooltipPortal.ts` has been removed after migrating all usages.
+  - Example:
+    ```svelte
+    <script lang="ts">
+      import { tooltip } from "$lib/tooltip";
+      let btn: HTMLElement; let visible = false;
+    </script>
+    <button bind:this={btn} on:mouseenter={() => visible = true} on:mouseleave={() => visible = false}>
+      Hover
+    </button>
+    <div use:tooltip={{ anchor: btn, visible }} class="rounded bg-base-100 border px-2 py-1 text-sm">
+      Hello tooltip
+    </div>
+    ```
+- Sensors panel (`Sensors.svelte`): multi-sensor temperature graph backed by `/api/thermal/history` with sensor selector and backend poll-interval control.
+- Sensors graph includes a hover crosshair and nearest-point tooltip with sensor name, value, and relative time.
+- `GraphPanel.svelte`: thin wrapper that standardizes card spacing, top/bottom areas, and the sticky settings pane with matched height. Exposes `top`, `graph`, `bottom`, `settings`, and `settings-top-right` slots, plus `openSettings`/`closeSettings` slot props. Used by `Sensors.svelte` and the Curve mode of `FanControl.svelte`.
+- Spacing: Telemetry and Fan Control chart cards share the same padded header/body/footer layout for consistent side‑by‑side alignment (via `GraphPanel.svelte`).
+- Settings panes in `Sensors.svelte` and `FanControl.svelte` maintain the same height as their graph panels; the content is vertically centered when shorter and becomes scrollable when taller to avoid panel layout shifts (handled by `GraphPanel.svelte`).
+- Panels: Consistent header-to-content spacing. Header adds a bottom margin; the first child inside panel content has top margin/padding reset to 0 for uniformity (no per-panel top spacing hacks).
+- `TelemetryGraph.svelte`: merged into `Sensors.svelte` (removed).
   - `SettingsModal.svelte`: adds Updates section to check/apply service updates
-  - `MultiSelect.svelte`: daisyUI-based multi-select (dropdown + checkboxes) with an optional right-aligned `itemRight` slot per option (used to display live sensor temperatures in `FanControl.svelte`).
+  - `MultiSelect.svelte`: daisyUI-based multi-select (dropdown + checkboxes) with an optional right-aligned `itemRight` slot per option (used to display live sensor temperatures in `FanControl.svelte`). Each instance now generates a unique ID prefix to avoid cross-instance input/label collisions.
+    - Adds dynamic edge-aware alignment: dropdown flips between left/right to stay within the viewport when near edges.
 - Shared utilities: `web/src/lib/*`
+- Fan Control curve editor shows a compact tooltip next to the focused/dragged point with a colored indicator and bold values (e.g., `30°C · 30%`), avoiding brackets and clamped within the graph bounds.
+- Focused curve points support arrow-key nudging (Shift=±5, Ctrl=±10). Home/End jump to min/max temperature.
 - Frontend API usage guideline (do not bypass):
 
   - Always use the generated API client (`DefaultService`, `OpenAPI`) for all requests.
