@@ -2,14 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-
 /* Disable daisyUI's root scrollbar-gutter to avoid layout shift when modals open */
-html { scrollbar-gutter: auto !important; }
+html {
+  scrollbar-gutter: auto !important;
+}
 /* Prevent horizontal page scroll from wide absolutely-positioned elements (e.g., tooltips) */
-html, body { overflow-x: hidden; }
-
-/* Disable DaisyUI pseudo tooltip when we render via portal */
-.tooltip[data-portal="true"]::before,
-.tooltip[data-portal="true"]::after {
-  display: none !important;
+html,
+body {
+  overflow-x: hidden;
 }
