@@ -10,6 +10,7 @@ pub struct AppState {
     pub ryzenadj: Arc<tokio::sync::RwLock<Option<RyzenAdj>>>,
     pub config: Arc<tokio::sync::RwLock<Config>>,
     pub token: Option<String>,
+    pub telemetry_samples: Arc<tokio::sync::RwLock<std::collections::VecDeque<crate::types::TelemetrySample>>>,
 }
 
 impl AppState {
@@ -30,6 +31,7 @@ impl AppState {
             ryzenadj,
             config,
             token,
+            telemetry_samples: Arc::new(tokio::sync::RwLock::new(Default::default())),
         }
     }
 

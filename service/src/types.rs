@@ -10,6 +10,8 @@ pub struct Config {
     pub power: PowerConfig,
     #[serde(default)]
     pub updates: UpdatesConfig,
+    #[serde(default)]
+    pub telemetry: TelemetryConfig,
 }
 
 impl Default for Config {
@@ -18,6 +20,7 @@ impl Default for Config {
             fan: FanControlConfig::default(),
             power: PowerConfig::default(),
             updates: UpdatesConfig::default(),
+            telemetry: TelemetryConfig::default(),
         }
     }
 }
@@ -111,6 +114,7 @@ pub struct PartialConfig {
     pub fan: Option<FanControlConfig>,
     pub power: Option<PowerConfig>,
     pub updates: Option<UpdatesConfig>,
+    pub telemetry: Option<TelemetryConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
@@ -118,6 +122,34 @@ pub struct UpdatesConfig {
     #[serde(default)]
     pub auto_install: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct TelemetryConfig {
+    #[serde(default = "default_telemetry_poll_ms")]
+    pub poll_ms: u64,
+    #[serde(default = "default_telemetry_retain_seconds")]
+    pub retain_seconds: u64,
+}
+
+impl Default for TelemetryConfig {
+    fn default() -> Self {
+        Self {
+            poll_ms: default_telemetry_poll_ms(),
+            retain_seconds: default_telemetry_retain_seconds(),
+        }
+    }
+}
+
+fn default_telemetry_poll_ms() -> u64 { 1000 }
+fn default_telemetry_retain_seconds() -> u64 { 1800 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct TelemetrySample {
+    pub ts_ms: i64,
+    pub temps: std::collections::BTreeMap<String, i32>,
+    pub rpms: Vec<u32>,
+}
+
 
 // Fan calibration types
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]

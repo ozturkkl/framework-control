@@ -2,6 +2,17 @@
 
  
 
+## 0.4.1 - 2025-11-10
+
+- Sensors: New panel with live graphs and history; moved current TDP and thermal limit to the Power panel.
+- Telemetry: Background sampling with configurable poll/retention and a new history API (`/api/thermal/history`).
+- Tooltips: Replaced DaisyUI tooltips with a lightweight portal-based action; fixes clipping and stray scrollbars.
+- Fan Control: Header mode selector overlay, compact point tooltip + keyboard control, and reliable reapply after tool reconnects.
+- Layout/UI: Switched to flex-wrap layout; unified panel/header spacing; standardized chart padding; removed header/flip animations; introduced `web/src/components/GraphPanel.svelte`.
+- MultiSelect: Unique input IDs; dropdown auto-aligns left/right; no invisible overlay after closing.
+- Windows installer: Prevented desktop/start shortcuts from reappearing on auto-update.
+- Misc: Minor spacing tweaks in `Panel` and `UiSlider`.
+
 ## 0.4.0 - 2025-10-12
 
 ### Backend: Power management, CLI, and reliability

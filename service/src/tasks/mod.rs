@@ -27,8 +27,19 @@ pub async fn boot(state: &AppState) {
             crate::tasks::auto_update::run(cfg_clone).await;
         });
     }
+
+    // Telemetry history task
+    {
+        let ft_clone = state.framework_tool.clone();
+        let cfg_clone = state.config.clone();
+        let samples_clone = state.telemetry_samples.clone();
+        tokio::spawn(async move {
+            crate::tasks::telemetry::run(ft_clone, cfg_clone, samples_clone).await;
+        });
+    }
 }
 
 pub mod fan_curve;
 pub mod power;
 pub mod auto_update;
+pub mod telemetry;
