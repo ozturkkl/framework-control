@@ -173,6 +173,7 @@
   }
   function stopLivePolling() {
     if (liveTimer) {
+      console.log("Stopping live polling");
       clearInterval(liveTimer);
       liveTimer = null;
     }
@@ -251,13 +252,14 @@
     updatePointTooltipPosition(selectedIdx);
   }
 
+  function onDocumentPointerDown(e: PointerEvent) {
+    const el = e.target as Element;
+    if (!el.closest('[data-point="1"]')) {
+      selectedIdx = null;
+    }
+  }
+
   onMount(async () => {
-    const onDocumentPointerDown = (e: PointerEvent) => {
-      const el = e.target as Element;
-      if (!el.closest('[data-point="1"]')) {
-        selectedIdx = null;
-      }
-    };
     document.addEventListener("pointerdown", onDocumentPointerDown, true);
     try {
       const config = await DefaultService.getConfig();
@@ -320,13 +322,11 @@
     // Allow reactive saves after initial load completes
     prevMode = mode;
     onMountComplete = true;
-    // Clean up on destroy
-    onDestroy(() => {
-      document.removeEventListener("pointerdown", onDocumentPointerDown, true);
-    });
   });
 
+  // Clean up on destroy
   onDestroy(() => {
+    document.removeEventListener("pointerdown", onDocumentPointerDown, true);
     stopLivePolling();
   });
 
