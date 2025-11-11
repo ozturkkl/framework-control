@@ -1,13 +1,20 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, tick } from "svelte";
 
   export let items: string[] = [];
   export let selected: string[] = [];
   export let label: string = "Select";
+  // Unique prefix per component instance to avoid ID collisions across multiple MultiSelects
+  const instanceId = crypto.randomUUID();
+  const buttonId = `ms-btn-${instanceId}`;
+  const menuId = `ms-menu-${instanceId}`;
 
   const dispatch = createEventDispatcher<{ change: string[] }>();
   let isOpen = false;
   let rootEl: HTMLDivElement;
+  let menuEl: HTMLDivElement;
+  let alignEnd = true; // true → right aligned (`dropdown-end`), false → left aligned
+  let alignmentDone = false;
 
   function setSelected(item: string, checked: boolean) {
     const set = new Set(selected);
@@ -26,8 +33,12 @@
     setSelected(item, !!target?.checked);
   }
 
-  function onButtonClick() {
+  async function onButtonClick() {
     isOpen = !isOpen;
+    if (isOpen) {
+      await tick();
+      realignDropdown();
+    }
   }
 
   function onWindowClick(e: MouseEvent) {
@@ -35,6 +46,37 @@
     if (!path.includes(rootEl)) {
       isOpen = false;
     }
+  }
+
+  function realignDropdown() {
+    try {
+      if (!rootEl || !menuEl) return;
+      const trigger = rootEl.getBoundingClientRect();
+      const menuWidth = menuEl.offsetWidth || 0;
+      const vw = Math.max(
+        document.documentElement.clientWidth,
+        window.innerWidth || 0
+      );
+
+      // Predict edges for both alignments
+      const leftAlign = { left: trigger.left, right: trigger.left + menuWidth };
+      const rightAlign = {
+        left: trigger.right - menuWidth,
+        right: trigger.right,
+      };
+
+      // Choose alignment that keeps the menu fully within viewport if possible
+      const leftFits = leftAlign.left >= 0 && leftAlign.right <= vw;
+      const rightFits = rightAlign.left >= 0 && rightAlign.right <= vw;
+
+      if (rightFits) {
+        alignEnd = true;
+      } else if (leftFits) {
+        alignEnd = false;
+      }
+    } catch {}
+
+    alignmentDone = true;
   }
 
   function selectAll(event?: Event) {
@@ -53,16 +95,21 @@
 <svelte:window
   on:click={onWindowClick}
   on:keydown={(e) => e.key === "Escape" && (isOpen = false)}
+  on:resize={() => isOpen && realignDropdown()}
 />
 
 <div
-  class="dropdown dropdown-end dropdown-top"
+  class="dropdown dropdown-top"
   class:dropdown-open={isOpen}
+  class:dropdown-end={alignEnd}
   bind:this={rootEl}
 >
   <button
-    class="btn btn-xs btn-ghost gap-1"
+    class="btn btn-xs btn-ghost gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-base-content/80 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 focus-visible:bg-base-200"
     aria-haspopup="listbox"
+    aria-expanded={isOpen}
+    aria-controls={menuId}
+    id={buttonId}
     type="button"
     on:click={onButtonClick}
   >
@@ -92,6 +139,12 @@
     class="dropdown-content p-2 bg-base-100 rounded-box w-56 max-h-60 overflow-y-auto overflow-x-hidden flex flex-col gap-1 border-base-content/35 border shadow-lg"
     role="listbox"
     aria-multiselectable="true"
+    aria-labelledby={buttonId}
+    id={menuId}
+    bind:this={menuEl}
+    aria-hidden={!isOpen}
+    tabindex="-1"
+    style={`visibility:${isOpen && alignmentDone ? "visible" : "hidden"};pointer-events:${isOpen ? "auto" : "none"}`}
   >
     <div
       class="flex items-center justify-between gap-2 sticky -top-2 bg-base-100 z-10 -mx-2 -mt-2 px-2 pt-2 pb-2 mb-0 border-b border-base-content/20"
@@ -110,11 +163,11 @@
     {#each items as it, i (it)}
       <label
         class="label cursor-pointer items-center justify-between gap-2 w-full"
-        for={`ms-${i}`}
+        for={`ms-${instanceId}-${i}`}
       >
         <span class="inline-flex items-center gap-2">
           <input
-            id={`ms-${i}`}
+            id={`ms-${instanceId}-${i}`}
             type="checkbox"
             class="checkbox checkbox-xs"
             checked={selectedSet.has(it)}

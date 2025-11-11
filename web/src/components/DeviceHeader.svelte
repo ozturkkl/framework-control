@@ -114,19 +114,18 @@
         class="rounded-box overflow-hidden shadow w-full md:w-auto md:shrink-0 relative"
         style="width: {healthy
           ? '14rem'
-          : '50%'}; aspect-ratio: 3 / 2; transition: width 500ms ease;"
+          : '50%'}; aspect-ratio: 3 / 2;"
       >
-        <!-- Crossfade the two images -->
         <img
           src={LID_CLOSED}
           alt="Framework laptop lid closed"
-          class="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+          class="absolute inset-0 w-full h-full object-cover"
           style="opacity: {healthy ? 0 : 1}"
         />
         <img
           src={LID_OPEN}
           alt="Framework laptop lid open"
-          class="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+          class="absolute inset-0 w-full h-full object-cover"
           style="opacity: {healthy ? 1 : 0}"
         />
       </div>

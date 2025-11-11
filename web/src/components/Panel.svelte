@@ -13,9 +13,9 @@
   }
 
   // Shared classes to keep collapsed/expanded views consistent
-  const headerRowClass = "flex items-center justify-between";
+  const headerRowClass = "flex items-center justify-between mb-1 pl-3";
   const headerLeftClass = "flex items-center gap-3";
-  const bodyClass = "flex flex-col p-5 h-full";
+  const bodyClass = "flex flex-col p-2 h-full";
 </script>
 
 <div

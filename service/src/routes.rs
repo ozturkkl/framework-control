@@ -206,6 +206,19 @@ impl Api {
         Ok(Json(v))
     }
 
+    /// Telemetry history: returns recent samples collected by the service
+    #[oai(path = "/thermal/history", method = "get", operation_id = "getThermalHistory")]
+    async fn get_thermal_history(
+        &self,
+        state: Data<&AppState>,
+    ) -> ApiResult<Vec<crate::types::TelemetrySample>> {
+        let samples: Vec<crate::types::TelemetrySample> = {
+            let r = state.telemetry_samples.read().await;
+            r.iter().cloned().collect()
+        };
+        Ok(Json(samples))
+    }
+
     /// Framework versions (parsed)
     #[oai(path = "/versions", method = "get", operation_id = "getVersions")]
     async fn get_versions(
@@ -272,6 +285,9 @@ impl Api {
             let mut new_up = merged.updates.clone();
             new_up.auto_install = up.auto_install;
             merged.updates = new_up;
+        }
+        if let Some(tel) = req.telemetry {
+            merged.telemetry = tel;
         }
         if let Err(e) = config::save(&merged) {
             error!("config save error: {}", e);

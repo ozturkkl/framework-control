@@ -56,6 +56,8 @@ async fn spawn_msiexec_install(msi_url: &str) -> Result<(), String> {
         // install
         .arg("/i")
         .arg(tmp.as_os_str())
+        // preserve user's original shortcut choice by installing only core feature
+        .arg("ADDLOCAL=Binaries")
         // quiet
         .arg("/qn")
         // no restart
