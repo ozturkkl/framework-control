@@ -9,6 +9,6 @@ export default {
   },
   plugins: [require('daisyui')],
   daisyui: {
-    themes: ['business', 'dim', 'dark', 'light']
+    themes: true
   }
 }

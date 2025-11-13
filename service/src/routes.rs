@@ -289,6 +289,13 @@ impl Api {
         if let Some(tel) = req.telemetry {
             merged.telemetry = tel;
         }
+        if let Some(ui) = req.ui {
+            let mut new_ui = merged.ui.clone();
+            if let Some(theme) = ui.theme {
+                new_ui.theme = Some(theme);
+            }
+            merged.ui = new_ui;
+        }
         if let Err(e) = config::save(&merged) {
             error!("config save error: {}", e);
             return Err(bad_gateway("save_failed", e));

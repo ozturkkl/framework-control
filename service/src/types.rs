@@ -12,6 +12,8 @@ pub struct Config {
     pub updates: UpdatesConfig,
     #[serde(default)]
     pub telemetry: TelemetryConfig,
+    #[serde(default)]
+    pub ui: UiConfig,
 }
 
 impl Default for Config {
@@ -21,6 +23,7 @@ impl Default for Config {
             power: PowerConfig::default(),
             updates: UpdatesConfig::default(),
             telemetry: TelemetryConfig::default(),
+            ui: UiConfig::default(),
         }
     }
 }
@@ -115,12 +118,20 @@ pub struct PartialConfig {
     pub power: Option<PowerConfig>,
     pub updates: Option<UpdatesConfig>,
     pub telemetry: Option<TelemetryConfig>,
+    pub ui: Option<UiConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct UpdatesConfig {
     #[serde(default)]
     pub auto_install: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct UiConfig {
+    /// Preferred UI theme (matches DaisyUI theme names)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]

@@ -1,6 +1,7 @@
 ## Unreleased
 
- 
+ - Web: Theme selector (all DaisyUI themes) in Settings. Applies instantly, persists to backend config, and loads on startup.
+ - Web: Auto‑reload the page after installing an update from Settings to load new embedded UI assets.
 
 ## 0.4.1 - 2025-11-10
 

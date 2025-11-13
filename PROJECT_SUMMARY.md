@@ -47,6 +47,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 ### Frontend Web UI (Svelte)
 
+- Settings: `web/src/components/SettingsModal.svelte` — service update controls, DaisyUI theme selector (all built‑in themes) with instant apply. Theme preference persists to backend config (`Config.ui.theme`) and is applied on startup. Desktop shortcut installer included.
+
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
 - Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal), `FanControl` (Auto/Manual/Curve with header selector).
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
