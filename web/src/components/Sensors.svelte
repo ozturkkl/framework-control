@@ -399,6 +399,7 @@
         use:tooltip={{
           anchor: () => hoverCircleEl,
           visible: !!hover,
+          attachGlobalDismiss: false,
         }}
         class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs flex items-center gap-2"
       >

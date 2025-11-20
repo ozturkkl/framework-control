@@ -69,10 +69,12 @@
       <h3 class="card-title text-sm">{label}</h3>
     </div>
     <div class="flex items-center gap-2 text-xs">
+      <!-- Optional trailing content area for chips/menus placed by parent -->
+      <slot name="header-trailing" />
       <span
-        class="font-medium tabular-nums w-16 text-right"
+        class="font-medium tabular-nums text-right"
         class:opacity-60={hasEnabled && !enabled}
-        >{Math.round(value)} {unit}</span
+        >{value} {unit}</span
       >
       {#if hasEnabled}
         <span class:opacity-60={!enabled}>•</span>

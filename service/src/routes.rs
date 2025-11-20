@@ -34,7 +34,9 @@ async fn require_framework_tool_async(
     }
 }
 
-async fn require_ryzenadj_async(state: &AppState) -> Result<crate::cli::ryzen_adj::RyzenAdj, ApiErrorResponse> {
+async fn require_ryzenadj_async(
+    state: &AppState,
+) -> Result<crate::cli::ryzen_adj::RyzenAdj, ApiErrorResponse> {
     let cli_opt = { state.ryzenadj.read().await.clone() };
     match cli_opt {
         Some(cli) => Ok(cli),
@@ -155,8 +157,18 @@ impl Api {
                 ryzenadj = Some(parsed);
             }
         }
+        // Also include charge limit min/max when available; do not fail if missing
+        let limits = match cli.charge_limit_get().await {
+            Ok(info) => info,
+            Err(_e) => Default::default(),
+        };
+        // Build API-facing battery info by combining parsed battery + limits (always include)
+        let battery_api: Option<crate::types::BatteryInfo> = Some(crate::types::BatteryInfo {
+            power_info: p.clone(),
+            limits,
+        });
         Ok(Json(crate::types::PowerResponse {
-            power: p,
+            battery: battery_api,
             ryzenadj_installed,
             ryzenadj,
         }))
@@ -207,7 +219,11 @@ impl Api {
     }
 
     /// Telemetry history: returns recent samples collected by the service
-    #[oai(path = "/thermal/history", method = "get", operation_id = "getThermalHistory")]
+    #[oai(
+        path = "/thermal/history",
+        method = "get",
+        operation_id = "getThermalHistory"
+    )]
     async fn get_thermal_history(
         &self,
         state: Data<&AppState>,
@@ -218,6 +234,7 @@ impl Api {
         };
         Ok(Json(samples))
     }
+
 
     /// Framework versions (parsed)
     #[oai(path = "/versions", method = "get", operation_id = "getVersions")]
@@ -269,14 +286,22 @@ impl Api {
             let mut new_pow = merged.power.clone();
             if let Some(ac_in) = pow.ac {
                 let mut ac = new_pow.ac.unwrap_or_default();
-                if let Some(s) = ac_in.tdp_watts { ac.tdp_watts = Some(s); }
-                if let Some(s) = ac_in.thermal_limit_c { ac.thermal_limit_c = Some(s); }
+                if let Some(s) = ac_in.tdp_watts {
+                    ac.tdp_watts = Some(s);
+                }
+                if let Some(s) = ac_in.thermal_limit_c {
+                    ac.thermal_limit_c = Some(s);
+                }
                 new_pow.ac = Some(ac);
             }
             if let Some(bat_in) = pow.battery {
                 let mut bat = new_pow.battery.unwrap_or_default();
-                if let Some(s) = bat_in.tdp_watts { bat.tdp_watts = Some(s); }
-                if let Some(s) = bat_in.thermal_limit_c { bat.thermal_limit_c = Some(s); }
+                if let Some(s) = bat_in.tdp_watts {
+                    bat.tdp_watts = Some(s);
+                }
+                if let Some(s) = bat_in.thermal_limit_c {
+                    bat.thermal_limit_c = Some(s);
+                }
                 new_pow.battery = Some(bat);
             }
             merged.power = new_pow;
@@ -285,6 +310,20 @@ impl Api {
             let mut new_up = merged.updates.clone();
             new_up.auto_install = up.auto_install;
             merged.updates = new_up;
+        }
+        if let Some(bat) = req.battery {
+            let mut new_bat = merged.battery.clone();
+            if let Some(s) = bat.charge_limit_max_pct {
+                new_bat.charge_limit_max_pct = Some(s);
+            }
+            if let Some(s) = bat.charge_rate_c {
+                new_bat.charge_rate_c = Some(s);
+            }
+            // Clear or set SoC threshold when field is present (null clears)
+            if let Some(maybe) = bat.charge_rate_soc_threshold_pct {
+                new_bat.charge_rate_soc_threshold_pct = maybe;
+            }
+            merged.battery = new_bat;
         }
         if let Some(tel) = req.telemetry {
             merged.telemetry = tel;

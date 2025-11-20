@@ -9,6 +9,8 @@ pub struct Config {
     #[serde(default)]
     pub power: PowerConfig,
     #[serde(default)]
+    pub battery: BatteryConfig,
+    #[serde(default)]
     pub updates: UpdatesConfig,
     #[serde(default)]
     pub telemetry: TelemetryConfig,
@@ -21,6 +23,7 @@ impl Default for Config {
         Self {
             fan: FanControlConfig::default(),
             power: PowerConfig::default(),
+            battery: BatteryConfig::default(),
             updates: UpdatesConfig::default(),
             telemetry: TelemetryConfig::default(),
             ui: UiConfig::default(),
@@ -116,6 +119,7 @@ pub struct Empty {}
 pub struct PartialConfig {
     pub fan: Option<FanControlConfig>,
     pub power: Option<PowerConfig>,
+    pub battery: Option<BatteryConfig>,
     pub updates: Option<UpdatesConfig>,
     pub telemetry: Option<TelemetryConfig>,
     pub ui: Option<UiConfig>,
@@ -151,8 +155,12 @@ impl Default for TelemetryConfig {
     }
 }
 
-fn default_telemetry_poll_ms() -> u64 { 1000 }
-fn default_telemetry_retain_seconds() -> u64 { 1800 }
+fn default_telemetry_poll_ms() -> u64 {
+    1000
+}
+fn default_telemetry_retain_seconds() -> u64 {
+    1800
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct TelemetrySample {
@@ -160,7 +168,6 @@ pub struct TelemetrySample {
     pub temps: std::collections::BTreeMap<String, i32>,
     pub rpms: Vec<u32>,
 }
-
 
 // Fan calibration types
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
@@ -201,15 +208,66 @@ pub struct PowerConfig {
     pub battery: Option<PowerProfile>,
 }
 
+// Battery config stored in Config and applied at boot (and on set)
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct SettingU8 {
+    /// Whether this setting should be applied
+    pub enabled: bool,
+    /// The last chosen value (kept even when disabled)
+    pub value: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct SettingF32 {
+    /// Whether this setting should be applied
+    pub enabled: bool,
+    /// The last chosen value (kept even when disabled)
+    pub value: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct BatteryConfig {
+    /// EC charge limit maximum percent (25-100)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charge_limit_max_pct: Option<SettingU8>,
+    /// Charge rate in C (0.0 - 1.0). When disabled, use 1.0C to approximate no limit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charge_rate_c: Option<SettingF32>,
+    /// Optional SoC threshold (%) for rate limiting
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charge_rate_soc_threshold_pct: Option<u8>,
+}
+
+// API-facing union of battery info (flatten of parsed + limits)
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct BatteryInfo {
+    #[oai(flatten)]
+    pub power_info: crate::cli::framework_tool_parser::PowerBatteryInfo,
+    #[oai(flatten)]
+    pub limits: crate::cli::framework_tool_parser::BatteryChargeLimitInfo,
+}
+
 // Combined power response used by /power
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct PowerResponse {
-    /// Framework CLI power fields (flattened)
-    #[oai(flatten)]
-    pub power: crate::cli::framework_tool_parser::PowerParsed,
+    /// Battery info (framework_tool --power) + charge limits (charge-limit CLI)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub battery: Option<BatteryInfo>,
     /// RyzenAdj presence and parsed info
     pub ryzenadj_installed: bool,
     #[oai(flatten)]
     #[oai(skip_serializing_if = "Option::is_none")]
     pub ryzenadj: Option<crate::cli::ryzen_adj_parser::RyzenAdjInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct SetChargeLimitRequest {
+    pub max_pct: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct SetRateLimitRequest {
+    pub rate_c: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub battery_soc_threshold_pct: Option<u8>,
 }

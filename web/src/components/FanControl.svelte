@@ -252,15 +252,7 @@
     updatePointTooltipPosition(selectedIdx);
   }
 
-  function onDocumentPointerDown(e: PointerEvent) {
-    const el = e.target as Element;
-    if (!el.closest('[data-point="1"]')) {
-      selectedIdx = null;
-    }
-  }
-
   onMount(async () => {
-    document.addEventListener("pointerdown", onDocumentPointerDown, true);
     try {
       const config = await DefaultService.getConfig();
       if (config) {
@@ -326,7 +318,6 @@
 
   // Clean up on destroy
   onDestroy(() => {
-    document.removeEventListener("pointerdown", onDocumentPointerDown, true);
     stopLivePolling();
   });
 
@@ -894,6 +885,7 @@
           use:tooltip={{
             anchor: () => selectedAnchorEl,
             visible: selectedIdx !== null,
+            onDismiss: () => (selectedIdx = null),
           }}
           class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
         >

@@ -92,7 +92,7 @@
       const resp = await DefaultService.getPower();
       ryzenInstalled = !!resp.ryzenadj_installed;
 
-      acPresent = resp.ac_present;
+      acPresent = resp.battery?.ac_present;
       batteryPct = resp.battery?.percentage;
       const tdp = resp.tdp_watts;
       const therm = resp.thermal_limit_c;
@@ -237,6 +237,7 @@
       use:tooltip={{
         anchor: removeBtn,
         visible: removeTipVisible,
+        attachGlobalDismiss: false,
       }}
       class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-60 text-center"
     >

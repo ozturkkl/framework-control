@@ -4,6 +4,7 @@
   import DeviceHeader from "./components/DeviceHeader.svelte";
   import FanControl from "./components/FanControl.svelte";
   import PowerControl from "./components/PowerControl.svelte";
+  import BatteryControl from "./components/BatteryControl.svelte";
   import Sensors from "./components/Sensors.svelte";
   import Panel from "./components/Panel.svelte";
   import { OpenAPI } from "./api";
@@ -75,7 +76,7 @@
         (healthy ? "items-start" : "items-stretch") +
         " gap-4"}
     >
-      {#each ["telemetry", "fan", "power"] as pid (pid)}
+      {#each ["telemetry", "fan", "power", "battery"] as pid (pid)}
         <div
           class={"w-full " +
             (healthy
@@ -137,6 +138,26 @@
                     <li>TDP and thermal limit controls</li>
                     <li>Battery details like cycle count</li>
                     <li>Future: configurable charge rate/current limits</li>
+                  </ul>
+                </div>
+              {/if}
+            </Panel>
+          {:else if pid === "battery"}
+            <Panel title="Battery" expandable={healthy}>
+              {#if healthy && cliPresent}
+                <BatteryControl />
+              {:else}
+                <div class="flex-1 flex flex-col justify-evenly px-3 pb-1">
+                  <div class="text-sm opacity-80">
+                    View battery live stats and adjust charge limits when
+                    supported.
+                  </div>
+                  <ul
+                    class="list-disc list-inside text-sm opacity-80 space-y-1"
+                  >
+                    <li>Battery charge value, voltage/current, cycles</li>
+                    <li>Charge limit controls (max %, rate limit)</li>
+                    <li>State of charge threshold for rate limit</li>
                   </ul>
                 </div>
               {/if}

@@ -30,6 +30,10 @@ export type TooltipParams = {
   // Anchor element or a function returning an Element
   anchor?: Element | (() => Element | null);
   visible?: boolean; // initial visibility
+  // When false, do not attach global dismiss (outside click or Escape)
+  attachGlobalDismiss?: boolean;
+  // Optional callback invoked when the tooltip hides (outside click, Escape, or programmatic)
+  onDismiss?: () => void;
 };
 
 export function tooltip(node: HTMLElement, initial?: TooltipParams) {
@@ -48,6 +52,8 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
   let attached = false;
   let observedAnchor: Element | null = null;
   let mutationObserver: MutationObserver | null = null;
+  let onDocPointerDown: ((ev: PointerEvent) => void) | null = null;
+  let onDocKeydown: ((ev: KeyboardEvent) => void) | null = null;
 
   // Ensure node is under body for clipping-free rendering
   function ensureAttached() {
@@ -148,6 +154,43 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
     }
   }
 
+  function attachGlobalDismiss() {
+    // Respect flag: when explicitly false, attach neither
+    if (params.attachGlobalDismiss === false) return;
+    // Outside click dismiss
+    if (!onDocPointerDown) {
+      onDocPointerDown = (ev: PointerEvent) => {
+        if (!isShown) return;
+        const target = ev.target as Node | null;
+        if (!target) return;
+        const anchorEl = resolveAnchorElement();
+        if (node.contains(target)) return;
+        if (anchorEl && anchorEl.contains(target)) return;
+        hide();
+      };
+      document.addEventListener("pointerdown", onDocPointerDown, true);
+    }
+    // Escape dismiss (always enabled)
+    if (!onDocKeydown) {
+      onDocKeydown = (ev: KeyboardEvent) => {
+        if (!isShown) return;
+        if (ev.key === "Escape") hide();
+      };
+      document.addEventListener("keydown", onDocKeydown, true);
+    }
+  }
+
+  function detachGlobalDismiss() {
+    if (onDocPointerDown) {
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
+      onDocPointerDown = null;
+    }
+    if (onDocKeydown) {
+      document.removeEventListener("keydown", onDocKeydown, true);
+      onDocKeydown = null;
+    }
+  }
+
   function positionNow() {
     if (!attached) return;
     const vw = window.innerWidth;
@@ -186,10 +229,13 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
     node.style.opacity = "1";
     attachAnchorObserver();
     positionNow();
+    if (params.attachGlobalDismiss !== false) attachGlobalDismiss();
   }
   function hide() {
     isShown = false;
     node.style.display = "none";
+    detachGlobalDismiss();
+    params.onDismiss?.();
   }
 
   // Initial attachment and visibility
@@ -200,9 +246,8 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
   node.style.zIndex = String(Z_INDEX);
   node.style.display = params.visible ? "block" : "none";
   if (params.visible) {
-    // Ensure correct placement on init visible
-    attachAnchorObserver();
-    positionNow();
+    // Use same path as normal show to keep behavior consistent
+    show();
   }
 
   // Keep in place on viewport changes
@@ -239,6 +284,7 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onScroll, true);
       detachAnchorObserver();
+      detachGlobalDismiss();
       // Restore original placement if possible
       if (originalParent) {
         try {

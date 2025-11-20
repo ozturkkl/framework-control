@@ -20,6 +20,15 @@ pub async fn boot(state: &AppState) {
         });
     }
 
+    // Battery settings task: applies charge limit and rate on change and periodically
+    {
+        let ft_clone = state.framework_tool.clone();
+        let cfg_clone = state.config.clone();
+        tokio::spawn(async move {
+            crate::tasks::battery::run(ft_clone, cfg_clone).await;
+        });
+    }
+
     // Auto-update background task
     {
         let cfg_clone = state.config.clone();
@@ -41,5 +50,6 @@ pub async fn boot(state: &AppState) {
 
 pub mod fan_curve;
 pub mod power;
+pub mod battery;
 pub mod auto_update;
 pub mod telemetry;

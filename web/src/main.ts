@@ -19,14 +19,16 @@ try {
 } catch {}
 
 // Also query backend config for persisted theme and override if present
-try {
-  const cfg = await DefaultService.getConfig();
-  const backendTheme = cfg?.ui?.theme;
-  if (backendTheme) {
-    document.documentElement.setAttribute("data-theme", backendTheme);
-    localStorage.setItem("fc_theme", backendTheme);
-  }
-} catch {}
+(async () => {
+  try {
+    const cfg = await DefaultService.getConfig();
+    const backendTheme = cfg?.ui?.theme;
+    if (backendTheme) {
+      document.documentElement.setAttribute("data-theme", backendTheme);
+      localStorage.setItem("fc_theme", backendTheme);
+    }
+  } catch {}
+})();
 
 const app = new App({ target: document.getElementById("app")! });
 export default app;

@@ -264,7 +264,7 @@ mod tests {
         assert_eq!(calculate_duty_from_curve(50, &points), 30); // Between [40,20] and [60,40]
         assert_eq!(calculate_duty_from_curve(60, &points), 40); // Exact point
         assert_eq!(calculate_duty_from_curve(75, &points), 80); // Exact point
-        assert_eq!(calculate_duty_from_curve(87, &points), 88); // Between [75,80] and [100,100]
+        assert_eq!(calculate_duty_from_curve(87, &points), 90); // Between [75,80] and [100,100]
         assert_eq!(calculate_duty_from_curve(100, &points), 100); // End anchor
 
         // Test with empty points (just anchors)
