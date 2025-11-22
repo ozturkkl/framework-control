@@ -37,18 +37,20 @@
     return value.toFixed(2);
   })();
   $: clMax = batteryInfo?.charge_limit_max_pct ?? undefined;
-  $: chargerWatts =
-    batteryInfo?.charge_input_current_ma != null &&
-    batteryInfo?.charger_voltage_mv != null
-      ? (batteryInfo.charge_input_current_ma * batteryInfo.charger_voltage_mv) /
-        1_000_000
-      : undefined;
-  $: chargerRequestedWatts =
-    batteryInfo?.charger_current_ma != null &&
-    batteryInfo?.charger_voltage_mv != null
-      ? (batteryInfo.charger_current_ma * batteryInfo.charger_voltage_mv) /
-        1_000_000
-      : undefined;
+  $: healthCapacityPct = (() => {
+    if (
+      !batteryInfo?.design_capacity_mah ||
+      !batteryInfo.last_full_charge_capacity_mah
+    )
+      return undefined;
+    const pct =
+      (batteryInfo.last_full_charge_capacity_mah /
+        batteryInfo.design_capacity_mah) *
+      100;
+    if (!isFinite(pct) || pct <= 0) return undefined;
+    return Math.round(pct);
+  })();
+  $: cycleCount = batteryInfo?.cycle_count ?? undefined;
 
   function formatEtaMinutes(totalMinutes: number): string {
     if (!isFinite(totalMinutes) || totalMinutes <= 0) return "—";
@@ -143,6 +145,9 @@
   let socChipBtn: HTMLElement | null = null;
   let socPopoverVisible = false;
   let rateEnabled: boolean = false;
+
+  let healthInfoBtn: HTMLElement | null = null;
+  let healthTipVisible = false;
 
   async function pollOnce() {
     try {
@@ -239,11 +244,15 @@
   }
 </script>
 
-<!-- Overlay summary (matches PowerControl height/spacing) -->
-<div class="bg-base-200 min-w-0 rounded-xl mb-2">
-  <div class="py-2 px-3 flex items-center justify-between text-xs">
-    <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1">
+<div class="my-auto">
+  <!-- Overlay summary (matches PowerControl height/spacing) -->
+  <div
+    class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
+  >
+    <div
+      class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
+    >
+      <span class="inline-flex items-center gap-1 whitespace-nowrap">
         <Icon
           icon={isCharging ? "mdi:battery-charging" : "mdi:flash-outline"}
           class={`w-4 h-4 ${isCharging ? "text-success" : "text-secondary"}`}
@@ -257,147 +266,187 @@
       </span>
       {#if acPresent}
         <span class="opacity-60">•</span>
-        <span class="inline-flex items-center gap-1">
+        <span class="inline-flex items-center gap-1 whitespace-nowrap">
           <Icon icon="mdi:speedometer" class="w-4 h-4" />
           <span class="tabular-nums text-xs">{cRate ?? "—"} C</span>
         </span>
-        <span class="opacity-60">•</span>
-        <span class="inline-flex items-center gap-1">
-          <Icon icon="mdi:power-plug-outline" class="w-4 h-4" />
-          <span class="tabular-nums text-xs"
-            >{chargerRequestedWatts != null
-              ? Math.round(chargerRequestedWatts)
-              : "—"}/{chargerWatts != null ? Math.round(chargerWatts) : "—"} W</span
-          >
-        </span>
       {/if}
-
-      <span class="opacity-60">•</span>
-      <span class="inline-flex items-center gap-1">
+      <span
+        class="inline-flex items-center gap-1 whitespace-nowrap relative pr-3.5"
+      >
+        <span class="opacity-60">•</span>
+        <Icon icon="mdi:battery-heart" class="w-4 h-4" />
+        <span class="tabular-nums text-xs">
+          {#if healthCapacityPct != null}
+            {healthCapacityPct}% health
+          {:else}
+            — health
+          {/if}
+        </span>
+        <button
+          class="absolute right-1 translate-x-1/2 btn btn-ghost btn-xs p-1 min-h-0 h-auto"
+          type="button"
+          aria-label="Battery health details"
+          bind:this={healthInfoBtn}
+          on:mouseenter={() => (healthTipVisible = true)}
+          on:mouseleave={() => (healthTipVisible = false)}
+          on:focus={() => (healthTipVisible = true)}
+          on:blur={() => (healthTipVisible = false)}
+        >
+          <Icon icon="mdi:information-outline" class="w-3.5 h-3.5 opacity-70" />
+        </button>
+      </span>
+      <span class="inline-flex items-center gap-1 whitespace-nowrap">
+        <span class="opacity-60">•</span>
         <Icon icon="mdi:battery-charging-90" class="w-4 h-4" />
         <span class="tabular-nums text-xs"
           >{clMax != null ? clMax : "—"}% max</span
         >
       </span>
     </div>
-    <div class="text-[10px] flex items-center gap-1">
-      <Icon icon="mdi:clock-outline" class="w-4 h-4" />
-      {#if acPresent && isCharging}
-        <span class="tabular-nums"
-          >{etaToTargetMinutes != null
-            ? formatEtaMinutes(etaToTargetMinutes)
-            : "—"}</span
+    <div class="flex gap-x-1 gap-y-1 justify-end whitespace-nowrap">
+      {#if acPresent && isCharging && etaToTargetMinutes != null}
+        <Icon icon="mdi:clock-outline" class="w-4 h-4" />
+        <span class="tabular-nums whitespace-nowrap"
+          >{formatEtaMinutes(etaToTargetMinutes)}</span
         >
         <span class="opacity-60">to {targetPct}%</span>
-      {:else if !acPresent}
-        <span class="tabular-nums"
-          >{etaToEmptyMinutes != null
-            ? formatEtaMinutes(etaToEmptyMinutes)
-            : "—"}</span
+      {:else if !acPresent && etaToEmptyMinutes != null}
+        <Icon icon="mdi:clock-outline" class="w-4 h-4" />
+        <span class="tabular-nums whitespace-nowrap"
+          >{formatEtaMinutes(etaToEmptyMinutes)}</span
         >
         <span class="opacity-60">to empty</span>
-      {:else if batteryInfo?.percentage != null && clMax != null && Math.abs(batteryInfo.percentage - clMax) > 1}
-        <span class="tabular-nums"
-          >{etaToTargetWhileDischargingMinutes != null
-            ? formatEtaMinutes(etaToTargetWhileDischargingMinutes)
-            : "—"}</span
+      {:else if batteryInfo?.percentage != null && clMax != null && Math.abs(batteryInfo.percentage - clMax) > 1 && etaToTargetWhileDischargingMinutes != null}
+        <Icon icon="mdi:clock-outline" class="w-4 h-4" />
+        <span class="tabular-nums whitespace-nowrap"
+          >{formatEtaMinutes(etaToTargetWhileDischargingMinutes)}</span
         >
         <span class="opacity-60">to {clMax}%</span>
-      {/if}
+      {:else}<div></div>{/if}
     </div>
   </div>
-  <UiSlider
-    label="Max Charge Limit"
-    icon="mdi:battery-heart"
-    unit="%"
-    min={CL_MIN}
-    max={CL_MAX}
-    step={1}
-    hasEnabled={true}
-    bind:enabled={clEnabled}
-    bind:value={clValue}
-    on:change={chargeLimitChange}
-  />
 
-  <UiSlider
-    label="Rate (C) (Advanced)"
-    icon="mdi:flash-outline"
-    unit="C"
-    min={0}
-    max={1}
-    step={0.05}
-    hasEnabled={true}
-    bind:enabled={rateEnabled}
-    bind:value={rateC}
-    on:change={rateLimitChange}
-  >
-    <svelte:fragment slot="header-trailing">
-      <button
-        class="badge badge-ghost badge-sm select-none"
-        class:opacity-60={!rateEnabled}
-        disabled={!rateEnabled}
-        aria-label="Set state of charge threshold"
-        title="Set state of charge threshold"
-        bind:this={socChipBtn}
-        on:click={() => (socPopoverVisible = !socPopoverVisible)}
-      >
-        {#if socThresholdPct != null}
-          ≤ SoC {socThresholdPct}%
-        {:else}
-          SoC
-        {/if}
-      </button>
-    </svelte:fragment>
-  </UiSlider>
   <div
     use:tooltip={{
-      anchor: socChipBtn,
-      visible: socPopoverVisible,
-      onDismiss: () => (socPopoverVisible = false),
+      anchor: healthInfoBtn,
+      visible: healthTipVisible,
+      attachGlobalDismiss: false,
     }}
-    class="bg-base-100 border border-base-300 rounded shadow p-2 w-44"
-    role="dialog"
-    aria-label="Set SoC threshold"
-    tabindex="-1"
+    class="pointer-events-none bg-base-100 px-2 py-1 rounded-xl border border-base-300 shadow text-xs w-58"
   >
-    <div class="text-[10px] opacity-70 mb-1">≤ State of Charge (%)</div>
-    <div class="flex items-center gap-2">
-      <input
-        class="input input-xs input-bordered w-16"
-        type="number"
-        min="0"
-        max="100"
-        step="1"
-        bind:value={socThresholdPct}
-        on:input={rateLimitChange}
-        on:change={rateLimitChange}
-      />
-      <div class="flex gap-1">
-        {#each [60, 70, 80, 90] as p}
-          <button
-            class="badge badge-outline badge-xs cursor-pointer"
-            on:click={() => {
-              socThresholdPct = p;
-              rateLimitChange();
-            }}
-            aria-label={`Set ${p}%`}>{p}</button
-          >
-        {/each}
-      </div>
-    </div>
-    <div class="mt-1 text-right">
-      <button
-        class="btn btn-ghost btn-xs px-1"
-        on:click={() => {
-          socThresholdPct = undefined;
-          rateLimitChange();
-          socPopoverVisible = false;
-        }}
-      >
-        Clear
-      </button>
+    {#if cycleCount != null}
+      <div class="tabular-nums">{cycleCount} cycles recorded.</div>
+    {:else}
+      <div class="opacity-80">Cycle count information is not available.</div>
+    {/if}
+    <div class="opacity-80 mt-0.5">
+      Recharge to 100% to recalculate battery health.
     </div>
   </div>
+
+  <div
+    class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
+  >
+    <div
+      class="transition-transform duration-100"
+      class:scale-[0.985]={!clEnabled}
+    >
+      <UiSlider
+        label="Max Charge Limit"
+        icon="mdi:battery-heart"
+        unit="%"
+        min={CL_MIN}
+        max={CL_MAX}
+        step={1}
+        hasEnabled={true}
+        bind:enabled={clEnabled}
+        bind:value={clValue}
+        on:change={chargeLimitChange}
+      />
+    </div>
+
+    <div
+      class="transition-transform duration-100"
+      class:scale-[0.985]={!rateEnabled}
+    >
+      <UiSlider
+        label="Rate Limit (C) (Advanced)"
+        icon="mdi:flash-outline"
+        unit="C"
+        min={0}
+        max={1}
+        step={0.05}
+        hasEnabled={true}
+        bind:enabled={rateEnabled}
+        bind:value={rateC}
+        on:change={rateLimitChange}
+      >
+        <svelte:fragment slot="header-trailing">
+          <button
+            class="badge badge-ghost badge-sm select-none"
+            class:opacity-60={!rateEnabled}
+            disabled={!rateEnabled}
+            aria-label="Set state of charge threshold"
+            title="Set state of charge threshold"
+            bind:this={socChipBtn}
+            on:click={() => (socPopoverVisible = !socPopoverVisible)}
+          >
+            {#if socThresholdPct != null}
+              ≤ SoC {socThresholdPct}%
+            {:else}
+              SoC
+            {/if}
+          </button>
+        </svelte:fragment>
+      </UiSlider>
+      <div
+        use:tooltip={{
+          anchor: socChipBtn,
+          visible: socPopoverVisible,
+          onDismiss: () => (socPopoverVisible = false),
+        }}
+        class="bg-base-100 border border-base-300 rounded shadow p-2 py-1 text-xs space-y-1"
+        role="dialog"
+        aria-label="Set SoC threshold"
+        tabindex="-1"
+      >
+        <div class="opacity-70">≤ State of Charge (%)</div>
+        <div class="flex items-center gap-1">
+          <input
+            class="input input-xs input-bordered tabular-nums"
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+            bind:value={socThresholdPct}
+            on:change={(e) => {
+              if (Number.isNaN(socThresholdPct)) {
+                socThresholdPct = undefined;
+              } else {
+                socThresholdPct = Math.min(
+                  100,
+                  Math.max(0, Number(socThresholdPct))
+                );
+              }
+              rateLimitChange();
+            }}
+          />
+          <button
+            class="btn btn-ghost btn-xs px-2"
+            on:click={() => {
+              socThresholdPct = undefined;
+              rateLimitChange();
+              socPopoverVisible = false;
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   {#if errorMessage}
     <div class="text-[10px] text-error mt-2">{errorMessage}</div>
   {/if}

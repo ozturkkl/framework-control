@@ -21,7 +21,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Routes: `service/src/routes.rs` (@routes.rs)
   - Endpoints (under `/api`):
     - `GET /health`: health + version + `cli_present`
-    - `GET /power`: parsed power report (ac_present + optional battery info)
+    - `GET /power`: parsed power report with battery info and charge limit min/max
     - `GET /thermal`: parsed thermal report (temps map + fan RPMs)
     - `GET /thermal/history`: recent telemetry samples collected by the service (trimmed by configured retention)
     - `GET /versions`: parsed versions (mainboard_type, uefi_version, etc.)
@@ -37,9 +37,9 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Helpers: GPU detection via PowerShell on Windows
 - Other key files (condensed):
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
-  - `service/src/types.rs`: API and config types; includes power AC/Battery profiles, `telemetry` config (`poll_ms`, `retain_seconds`), and `TelemetrySample`
+  - `service/src/types.rs`: API and config types; includes power AC/Battery profiles, battery settings (`battery.charge_limit_max_pct`, `battery.charge_rate_c`, optional `battery.charge_rate_soc_threshold_pct`), `telemetry` config (`poll_ms`, `retain_seconds`), and `TelemetrySample`
   - `service/src/state.rs`: shared `AppState` (locks, token, in‑memory `telemetry_samples`)
-  - Background tasks (`service/src/tasks`): `power`, `fan_curve`, `auto_update`, `telemetry`
+  - Background tasks (`service/src/tasks`): `power`, `battery`, `fan_curve`, `auto_update`, `telemetry`
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs`
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, etc.
   - `service/src/static.rs`: static file serving for the UI
@@ -50,12 +50,14 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Settings: `web/src/components/SettingsModal.svelte` — service update controls, DaisyUI theme selector (all built‑in themes) with instant apply. Theme preference persists to backend config (`Config.ui.theme`) and is applied on startup. Desktop shortcut installer included.
 
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal), `FanControl` (Auto/Manual/Curve with header selector).
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal), `Battery` (charge/health and limits), `FanControl` (Auto/Manual/Curve with header selector).
+  - Battery panel info bar now shows live charge/discharge current, computed C‑rate, pack voltage, SoC, battery health, and max charge limit in a compact header card that mirrors the Power panel layout.
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
-- Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
+- Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). Includes built‑in outside‑click and Escape dismiss (default on; opt‑out with `attachGlobalDismiss: false`). Emits `dismiss` event to sync local state. DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
 - Device header: static images (no crossfade/width/pulse).
 - API client: generated (`web/src/api/*`). Use `DefaultService` and `OpenAPI` for all requests.
+ - `UiSlider.svelte`: standard slider card with label/value and optional enabled toggle; supports a header `trailing` slot for chips/menus (e.g., SoC threshold chip in Battery Rate control). The header shows the raw slider value (no rounding).
 
 ### Things to Pay Attention To
 - Always use the generated API client (`DefaultService`, `OpenAPI`) for all requests.
@@ -112,6 +114,21 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 ### Roadmap (per README)
 
 - TDP control, telemetry dashboards, LED matrix support, additional EC controls, Linux support, import/export.
+
+### Implementing: Battery Panel
+
+- UI: `web/src/components/BatteryControl.svelte` (compact, same height as Power panel). Layout mirrors Power panel: top status bar card + two separate slider cards (Max Charge Limit, Rate (C)) with a small gap between them. SoC threshold input is compact with a top label and auto‑applies changes (throttled).
+- Enhancement: Battery Rate slider uses the `trailing` slot to show a subtle SoC threshold chip; clicking opens a tiny anchored popover with a number field and presets (auto‑apply with throttle, Escape/outside click to close).
+- Rate Limit specifics: Rate slider now has an Enabled toggle (mirrors Power sliders). When disabled, the UI approximates “no limit” by applying 1.0 C. The header shows the value as-is.
+- Data: GET `/api/power` supplies AC presence, battery stats (percentage, voltage/current, cycle count, LFCC, design capacity), and charge limit min/max.
+ - Config-driven:
+  - Read from `GET /api/config` → `config.battery`
+  - Write via `POST /api/config` with partial: `{ "battery": { "charge_limit_max_pct": { "enabled": bool, "value": number }, "charge_rate_c": { "enabled": bool, "value": number }, "charge_rate_soc_threshold_pct"?: number } }` (omitting `charge_rate_soc_threshold_pct` clears/unsets the SoC threshold)
+  - Background task applies on change and every 30 minutes
+- Notes:
+  - EC only exposes GET for charge limit min/max; rate limit is set‑only (persist last-set values in service config for UI echo).
+  - Battery health in the UI is computed client-side from last full charge capacity vs design capacity plus cycle count (no additional backend fields).
+  - All write endpoints require `Authorization: Bearer <token>`.
 
 ### How to Update This Summary
 

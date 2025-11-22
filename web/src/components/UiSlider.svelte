@@ -15,6 +15,7 @@
   export let enabled: boolean = true;
   // Highlight and clamp above this cap when provided
   export let capMax: number | null = null;
+  export let allowPassingCapMax: boolean = false;
 
   const dispatch = createEventDispatcher<{
     input: { value: number; enabled: boolean };
@@ -25,6 +26,11 @@
     return Math.max(lo, Math.min(hi, n));
   }
 
+  $: if (allowPassingCapMax === false && capMax != null) {
+    value = clamp(value, min, capMax);
+    dispatch("change", { value, enabled });
+  }
+
   $: capLeftPct =
     capMax != null
       ? ((clamp(capMax, min, max) - min) / (max - min)) * 100
@@ -32,7 +38,7 @@
 
   function handleInput(e: Event) {
     const v = Number((e.target as HTMLInputElement).value);
-    if (capMax != null && v > capMax) {
+    if (capMax != null && v > capMax && !allowPassingCapMax) {
       value = capMax;
     } else {
       value = v;
@@ -42,7 +48,7 @@
 
   function handleChange(e: Event) {
     const v = Number((e.target as HTMLInputElement).value);
-    if (capMax != null && v > capMax) {
+    if (capMax != null && v > capMax && !allowPassingCapMax) {
       value = capMax;
     } else {
       value = v;
@@ -72,9 +78,9 @@
       <!-- Optional trailing content area for chips/menus placed by parent -->
       <slot name="header-trailing" />
       <span
-        class="font-medium tabular-nums text-right"
+        class="font-medium tabular-nums text-right whitespace-nowrap"
         class:opacity-60={hasEnabled && !enabled}
-        >{value} {unit}</span
+        >{Math.round(value * 100) / 100} {unit}</span
       >
       {#if hasEnabled}
         <span class:opacity-60={!enabled}>•</span>

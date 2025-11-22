@@ -2,6 +2,25 @@
 
  - Web: Theme selector (all DaisyUI themes) in Settings. Applies instantly, persists to backend config, and loads on startup.
  - Web: Auto‑reload the page after installing an update from Settings to load new embedded UI assets.
+ - UI: Tooltip action now dismisses on outside click and Escape by default (opt‑out with `attachGlobalDismiss: false`), and emits a `dismiss` event for call‑sites to sync visibility if needed.
+- Service: Merged `GET /api/battery` into `GET /api/power`. `/api/power` now includes battery stats and charge limit min/max. Removed `GET /api/battery`.
+ - Web: Battery panel now reads from `/api/power`; no functional change to write endpoints.
+- Breaking: Removed `ac_present` from `/api/power` root. Use `resp.battery.ac_present` instead.
+- Service: Power parsing now runs `framework_tool --power -vv` and exposes additional dynamic fields: `charger_voltage_mv`, `charger_current_ma`, `charge_input_current_ma`, `soc_pct`, `design_capacity_mah`, and `design_voltage_mv`. Derived values (Wh, C-rate) are no longer computed by the service.
+- UI: Battery panel info bar shows live charge/discharge current, computed C‑rate (client-side), pack voltage, SoC, and max charge limit to help verify settings at a glance.
+- Service: Battery settings moved to config + background task. Added `config.battery` with:
+  - `charge_limit_max_pct { enabled, value }`
+  - `charge_rate_c { enabled, value }`
+  - optional `charge_rate_soc_threshold_pct`
+  The battery task applies on config change and every 30 minutes.
+- Breaking: Removed `POST /api/battery/charge-limit` and `POST /api/battery/rate-limit`. Use `POST /api/config` instead.
+- UI: Battery panel now reads/writes via config like Power. Layout now mirrors the Power panel with a separate header card and two slider cards with a gap between them; SoC threshold still inline with presets. When disabled, Rate applies 1.0C; Charge Limit disables by restoring 100%.
+- UI: `UiSlider` now supports a header `trailing` slot (for chips/menus). Battery Rate uses it to show a subtle SoC threshold chip with an anchored popover (presets + number, auto‑apply, close on Escape/outside click).
+- UI: Battery Rate slider: added Enabled toggle; header shows the raw value. When disabled, applies 1.0 C to effectively remove limiting in most cases.
+ - UI/Service: Clearing the Battery rate SoC threshold now correctly removes it from `config.battery.charge_rate_soc_threshold_pct`.
+ - UI: Battery SoC input now only applies changes on blur or Enter, preventing premature application while typing.
+ - UI: Power and Battery info bars now wrap by icon+text groups on narrow widths to avoid awkward mid-text wrapping while still showing all values.
+ - UI: Battery panel header now shows a compact battery health summary (capacity vs design and cycle count), and charger requested/available power has moved into the Power panel header next to AC/Battery status.
 
 ## 0.4.1 - 2025-11-10
 

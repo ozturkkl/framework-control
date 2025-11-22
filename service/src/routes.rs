@@ -235,7 +235,6 @@ impl Api {
         Ok(Json(samples))
     }
 
-
     /// Framework versions (parsed)
     #[oai(path = "/versions", method = "get", operation_id = "getVersions")]
     async fn get_versions(
@@ -319,10 +318,8 @@ impl Api {
             if let Some(s) = bat.charge_rate_c {
                 new_bat.charge_rate_c = Some(s);
             }
-            // Clear or set SoC threshold when field is present (null clears)
-            if let Some(maybe) = bat.charge_rate_soc_threshold_pct {
-                new_bat.charge_rate_soc_threshold_pct = maybe;
-            }
+            // SoC threshold: UI always sends this field; null clears, number sets.
+            new_bat.charge_rate_soc_threshold_pct = bat.charge_rate_soc_threshold_pct;
             merged.battery = new_bat;
         }
         if let Some(tel) = req.telemetry {
