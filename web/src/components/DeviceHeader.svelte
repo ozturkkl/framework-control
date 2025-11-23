@@ -3,16 +3,38 @@
   export let installerUrl: string = "";
   export let cliPresent: boolean = true;
   const repoLink = "https://github.com/ozturkkl/framework-control/tree/main";
-  const LID_CLOSED = `${import.meta.env.BASE_URL}assets/lid-closed.jpg`;
-  const LID_OPEN = `${import.meta.env.BASE_URL}assets/lid-open.jpg`;
+  const MAIN_PAGE = `${import.meta.env.BASE_URL}assets/main-page.jpg`;
+  const IMG_DESKTOP = `${import.meta.env.BASE_URL}assets/desktop.jpg`;
+  const IMG_16 = `${import.meta.env.BASE_URL}assets/laptop-16.jpg`;
+  const IMG_13 = `${import.meta.env.BASE_URL}assets/laptop-13.jpg`;
+  const IMG_12 = `${import.meta.env.BASE_URL}assets/laptop-12.jpg`;
+
   import { DefaultService, type SystemInfo } from "../api";
   import { getScreenResolution } from "../lib/device";
   import Icon from "@iconify/svelte";
   import SettingsModal from "./SettingsModal.svelte";
   import { gtSemver } from "../lib/semver";
+  import { tooltip } from "../lib/tooltip";
 
   let triedToFetchVersions = false;
   let displayTitle = "Your Laptop";
+  let openImage = IMG_13;
+
+  $: {
+    const t = displayTitle.toLowerCase();
+    if (t.includes("desktop")) {
+      openImage = IMG_DESKTOP;
+    } else if (t.includes("16")) {
+      openImage = IMG_16;
+    } else if (t.includes("12")) {
+      openImage = IMG_12;
+    } else if (t.includes("13")) {
+      openImage = IMG_13;
+    } else {
+      openImage = MAIN_PAGE;
+    }
+  }
+
   let bios: string | null = null;
   let sys: SystemInfo = {
     cpu: "",
@@ -59,9 +81,11 @@
   }
 
   let infoCardClass =
-    "flex items-center gap-2 bg-base-200 rounded-xl px-3 py-2 text-sm md:text-base whitespace-normal break-words border border-primary/25";
-  let infoCardIconClass = "w-10 h-10";
+    "inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 transition-colors rounded-lg px-3 py-1.5  text-xs md:text-sm border border-primary/20 ";
+  let infoCardIconClass = "w-4 h-4 md:w-5 md:h-5";
   let showSettings = false;
+  let statusBtn: HTMLElement;
+  let statusTipVisible = false;
 
   // Update check state (for settings dot)
   let currentServiceVersion: string | null = null;
@@ -111,19 +135,19 @@
         : "flex flex-col md:flex-row gap-8 items-center"}
     >
       <div
-        class="rounded-box overflow-hidden shadow w-full md:w-auto md:shrink-0 relative"
-        style="width: {healthy
-          ? '14rem'
-          : '50%'}; aspect-ratio: 3 / 2;"
+        class="rounded-box overflow-hidden shadow relative {healthy
+          ? 'hidden md:block w-56 shrink-0'
+          : 'w-1/2'}"
+        style="aspect-ratio: 3 / 2;"
       >
         <img
-          src={LID_CLOSED}
+          src={MAIN_PAGE}
           alt="Framework laptop lid closed"
           class="absolute inset-0 w-full h-full object-cover"
           style="opacity: {healthy ? 0 : 1}"
         />
         <img
-          src={LID_OPEN}
+          src={openImage}
           alt="Framework laptop lid open"
           class="absolute inset-0 w-full h-full object-cover"
           style="opacity: {healthy ? 1 : 0}"
@@ -132,20 +156,60 @@
 
       <div class="flex flex-col justify-evenly flex-1 min-w-0 w-full">
         {#if healthy}
-          <div class="flex items-center gap-2 justify-between">
+          <div class="flex items-center gap-3 justify-between">
+            <div
+              class="md:hidden rounded-lg overflow-hidden shadow relative w-20 h-14 shrink-0 bg-base-200"
+            >
+              <img
+                src={openImage}
+                alt="Lid open"
+                class="absolute inset-0 w-full h-full object-cover"
+              />
+            </div>
             <h2 class="text-xl md:text-2xl font-semibold">{displayTitle}</h2>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-0">
               {#if cliPresent}
-                <span class="badge badge-success mr-0">Connected</span>
+                <button
+                  class="btn btn-success btn-xs mx-3 p-2 rounded-full h-0 w-0 min-h-0 md:w-auto md:h-auto md:py-1 md:mx-2"
+                  aria-label="Connected"
+                  bind:this={statusBtn}
+                  on:mouseenter={() => (statusTipVisible = true)}
+                  on:mouseleave={() => (statusTipVisible = false)}
+                  on:focus={() => (statusTipVisible = true)}
+                  on:blur={() => (statusTipVisible = false)}
+                >
+                  <span class="hidden md:inline">Connected</span>
+                </button>
               {:else}
                 <a
-                  class="btn btn-error btn-sm mr-0 no-underline inline-flex items-center gap-2"
+                  class="btn btn-error btn-xs mx-3 p-2 rounded-full h-0 w-0 min-h-0 md:w-auto md:h-auto md:py-1 md:mx-2"
                   href={installerUrl}
+                  aria-label="framework_tool missing — Reinstall"
+                  bind:this={statusBtn}
+                  on:mouseenter={() => (statusTipVisible = true)}
+                  on:mouseleave={() => (statusTipVisible = false)}
+                  on:focus={() => (statusTipVisible = true)}
+                  on:blur={() => (statusTipVisible = false)}
                 >
-                  <Icon icon="mdi:alert-circle-outline" class="w-4 h-4" />
-                  <span>framework_tool missing — Reinstall</span>
+                  <span class="hidden md:inline"
+                    >framework_tool missing — Reinstall</span
+                  >
                 </a>
               {/if}
+              <div
+                use:tooltip={{
+                  anchor: statusBtn,
+                  visible: statusTipVisible,
+                  attachGlobalDismiss: false,
+                }}
+                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs text-center md:!hidden"
+              >
+                {#if cliPresent}
+                  Connected
+                {:else}
+                  framework_tool missing — Reinstall
+                {/if}
+              </div>
               <button
                 class="btn btn-ghost btn-sm mr-0 relative"
                 aria-label="Open settings"
@@ -225,7 +289,7 @@
             </div>
           {/if}
         {:else}
-          <div class="space-y-6">
+          <div class="space-y-4 lg:space-y-6">
             <h1
               class="text-3xl md:text-5xl font-extrabold leading-tight tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent animate-gradient"
             >
@@ -235,9 +299,7 @@
               Install the small background service to unlock live telemetry and
               fan control. Currently only works on Windows.
             </p>
-            <div
-              class="flex items-center gap-2 md:gap-4 flex-wrap md:flex-nowrap"
-            >
+            <div class="flex items-center gap-6 lg:gap-4 flex-wrap">
               {#if installerUrl}
                 <a class="btn btn-primary btn-lg px-6" href={installerUrl}
                   >Download Service</a
@@ -256,14 +318,13 @@
               >
                 <Icon icon="mdi:github" class="w-5 h-5" />
               </a>
-              <span
-                class="text-sm opacity-60 whitespace-normal max-w-[22rem] md:max-w-lg"
+              <span class="text-sm opacity-60 min-w-[14.5rem] whitespace-wrap w-0 flex-1"
                 >Choose "More info" → "Run anyway". The page will update
                 automatically.</span
               >
             </div>
             <div
-              class="text-sm opacity-60 whitespace-normal max-w-[22rem] md:max-w-lg ml-2"
+              class="text-sm opacity-60 whitespace-normal"
             >
               *You may see a warning when installing; if you're paranoid, you
               can build the installer yourself from the repo.

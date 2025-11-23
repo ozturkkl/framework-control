@@ -8,6 +8,7 @@ export type BrowserInfo = {
 
 export function getScreenResolution(): { width: number; height: number } {
   const dpr = window.devicePixelRatio || 1;
+  console.log("dpr", dpr);
   return {
     width: Math.round(window.screen.width * dpr),
     height: Math.round(window.screen.height * dpr),

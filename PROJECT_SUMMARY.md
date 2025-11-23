@@ -39,7 +39,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
   - `service/src/types.rs`: API and config types; includes power AC/Battery profiles, battery settings (`battery.charge_limit_max_pct`, `battery.charge_rate_c`, optional `battery.charge_rate_soc_threshold_pct`), `telemetry` config (`poll_ms`, `retain_seconds`), and `TelemetrySample`
   - `service/src/state.rs`: shared `AppState` (locks, token, in‑memory `telemetry_samples`)
-  - Background tasks (`service/src/tasks`): `power`, `battery`, `fan_curve`, `auto_update`, `telemetry`
+  - Background tasks (`service/src/tasks`): `power` (TDP + robust thermal limit with boot delay/reapply), `battery`, `fan_curve`, `auto_update`, `telemetry`
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs`
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, etc.
   - `service/src/static.rs`: static file serving for the UI
@@ -52,9 +52,10 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
 - Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal), `Battery` (charge/health and limits), `FanControl` (Auto/Manual/Curve with header selector).
   - Battery panel info bar now shows live charge/discharge current, computed C‑rate, pack voltage, SoC, battery health, and max charge limit in a compact header card that mirrors the Power panel layout.
-- Device header: `web/src/components/DeviceHeader.svelte` shows basic system info (CPU, dGPU if present, RAM, OS, BIOS, and screen resolution). Screen resolution is derived from the native panel resolution (physical pixels) by compensating for OS/browser scaling.
+- Device header: `web/src/components/DeviceHeader.svelte` shows basic system info (CPU, dGPU if present, RAM, OS, BIOS, and screen resolution) with a compact grid of labeled spec chips to align with the rest of the dashboard. Screen resolution is derived from the native panel resolution (physical pixels) by compensating for OS/browser scaling. On mobile, the device image is a small inline thumbnail (no separate column) to reduce header height. Connection status is a compact circular button with a hover tooltip to save space on narrow screens.
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). Includes built‑in outside‑click and Escape dismiss (default on; opt‑out with `attachGlobalDismiss: false`). Emits `dismiss` event to sync local state. DaisyUI tooltip usage removed.
+- App placeholders: When the service is unhealthy or the CLI is missing, panel placeholders now include small contextual icons (thermometer, fan, power, battery) for quick visual scanning.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
 - Device header: static images (no crossfade/width/pulse).
 - API client: generated (`web/src/api/*`). Use `DefaultService` and `OpenAPI` for all requests.

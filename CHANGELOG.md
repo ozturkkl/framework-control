@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Web: Added subtle contextual icons to panel placeholders when the service is unhealthy/missing CLI.
+ - Web: Device header spec chips now use a compact grid with smaller icon pills so the top summary matches the rest of the dashboard.
+- Web: Device header image becomes a small inline thumbnail on mobile (no separate column) to significantly reduce header height.
+ - Web: Device header connection status pill replaced with a compact circular button with hover tooltip to save space on small screens.
+ - Web: Added images for different types of laptops
  - Web: Theme selector (all DaisyUI themes) in Settings. Applies instantly, persists to backend config, and loads on startup.
  - Web: Auto‑reload the page after installing an update from Settings to load new embedded UI assets.
  - UI: Tooltip action now dismisses on outside click and Escape by default (opt‑out with `attachGlobalDismiss: false`), and emits a `dismiss` event for call‑sites to sync visibility if needed.
