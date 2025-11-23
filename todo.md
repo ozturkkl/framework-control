@@ -1,3 +1,0 @@
-- fix UI weird gap
-- fix the SoC limit not re-applying the default 1.0 value below the limit whne it gets changed. Example. if I want to set it to 55, when I type 5 it immediately makes the limit apply, when I type the next 55 it bumps the limit there but if the laptop is at 30% it won't go back up to 1.0C unless unplug and plug again.
-- add battery help with info saying charge to 100% to calibrate
