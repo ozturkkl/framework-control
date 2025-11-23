@@ -52,6 +52,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
 - Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal), `Battery` (charge/health and limits), `FanControl` (Auto/Manual/Curve with header selector).
   - Battery panel info bar now shows live charge/discharge current, computed C‑rate, pack voltage, SoC, battery health, and max charge limit in a compact header card that mirrors the Power panel layout.
+- Device header: `web/src/components/DeviceHeader.svelte` shows basic system info (CPU, dGPU if present, RAM, OS, BIOS, and screen resolution). Screen resolution is derived from the native panel resolution (physical pixels) by compensating for OS/browser scaling.
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). Includes built‑in outside‑click and Escape dismiss (default on; opt‑out with `attachGlobalDismiss: false`). Emits `dismiss` event to sync local state. DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.

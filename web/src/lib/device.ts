@@ -7,9 +7,10 @@ export type BrowserInfo = {
 };
 
 export function getScreenResolution(): { width: number; height: number } {
+  const dpr = window.devicePixelRatio || 1;
   return {
-    width: window.screen.width,
-    height: window.screen.height,
+    width: Math.round(window.screen.width * dpr),
+    height: Math.round(window.screen.height * dpr),
   };
 }
 
