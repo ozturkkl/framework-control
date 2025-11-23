@@ -18,6 +18,8 @@
   const TDP_ABSOLUTE_AC_MAX = 145;
   const TDP_SAFE_BATTERY_MAX = 60;
   const TDP_ABSOLUTE_BATTERY_MAX = 120;
+  const POWER_INFO_CONTAINER_CLASS =
+    "flex flex-col h-52 my-0.5 px-6 justify-center gap-2";
 
   // Basic CPU vendor detection to gate AMD-only controls
   let isIntel: boolean = false;
@@ -310,16 +312,18 @@
 
 <div class="my-auto">
   {#if isIntel}
-    <h3 class="text-lg font-bold mb-2 text-center mt-2">
-      Intel systems not yet supported
-    </h3>
-    <div class="text-sm opacity-80 text-center mb-2">
-      Power controls are currently available only on AMD Ryzen systems via
-      RyzenAdj. Your CPU appears to be{#if detectedCpu}: <b>{detectedCpu}</b
-        >{/if}.
+    <div class={POWER_INFO_CONTAINER_CLASS}>
+      <h3 class="text-lg font-bold mb-2 text-center mt-2">
+        Intel systems not yet supported
+      </h3>
+      <div class="text-sm opacity-80 text-center mb-2">
+        Power controls are currently available only on AMD Ryzen systems via
+        RyzenAdj. Your CPU appears to be{#if detectedCpu}: <b>{detectedCpu}</b
+          >{/if}.
+      </div>
     </div>
   {:else if !hasCheckedInstallStatus}
-    <div class="h-[228px] flex items-center justify-center flex-col">
+    <div class={POWER_INFO_CONTAINER_CLASS}>
       <h3 class="text-lg font-bold mb-2 text-center">Checking requirements…</h3>
       <div class="flex items-center justify-center gap-2 text-sm opacity-80">
         <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
@@ -327,52 +331,54 @@
       </div>
     </div>
   {:else if !ryzenInstalled}
-    <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
-    <ul class="list-disc pl-5 text-sm space-y-1 opacity-80">
-      <li>
-        This requires a small helper <a
-          href="https://github.com/FlyGoat/RyzenAdj"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn-link px-0">RyzenAdj</a
-        > to be installed.
-      </li>
-      <li>May trigger antivirus warnings on your system.</li>
-      <li>
-        Adjusting power settings can cause instability and crashes and may even
-        (though rarely) damage your hardware. We take no responsibility!
-      </li>
-    </ul>
-    <div class="mt-1 flex items-center justify-between">
-      <label class="label cursor-pointer justify-start gap-2">
-        <input
-          type="checkbox"
-          class="checkbox checkbox-sm"
-          bind:checked={agreed}
-        />
-        <span class="label-text text-sm"
-          >I agree to the above and <span class="text-primary"
-            >understand the risks!</span
-          ></span
+    <div class={POWER_INFO_CONTAINER_CLASS}>
+      <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
+      <ul class="list-disc text-sm space-y-1 list-inside opacity-80">
+        <li>
+          This requires a small helper <a
+            href="https://github.com/FlyGoat/RyzenAdj"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-link px-0">RyzenAdj</a
+          > to be installed.
+        </li>
+        <li>May trigger antivirus warnings on your system.</li>
+        <li>
+          Adjusting power settings can cause instability and crashes and may
+          even (though rarely) damage your hardware. We take no responsibility!
+        </li>
+      </ul>
+      <div class="mt-1 flex items-center justify-between">
+        <label class="label cursor-pointer justify-start gap-2">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-sm"
+            bind:checked={agreed}
+          />
+          <span class="label-text text-sm"
+            >I agree to the above and <span class="text-primary"
+              >understand the risks!</span
+            ></span
+          >
+        </label>
+        <button
+          class="btn btn-primary btn-sm"
+          disabled={!agreed || installingRyzenAdj}
+          on:click={installRyzenAdj}
         >
-      </label>
-      <button
-        class="btn btn-primary btn-sm"
-        disabled={!agreed || installingRyzenAdj}
-        on:click={installRyzenAdj}
-      >
-        {#if installingRyzenAdj}
-          <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
-          Installing...
-        {:else}
-          <Icon icon="mdi:download-outline" class="w-4 h-4" />
-          Install
-        {/if}
-      </button>
+          {#if installingRyzenAdj}
+            <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+            Installing...
+          {:else}
+            <Icon icon="mdi:download-outline" class="w-4 h-4" />
+            Install
+          {/if}
+        </button>
+      </div>
+      {#if errorMessage}
+        <div class="text-xs text-error">{errorMessage}</div>
+      {/if}
     </div>
-    {#if errorMessage}
-      <div class="text-xs text-error">{errorMessage}</div>
-    {/if}
   {:else}
     <div
       class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
