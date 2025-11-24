@@ -144,6 +144,7 @@
   let socThresholdPct: number | undefined;
   let socChipBtn: HTMLElement | null = null;
   let socPopoverVisible = false;
+  let socInputEl: HTMLInputElement | null = null;
   let rateEnabled: boolean = false;
 
   let healthInfoBtn: HTMLElement | null = null;
@@ -236,6 +237,14 @@
   onDestroy(() => {
     if (poll) clearInterval(poll);
   });
+
+  $: if (socPopoverVisible) {
+    setTimeout(() => {
+      if (socInputEl) {
+        socInputEl.focus();
+      }
+    }, 0);
+  }
 
   $: if (errorMessage) {
     setTimeout(() => {
@@ -414,6 +423,7 @@
         <div class="opacity-70">≤ State of Charge (%)</div>
         <div class="flex items-center gap-1">
           <input
+            bind:this={socInputEl}
             class="input input-xs input-bordered tabular-nums"
             type="number"
             min="0"
