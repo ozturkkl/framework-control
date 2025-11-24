@@ -168,41 +168,39 @@ async fn tick(
         .map(|s| s.enabled)
         .unwrap_or(false)
     {
-        // Must satisfy boot delay
+        // Only apply thermal limit after boot delay has elapsed
         if now.saturating_duration_since(startup_time)
-            < Duration::from_secs(THERMAL_BOOT_DELAY_SECS)
+            >= Duration::from_secs(THERMAL_BOOT_DELAY_SECS)
         {
-            return;
-        }
+            if let Some(celsius) = profile
+                .thermal_limit_c
+                .as_ref()
+                .map(|s| s.value)
+                .filter(|&c| c > 0)
+            {
+                let target_changed = *last_thermal != Some(celsius);
+                let drift = (*observed_thermal)
+                    .map(|obs| obs != celsius)
+                    .unwrap_or(false);
+                let cooldown = match *last_thermal_reapply_at {
+                    None => true,
+                    Some(t) => {
+                        now.saturating_duration_since(t)
+                            >= Duration::from_secs(THERMAL_REAPPLY_COOLDOWN_SECS)
+                    }
+                };
 
-        if let Some(celsius) = profile
-            .thermal_limit_c
-            .as_ref()
-            .map(|s| s.value)
-            .filter(|&c| c > 0)
-        {
-            let target_changed = *last_thermal != Some(celsius);
-            let drift = (*observed_thermal)
-                .map(|obs| obs != celsius)
-                .unwrap_or(false);
-            let cooldown = match *last_thermal_reapply_at {
-                None => true,
-                Some(t) => {
-                    now.saturating_duration_since(t)
-                        >= Duration::from_secs(THERMAL_REAPPLY_COOLDOWN_SECS)
-                }
-            };
-
-            if target_changed || (drift && cooldown) {
-                debug!(
-                    "power: applying thermal limit {}C (changed={} drift={} cooldown={})",
-                    celsius, target_changed, drift, cooldown
-                );
-                if let Err(e) = ryz.set_thermal_limit_c(celsius).await {
-                    warn!("power: set_thermal_limit_c failed: {}", e);
-                } else {
-                    *last_thermal = Some(celsius);
-                    *last_thermal_reapply_at = Some(now);
+                if target_changed || (drift && cooldown) {
+                    debug!(
+                        "power: applying thermal limit {}C (changed={} drift={} cooldown={})",
+                        celsius, target_changed, drift, cooldown
+                    );
+                    if let Err(e) = ryz.set_thermal_limit_c(celsius).await {
+                        warn!("power: set_thermal_limit_c failed: {}", e);
+                    } else {
+                        *last_thermal = Some(celsius);
+                        *last_thermal_reapply_at = Some(now);
+                    }
                 }
             }
         }
