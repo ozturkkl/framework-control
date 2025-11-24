@@ -8,7 +8,8 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 > At minimum BIOS 3.07 is required for proper EC/fan control behavior.
 > Install the [latest BIOS](https://knowledgebase.frame.work/en_us/framework-laptop-16-bios-and-driver-releases-amd-ryzen-7040-series-BkeqkVovp) before using this tool or it won't work.
 
-<img width="1353" height="940" alt="image" src="https://github.com/user-attachments/assets/98565ce4-1093-4b77-a726-75d47752e090" />
+<img width="1457" height="1151" alt="image" src="https://github.com/user-attachments/assets/69c5afe0-f316-4c62-933b-98d07fea8ee0" />
+
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
@@ -23,6 +24,9 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Fan Controls**: Auto, Manual duty, and Curve editor with hysteresis and rate‑limit
   - Live RPM overlay with crosshair showing current temperature and estimated duty% on the curve editor
   - One‑time calibration wizard for accurate RPM-to-duty mapping
+- **Telemetry & Sensors**: Live temperature and fan RPM graphs with history
+  - Background telemetry sampling with configurable poll interval and history window
+  - Per-sensor series with selection and legend, sourced from the local service
 - **Persistent Settings**: Configurations saved locally with sensible defaults
 - **Clean Architecture**: Minimal always‑on local service with REST API (default: http://127.0.0.1:8090)
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
@@ -32,11 +36,10 @@ This software is provided "as is," without warranty of any kind, express or impl
   - Set TDP (applies STAPM/FAST/SLOW equally)
   - Set Tctl thermal limit
   - Separate AC/Battery profiles with background reapply and live power readout
+- **Updates & Shortcuts**: In-app update checks and optional auto-install, plus Start Menu/Desktop shortcut management from the Settings modal
 
 ## Upcoming Goals
 
-- **TDP Control**: Adjust processor power limits for performance/battery optimization
-- **Telemetry Dashboard**: Real-time monitoring of AC/battery/charge info, temperatures, and fan speeds
 - **LED Matrix Support** (Framework 16 input module):
   - Live canvas editor (draw/erase/brightness/sleep) inspired by https://ledmatrix.frame.work/
   - One/two‑module layouts (9×34 and 9×68), dithering and content scheduling
@@ -102,6 +105,9 @@ FRAMEWORK_CONTROL_TOKEN=<long-random-token>
 
 # Required: port for the service
 FRAMEWORK_CONTROL_PORT=8090
+
+# Optional: GitHub repo used by the update endpoints (owner/name or full URL-ish form)
+FRAMEWORK_CONTROL_UPDATE_REPO=ozturkkl/framework-control
 ```
 
 Web UI `.env.local` file (`framework-control/web/.env.local`):
@@ -112,22 +118,32 @@ VITE_API_BASE=http://127.0.0.1:8090
 
 # Same token as the service
 VITE_CONTROL_TOKEN=<long-random-token>
+
+# Optional: MSI installer URL for the "Download Service" button in hosted mode
+VITE_INSTALLER_URL=<installer-download-url>
 ```
 
 ## Updates & Caching
 
-- UI is served by the service; PWA is configured for passive offline caching (no auto‑reloads)
-- When implementing update flow, trigger a one‑time reload after service update to pick up new UI
+- UI is served by the service; static assets are built with Vite and cached by the browser
+- After installing or applying a service update, refresh the browser once to pick up new UI assets
 
 ## API & Configuration
 
-The service provides a REST API for telemetry (`/api/power`, `/api/thermal`, `/api/versions`), system info (`/api/system`), and config management (`/api/config`).
+The service provides a REST API for health and telemetry (`/api/health`, `/api/thermal`, `/api/thermal/history`, `/api/power`, `/api/versions`), system info (`/api/system`), update and helper management (`/api/update/*`, `/api/ryzenadj/*`), shortcut management (`/api/shortcuts/*`), and config management (`/api/config`).
 
 - `/api/power`: combined battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and RyzenAdj state.
+- `/api/thermal/history`: recent temperature/RPM samples collected by the background telemetry task.
 
-Configuration is stored in `C:\ProgramData\FrameworkControl\config.json` (Windows) and includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters.
+Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.json` (Windows, overridable via `FRAMEWORK_CONTROL_CONFIG`) and includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters, power AC/Battery profiles, battery charge-limit/rate settings and SoC threshold, telemetry poll/retention, update preferences, and UI theme.
 
 ## UI Features
+
+### Sensors & Telemetry
+
+- Live per-sensor temperature graph with history window
+- Configurable poll interval and history duration (via Telemetry settings)
+- Sensor selection with color-coded legend and hover readouts
 
 ### Fan Curve Editor
 
@@ -147,4 +163,4 @@ Configuration is stored in `C:\ProgramData\FrameworkControl\config.json` (Window
 
 - API binds to loopback only (127.0.0.1) - no remote exposure
 - Write operations require bearer token authentication
-- Service logs startup info to `C:\Program Files\FrameworkControl\service.log` for diagnostics
+- Service logs diagnostics via the Windows service wrapper (rolling logs in the install directory)
