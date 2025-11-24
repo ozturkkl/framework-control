@@ -317,9 +317,8 @@ impl Api {
             }
             if let Some(s) = bat.charge_rate_c {
                 new_bat.charge_rate_c = Some(s);
+                new_bat.charge_rate_soc_threshold_pct = bat.charge_rate_soc_threshold_pct;
             }
-            // SoC threshold: UI always sends this field; null clears, number sets.
-            new_bat.charge_rate_soc_threshold_pct = bat.charge_rate_soc_threshold_pct;
             merged.battery = new_bat;
         }
         if let Some(tel) = req.telemetry {
