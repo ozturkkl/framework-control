@@ -5,6 +5,7 @@
   import ShortcutInstaller from "./ShortcutInstaller.svelte";
   import { DefaultService, OpenAPI, type PartialConfig } from "../api";
   import { gtSemver } from "../lib/semver";
+  import { listAvailableDaisyUIThemes } from "../lib/themes";
   const dispatch = createEventDispatcher();
   function close() {
     dispatch("close");
@@ -22,6 +23,26 @@
   let isPaused: boolean = false;
   let applying = false;
   let errorMessage: string | null = null;
+
+  // Theme handling (DaisyUI)
+  let themeOptions: string[] = listAvailableDaisyUIThemes();
+  let theme: string = localStorage?.getItem("fc_theme") ?? "light";
+  function onThemeChange(event: Event) {
+    const target = event.currentTarget as HTMLSelectElement;
+    theme = target?.value ?? theme;
+    localStorage.setItem("fc_theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+    // Persist to backend for cross-client consistency
+    try {
+      const auth = `Bearer ${OpenAPI.TOKEN}`;
+      const body: PartialConfig = {
+        ui: { theme },
+      };
+      DefaultService.setConfig(auth, body);
+    } catch {
+      // non-fatal; leave localStorage applied
+    }
+  }
 
   async function checkUpdate() {
     try {
@@ -49,6 +70,9 @@
       await DefaultService.applyUpdate(auth, {});
       await new Promise((resolve) => setTimeout(resolve, 5000));
       errorMessage = null;
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
     } catch (e) {
       errorMessage = "Failed to apply update!";
     } finally {
@@ -249,6 +273,26 @@
               />
             </label>
           </div>
+        </div>
+      </section>
+      <div class="divider opacity-80"></div>
+      <section class="flex items-center justify-between gap-4">
+        <div>
+          <h4 class="font-semibold">Theme</h4>
+          <p class="text-xs opacity-70">Choose a look and feel</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <select
+            class="select select-sm"
+            bind:value={theme}
+            on:change={onThemeChange}
+            aria-label="Select theme"
+          >
+            {#each themeOptions as t}
+              <option value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option
+              >
+            {/each}
+          </select>
         </div>
       </section>
       <div class="divider opacity-80"></div>

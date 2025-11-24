@@ -21,7 +21,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Routes: `service/src/routes.rs` (@routes.rs)
   - Endpoints (under `/api`):
     - `GET /health`: health + version + `cli_present`
-    - `GET /power`: parsed power report (ac_present + optional battery info)
+  - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and RyzenAdj state
     - `GET /thermal`: parsed thermal report (temps map + fan RPMs)
     - `GET /thermal/history`: recent telemetry samples collected by the service (trimmed by configured retention)
     - `GET /versions`: parsed versions (mainboard_type, uefi_version, etc.)
@@ -37,9 +37,9 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Helpers: GPU detection via PowerShell on Windows
 - Other key files (condensed):
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
-  - `service/src/types.rs`: API and config types; includes power AC/Battery profiles, `telemetry` config (`poll_ms`, `retain_seconds`), and `TelemetrySample`
+  - `service/src/types.rs`: API and config types; includes power AC/Battery profiles, battery config (charge limit/rate + SoC threshold), UI theme, `telemetry` config (`poll_ms`, `retain_seconds`), and `TelemetrySample`
   - `service/src/state.rs`: shared `AppState` (locks, token, in‑memory `telemetry_samples`)
-  - Background tasks (`service/src/tasks`): `power`, `fan_curve`, `auto_update`, `telemetry`
+- Background tasks (`service/src/tasks`): `power`, `fan_curve`, `battery`, `auto_update`, `telemetry`
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs`
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, etc.
   - `service/src/static.rs`: static file serving for the UI
@@ -48,7 +48,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 ### Frontend Web UI (Svelte)
 
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal), `FanControl` (Auto/Manual/Curve with header selector).
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal and charger wattage), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector).
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
@@ -84,6 +84,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Persisted at `C:\ProgramData\FrameworkControl\config.json`
 - Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors)
 - Telemetry: `telemetry.poll_ms`, `telemetry.retain_seconds` (history for `/api/thermal/history`)
+- Battery: `battery.charge_limit_max_pct` (25–100%), `battery.charge_rate_c` (0.0–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting)
+- UI: `ui.theme` (DaisyUI theme name, shared across clients)
 - Writes require `FRAMEWORK_CONTROL_TOKEN` (Bearer)
 - Updates: `FRAMEWORK_CONTROL_UPDATE_REPO` used by update endpoints; MSI build reads tokens from env/CLI
 

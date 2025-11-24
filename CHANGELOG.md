@@ -1,5 +1,15 @@
 ## Unreleased
 
+
+## 0.4.2 - 2025-11-24
+
+- Battery: New Battery panel with live stats (health, C-rate, ETA) and configurable max charge limit / charge-rate (C) with SoC threshold; background task applies settings at boot.
+- Power: `/api/power` now returns richer battery telemetry plus charge-limit info and is used by the power task to pick AC/Battery profiles based on AC presence.
+- UI/Theme: In-app theme selector using DaisyUI themes (persisted via config and local storage) with early apply, plus updated device header imaging and more predictable tooltips.
+- Sliders: Power/Battery sliders now support safe vs extended ranges, allow optional cap overrun, and display higher-precision values where useful.
+- Tooltips: Unified global dismiss logic (outside click / Escape) and fixed a few cases where tooltips were either too sticky or closed unexpectedly.
+- Fixed temp limit not applying on initial boot in some cases.
+- Misc: Small power/battery header polish (better charger wattage display, ETA wording) and minor fan-curve interpolation/test tweaks. UI improvements, fixes.
  
 
 ## 0.4.1 - 2025-11-10

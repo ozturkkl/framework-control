@@ -6,6 +6,7 @@
     type PowerConfig,
     type PowerProfile,
     type PartialConfig,
+    type BatteryInfo,
   } from "../api";
   import Icon from "@iconify/svelte";
   import { deepMerge } from "../lib/utils";
@@ -13,8 +14,12 @@
   import { tooltip } from "../lib/tooltip";
 
   const TDP_MIN = 5;
-  const TDP_MAX = 120;
-  const TDP_BATTERY_MAX = 60;
+  const TDP_SAFE_AC_MAX = 120;
+  const TDP_ABSOLUTE_AC_MAX = 145;
+  const TDP_SAFE_BATTERY_MAX = 60;
+  const TDP_ABSOLUTE_BATTERY_MAX = 120;
+  const POWER_INFO_CONTAINER_CLASS =
+    "flex flex-col h-52 my-0.5 px-6 justify-center gap-2";
 
   // Basic CPU vendor detection to gate AMD-only controls
   let isIntel: boolean = false;
@@ -63,8 +68,13 @@
   let currentThermal: number | undefined;
   let acPresent: boolean | undefined;
   let batteryPct: number | undefined;
+  let chargerWatts: number | undefined;
+  let chargerRequestedWatts: number | undefined;
   let removeBtn: HTMLButtonElement;
   let removeTipVisible = false;
+  let unlockBtn: HTMLButtonElement;
+  let unlockTipVisible = false;
+  let highTdpUnlocked = false;
 
   async function setPower(
     profile: keyof PowerConfig,
@@ -87,13 +97,34 @@
     }
   }
 
+  function updateChargerWattage(bat: BatteryInfo | undefined) {
+    if (
+      bat?.charge_input_current_ma != null &&
+      bat.charger_voltage_mv != null
+    ) {
+      chargerWatts =
+        (bat.charge_input_current_ma * bat.charger_voltage_mv) / 1_000_000;
+    } else {
+      chargerWatts = undefined;
+    }
+    if (bat?.charger_current_ma != null && bat.charger_voltage_mv != null) {
+      chargerRequestedWatts =
+        (bat.charger_current_ma * bat.charger_voltage_mv) / 1_000_000;
+    } else {
+      chargerRequestedWatts = undefined;
+    }
+  }
+
   async function pollPower() {
     try {
       const resp = await DefaultService.getPower();
       ryzenInstalled = !!resp.ryzenadj_installed;
 
-      acPresent = resp.ac_present;
-      batteryPct = resp.battery?.percentage;
+      const bat = resp.battery;
+      acPresent = bat?.ac_present;
+      batteryPct = bat?.percentage;
+      updateChargerWattage(bat);
+
       const tdp = resp.tdp_watts;
       const therm = resp.thermal_limit_c;
       currentTdp = tdp && tdp > 0 ? tdp : undefined;
@@ -193,7 +224,7 @@
 
 <!-- Overlay status positioned into the parent header area -->
 <div
-  class="absolute top-[0.62rem] left-24 right-14 flex items-center justify-between gap-2 text-sm"
+  class="absolute top-[0.62rem] left-24 right-11 flex items-center justify-between gap-2 text-sm"
 >
   {#if hasCheckedInstallStatus && ryzenInstalled}
     <div class="join border border-primary/35">
@@ -216,27 +247,61 @@
         checked={activeProfile === "battery"}
       />
     </div>
-    <button
-      class="btn btn-ghost btn-xs"
-      aria-label="Remove helper"
-      bind:this={removeBtn}
-      on:mouseenter={() => (removeTipVisible = true)}
-      on:mouseleave={() => (removeTipVisible = false)}
-      on:focus={() => (removeTipVisible = true)}
-      on:blur={() => (removeTipVisible = false)}
-      on:click={uninstallRyzenAdj}
-      disabled={uninstallingRyzenAdj}
+    <div>
+      <button
+        class="btn btn-ghost btn-xs"
+        aria-label={highTdpUnlocked
+          ? "Disable high TDP values"
+          : "Unlock higher TDP values"}
+        bind:this={unlockBtn}
+        on:mouseenter={() => (unlockTipVisible = true)}
+        on:mouseleave={() => (unlockTipVisible = false)}
+        on:focus={() => (unlockTipVisible = true)}
+        on:blur={() => (unlockTipVisible = false)}
+        on:click={() => (highTdpUnlocked = !highTdpUnlocked)}
+      >
+        <Icon
+          icon={highTdpUnlocked
+            ? "mdi:lock-open-variant-outline"
+            : "mdi:lock-outline"}
+          class="w-3.5 h-3.5"
+        />
+      </button>
+      <button
+        class="btn btn-ghost btn-xs"
+        aria-label="Remove helper"
+        bind:this={removeBtn}
+        on:mouseenter={() => (removeTipVisible = true)}
+        on:mouseleave={() => (removeTipVisible = false)}
+        on:focus={() => (removeTipVisible = true)}
+        on:blur={() => (removeTipVisible = false)}
+        on:click={uninstallRyzenAdj}
+        disabled={uninstallingRyzenAdj}
+      >
+        {#if uninstallingRyzenAdj}
+          <Icon icon="mdi:loading" class="w-3.5 h-3.5 animate-spin" />
+        {:else}
+          <Icon icon="mdi:trash-can-outline" class="w-3.5 h-3.5" />
+        {/if}
+      </button>
+    </div>
+
+    <div
+      use:tooltip={{
+        anchor: unlockBtn,
+        visible: unlockTipVisible,
+        attachGlobalDismiss: false,
+      }}
+      class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs text-center"
     >
-      {#if uninstallingRyzenAdj}
-        <Icon icon="mdi:loading" class="w-3.5 h-3.5 animate-spin" />
-      {:else}
-        <Icon icon="mdi:trash-can-outline" class="w-3.5 h-3.5" />
-      {/if}
-    </button>
+      Unlock higher values for TDP.<br />
+      <span class="opacity-90 text-error">USE AT YOUR OWN RISK.</span>
+    </div>
     <div
       use:tooltip={{
         anchor: removeBtn,
         visible: removeTipVisible,
+        attachGlobalDismiss: false,
       }}
       class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-60 text-center"
     >
@@ -247,16 +312,18 @@
 
 <div class="my-auto">
   {#if isIntel}
-    <h3 class="text-lg font-bold mb-2 text-center mt-2">
-      Intel systems not yet supported
-    </h3>
-    <div class="text-sm opacity-80 text-center mb-2">
-      Power controls are currently available only on AMD Ryzen systems via
-      RyzenAdj. Your CPU appears to be{#if detectedCpu}: <b>{detectedCpu}</b
-        >{/if}.
+    <div class={POWER_INFO_CONTAINER_CLASS}>
+      <h3 class="text-lg font-bold mb-2 text-center mt-2">
+        Intel systems not yet supported
+      </h3>
+      <div class="text-sm opacity-80 text-center mb-2">
+        Power controls are currently available only on AMD Ryzen systems via
+        RyzenAdj. Your CPU appears to be{#if detectedCpu}: <b>{detectedCpu}</b
+          >{/if}.
+      </div>
     </div>
   {:else if !hasCheckedInstallStatus}
-    <div class="h-[228px] flex items-center justify-center flex-col">
+    <div class={POWER_INFO_CONTAINER_CLASS}>
       <h3 class="text-lg font-bold mb-2 text-center">Checking requirements…</h3>
       <div class="flex items-center justify-center gap-2 text-sm opacity-80">
         <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
@@ -264,86 +331,103 @@
       </div>
     </div>
   {:else if !ryzenInstalled}
-    <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
-    <ul class="list-disc pl-5 text-sm space-y-1 opacity-80">
-      <li>
-        This requires a small helper <a
-          href="https://github.com/FlyGoat/RyzenAdj"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn-link px-0">RyzenAdj</a
-        > to be installed.
-      </li>
-      <li>May trigger antivirus warnings on your system.</li>
-      <li>
-        Adjusting power settings can cause instability and crashes and may even
-        (though rarely) damage your hardware. We take no responsibility!
-      </li>
-    </ul>
-    <div class="mt-1 flex items-center justify-between">
-      <label class="label cursor-pointer justify-start gap-2">
-        <input
-          type="checkbox"
-          class="checkbox checkbox-sm"
-          bind:checked={agreed}
-        />
-        <span class="label-text text-sm"
-          >I agree to the above and <span class="text-primary"
-            >understand the risks!</span
-          ></span
-        >
-      </label>
-      <button
-        class="btn btn-primary btn-sm"
-        disabled={!agreed || installingRyzenAdj}
-        on:click={installRyzenAdj}
-      >
-        {#if installingRyzenAdj}
-          <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
-          Installing...
-        {:else}
-          <Icon icon="mdi:download-outline" class="w-4 h-4" />
-          Install
-        {/if}
-      </button>
-    </div>
-    {#if errorMessage}
-      <div class="text-xs text-error">{errorMessage}</div>
-    {/if}
-  {:else}
-    <div class="bg-base-200 min-w-0 rounded-xl mb-2">
-      <div class="py-2 px-3 flex items-center justify-between text-xs">
-        <div class="flex items-center gap-2">
-          <span class="inline-flex items-center gap-1">
-            <Icon
-              icon="mdi:flash-outline"
-              class={`w-4 h-4 ${Number(currentTdp) > 95 ? "brightness-200" : Number(currentTdp) > 60 ? "brightness-150" : "brightness-100"} text-success`}
-            />
-            <span class="tabular-nums text-xs">{currentTdp ?? "—"} W</span>
-          </span>
-          <span class="opacity-60">•</span>
-          <span class="inline-flex items-center gap-1">
-            <Icon
-              icon="mdi:thermometer"
-              class={`w-4 h-4 ${Number(currentThermal) > 95 ? "text-error" : Number(currentThermal) > 90 ? "text-warning" : "text-success"}`}
-            />
-            <span class="tabular-nums text-xs">{currentThermal ?? "—"} °C</span>
-          </span>
-        </div>
-        <div class="text-[10px] flex items-center gap-1">
-          <span class={`inline-flex items-center gap-1`}>
-            <Icon
-              icon={acPresent ? "mdi:battery-charging" : "mdi:battery"}
-              class={`w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`}
-            />
-            <span class="tabular-nums text-xs">{batteryPct ?? "—"}%</span>
-          </span>
-          <span class="text-md opacity-60">•</span>
-          <span
-            class={`text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`}
-            >{acPresent ? "Plugged in" : "On battery"}</span
+    <div class={POWER_INFO_CONTAINER_CLASS}>
+      <h3 class="text-lg font-bold mb-2 text-center">Enable power controls</h3>
+      <ul class="list-disc text-sm space-y-1 list-inside opacity-80">
+        <li>
+          This requires a small helper <a
+            href="https://github.com/FlyGoat/RyzenAdj"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-link px-0">RyzenAdj</a
+          > to be installed.
+        </li>
+        <li>May trigger antivirus warnings on your system.</li>
+        <li>
+          Adjusting power settings can cause instability and crashes and may
+          even (though rarely) damage your hardware. We take no responsibility!
+        </li>
+      </ul>
+      <div class="mt-1 flex items-center justify-between">
+        <label class="label cursor-pointer justify-start gap-2">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-sm"
+            bind:checked={agreed}
+          />
+          <span class="label-text text-sm"
+            >I agree to the above and <span class="text-primary"
+              >understand the risks!</span
+            ></span
           >
-        </div>
+        </label>
+        <button
+          class="btn btn-primary btn-sm"
+          disabled={!agreed || installingRyzenAdj}
+          on:click={installRyzenAdj}
+        >
+          {#if installingRyzenAdj}
+            <Icon icon="mdi:loading" class="w-4 h-4 animate-spin" />
+            Installing...
+          {:else}
+            <Icon icon="mdi:download-outline" class="w-4 h-4" />
+            Install
+          {/if}
+        </button>
+      </div>
+      {#if errorMessage}
+        <div class="text-xs text-error">{errorMessage}</div>
+      {/if}
+    </div>
+  {:else}
+    <div
+      class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
+    >
+      <div
+        class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
+      >
+        <span class="inline-flex items-center gap-1 whitespace-nowrap">
+          <Icon
+            icon="mdi:flash-outline"
+            class={`w-4 h-4 ${Number(currentTdp) > 95 ? "brightness-200" : Number(currentTdp) > 60 ? "brightness-150" : "brightness-100"} text-success`}
+          />
+          <span class="tabular-nums text-xs">{currentTdp ?? "—"} W</span>
+        </span>
+        <span class="inline-flex items-center gap-1 whitespace-nowrap">
+          <span class="opacity-60">•</span>
+          <Icon
+            icon="mdi:thermometer"
+            class={`w-4 h-4 ${Number(currentThermal) > 95 ? "text-error" : Number(currentThermal) > 90 ? "text-warning" : "text-success"}`}
+          />
+          <span class="tabular-nums text-xs">{currentThermal ?? "—"} °C</span>
+        </span>
+
+        {#if acPresent}
+          <span class="opacity-60">•</span>
+          <span class="inline-flex items-center gap-1 whitespace-nowrap">
+            <Icon icon="mdi:power-plug-outline" class="w-3.5 h-3.5" />
+            <span class="tabular-nums text-xs"
+              >{chargerRequestedWatts != null
+                ? Math.round(chargerRequestedWatts)
+                : "—"}/{chargerWatts != null ? Math.round(chargerWatts) : "—"}
+              W</span
+            >
+          </span>
+        {/if}
+      </div>
+      <div class="flex gap-x-2 gap-y-1 justify-end whitespace-nowrap">
+        <span class={`inline-flex items-center gap-1 whitespace-nowrap`}>
+          <Icon
+            icon={acPresent ? "mdi:battery-charging" : "mdi:battery"}
+            class={`w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`}
+          />
+          <span class="tabular-nums text-xs">{batteryPct ?? "—"}%</span>
+        </span>
+        <span class="opacity-60">•</span>
+        <span
+          class={`text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`}
+          >{acPresent ? "Plugged in" : "On battery"}</span
+        >
       </div>
     </div>
     <div
@@ -360,11 +444,20 @@
             : "mdi:battery-outline"}
           unit="W"
           min={TDP_MIN}
-          max={TDP_MAX}
+          max={highTdpUnlocked
+            ? activeProfile === "ac"
+              ? TDP_ABSOLUTE_AC_MAX
+              : TDP_ABSOLUTE_BATTERY_MAX
+            : activeProfile === "ac"
+              ? TDP_SAFE_AC_MAX
+              : TDP_SAFE_BATTERY_MAX}
           step={1}
           hasEnabled={true}
           bind:enabled={powerConfig[activeProfile].tdp_watts.enabled}
-          capMax={activeProfile === "battery" ? TDP_BATTERY_MAX : null}
+          capMax={activeProfile === "battery"
+            ? TDP_SAFE_BATTERY_MAX
+            : TDP_SAFE_AC_MAX}
+          allowPassingCapMax={highTdpUnlocked}
           bind:value={powerConfig[activeProfile].tdp_watts.value}
           on:change={onChangeTdp}
         />

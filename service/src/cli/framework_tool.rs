@@ -1,7 +1,7 @@
 use super::framework_tool_parser::{
-    parse_power, parse_thermal, parse_versions, PowerParsed, ThermalParsed, VersionsParsed,
+    parse_power, parse_thermal, parse_versions, PowerBatteryInfo, ThermalParsed, VersionsParsed,
 };
-use crate::utils::{download as dl, github as gh, wget as wg, global_cache};
+use crate::utils::{download as dl, github as gh, global_cache, wget as wg};
 use std::time::Duration;
 use tokio::process::Command;
 use tracing::{error, info, warn};
@@ -26,10 +26,10 @@ impl FrameworkTool {
         Ok(cli)
     }
 
-    pub async fn power(&self) -> Result<PowerParsed, String> {
+    pub async fn power(&self) -> Result<PowerBatteryInfo, String> {
         const TTL: Duration = Duration::from_millis(2000);
         global_cache::cache_get_or_update("framework_tool.power", TTL, true, || async {
-            let out = self.run(&["--power"]).await?;
+            let out = self.run(&["--power", "-vv"]).await?;
             Ok(parse_power(&out))
         })
         .await
@@ -63,6 +63,50 @@ impl FrameworkTool {
 
     pub async fn autofanctrl(&self) -> Result<(), String> {
         let _ = self.run(&["--autofanctrl"]).await?;
+        Ok(())
+    }
+
+    /// Get charge limit min/max percentage as reported by EC
+    pub async fn charge_limit_get(
+        &self,
+    ) -> Result<super::framework_tool_parser::BatteryChargeLimitInfo, String> {
+        use super::framework_tool_parser::parse_charge_limit;
+        const TTL: Duration = Duration::from_millis(2000);
+        global_cache::cache_get_or_update("framework_tool.charge_limit", TTL, true, || async {
+            let out = self.run(&["--charge-limit"]).await?;
+            let info = parse_charge_limit(&out);
+            if info.charge_limit_min_pct.is_some() || info.charge_limit_max_pct.is_some() {
+                Ok(info)
+            } else {
+                Err("failed to parse charge limit".to_string())
+            }
+        })
+        .await
+    }
+
+    /// Set max charge limit percentage
+    pub async fn charge_limit_set(&self, max_pct: u8) -> Result<(), String> {
+        let arg = max_pct.to_string();
+        let _ = self.run(&["--charge-limit", &arg]).await?;
+        Ok(())
+    }
+
+    /// Set charge rate limit in C; optional SoC threshold in percent
+    pub async fn charge_rate_limit_set(
+        &self,
+        rate_c: f32,
+        soc_threshold_pct: Option<u8>,
+    ) -> Result<(), String> {
+        let rate = format!("{:.3}", rate_c);
+        match soc_threshold_pct {
+            Some(soc) => {
+                let s = soc.to_string();
+                let _ = self.run(&["--charge-rate-limit", &rate, &s]).await?;
+            }
+            None => {
+                let _ = self.run(&["--charge-rate-limit", &rate]).await?;
+            }
+        }
         Ok(())
     }
 
