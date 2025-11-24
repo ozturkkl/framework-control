@@ -27,8 +27,11 @@
   }
 
   $: if (allowPassingCapMax === false && capMax != null) {
-    value = clamp(value, min, capMax);
-    dispatch("change", { value, enabled });
+    const clamped = clamp(value, min, capMax);
+    if (clamped !== value) {
+      value = clamped;
+      dispatch("change", { value, enabled });
+    }
   }
 
   $: capLeftPct =
