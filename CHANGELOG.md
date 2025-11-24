@@ -1,31 +1,16 @@
 ## Unreleased
 
-- Web: Added subtle contextual icons to panel placeholders when the service is unhealthy/missing CLI.
- - Web: Device header spec chips now use a compact grid with smaller icon pills so the top summary matches the rest of the dashboard.
-- Web: Device header image becomes a small inline thumbnail on mobile (no separate column) to significantly reduce header height.
- - Web: Device header connection status pill replaced with a compact circular button with hover tooltip to save space on small screens.
- - Web: Added images for different types of laptops
- - Web: Theme selector (all DaisyUI themes) in Settings. Applies instantly, persists to backend config, and loads on startup.
- - Web: Auto‑reload the page after installing an update from Settings to load new embedded UI assets.
- - UI: Tooltip action now dismisses on outside click and Escape by default (opt‑out with `attachGlobalDismiss: false`), and emits a `dismiss` event for call‑sites to sync visibility if needed.
-- Service: Merged `GET /api/battery` into `GET /api/power`. `/api/power` now includes battery stats and charge limit min/max. Removed `GET /api/battery`.
- - Web: Battery panel now reads from `/api/power`; no functional change to write endpoints.
-- Breaking: Removed `ac_present` from `/api/power` root. Use `resp.battery.ac_present` instead.
-- Service: Power parsing now runs `framework_tool --power -vv` and exposes additional dynamic fields: `charger_voltage_mv`, `charger_current_ma`, `charge_input_current_ma`, `soc_pct`, `design_capacity_mah`, and `design_voltage_mv`. Derived values (Wh, C-rate) are no longer computed by the service.
-- UI: Battery panel info bar shows live charge/discharge current, computed C‑rate (client-side), pack voltage, SoC, and max charge limit to help verify settings at a glance.
-- Service: Battery settings moved to config + background task. Added `config.battery` with:
-  - `charge_limit_max_pct { enabled, value }`
-  - `charge_rate_c { enabled, value }`
-  - optional `charge_rate_soc_threshold_pct`
-  The battery task applies on config change and every 30 minutes.
-- Breaking: Removed `POST /api/battery/charge-limit` and `POST /api/battery/rate-limit`. Use `POST /api/config` instead.
-- UI: Battery panel now reads/writes via config like Power. Layout now mirrors the Power panel with a separate header card and two slider cards with a gap between them; SoC threshold still inline with presets. When disabled, Rate applies 1.0C; Charge Limit disables by restoring 100%.
-- UI: `UiSlider` now supports a header `trailing` slot (for chips/menus). Battery Rate uses it to show a subtle SoC threshold chip with an anchored popover (presets + number, auto‑apply, close on Escape/outside click).
-- UI: Battery Rate slider: added Enabled toggle; header shows the raw value. When disabled, applies 1.0 C to effectively remove limiting in most cases.
- - UI/Service: Clearing the Battery rate SoC threshold now correctly removes it from `config.battery.charge_rate_soc_threshold_pct`.
- - UI: Battery SoC input now only applies changes on blur or Enter, preventing premature application while typing.
- - UI: Power and Battery info bars now wrap by icon+text groups on narrow widths to avoid awkward mid-text wrapping while still showing all values.
- - UI: Battery panel header now shows a compact battery health summary (capacity vs design and cycle count), and charger requested/available power has moved into the Power panel header next to AC/Battery status.
+
+## 0.4.2 - 2025-11-24
+
+- Battery: New Battery panel with live stats (health, C-rate, ETA) and configurable max charge limit / charge-rate (C) with SoC threshold; background task applies settings at boot.
+- Power: `/api/power` now returns richer battery telemetry plus charge-limit info and is used by the power task to pick AC/Battery profiles based on AC presence.
+- UI/Theme: In-app theme selector using DaisyUI themes (persisted via config and local storage) with early apply, plus updated device header imaging and more predictable tooltips.
+- Sliders: Power/Battery sliders now support safe vs extended ranges, allow optional cap overrun, and display higher-precision values where useful.
+- Tooltips: Unified global dismiss logic (outside click / Escape) and fixed a few cases where tooltips were either too sticky or closed unexpectedly.
+- Fixed temp limit not applying on initial boot in some cases.
+- Misc: Small power/battery header polish (better charger wattage display, ETA wording) and minor fan-curve interpolation/test tweaks. UI improvements, fixes.
+ 
 
 ## 0.4.1 - 2025-11-10
 

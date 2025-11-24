@@ -27,10 +27,11 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Clean Architecture**: Minimal always‑on local service with REST API (default: http://127.0.0.1:8090)
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
-
+- **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold.
 - **Power Controls (RyzenAdj)**:
   - Set TDP (applies STAPM/FAST/SLOW equally)
   - Set Tctl thermal limit
+  - Separate AC/Battery profiles with background reapply and live power readout
 
 ## Upcoming Goals
 
@@ -121,6 +122,8 @@ VITE_CONTROL_TOKEN=<long-random-token>
 ## API & Configuration
 
 The service provides a REST API for telemetry (`/api/power`, `/api/thermal`, `/api/versions`), system info (`/api/system`), and config management (`/api/config`).
+
+- `/api/power`: combined battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and RyzenAdj state.
 
 Configuration is stored in `C:\ProgramData\FrameworkControl\config.json` (Windows) and includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters.
 
