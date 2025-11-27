@@ -184,7 +184,7 @@
     try {
       const auth = `Bearer ${OpenAPI.TOKEN}`;
       const value = rateEnabled
-        ? Math.max(0, Math.min(1.0, Math.round(rateC * 20) / 20))
+        ? Math.max(0.05, Math.min(1.0, Math.round(rateC * 20) / 20))
         : 1.0;
       const patch: PartialConfig = {
         battery: {
@@ -383,7 +383,7 @@
         label="Rate Limit (C) (Advanced)"
         icon="mdi:flash-outline"
         unit="C"
-        min={0}
+        min={0.05}
         max={1}
         step={0.05}
         hasEnabled={true}

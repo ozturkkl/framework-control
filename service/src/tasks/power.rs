@@ -56,10 +56,10 @@ async fn tick(
     // Constants
     const TDP_TOLERANCE_W: u32 = 2; // within +/- 2W is OK
     const QUIET_WINDOW_SECS: u64 = 60; // wait for no drift for 60s
-    const REAPPLY_COOLDOWN_SECS: u64 = 120; // do not reapply more often than every 120s
+    const REAPPLY_COOLDOWN_SECS: u64 = 2 * 60; // do not reapply more often than every 120s
     const INFO_POLL_SECS: u64 = 5; // refresh current info every 5s
-    const THERMAL_REAPPLY_COOLDOWN_SECS: u64 = 300; // retry thermal every 5 min if needed
-    const THERMAL_BOOT_DELAY_SECS: u64 = 60; // wait 1 min before touching thermal
+    const THERMAL_REAPPLY_COOLDOWN_SECS: u64 = 5 * 60; // retry thermal every 5 min if needed
+    const THERMAL_BOOT_DELAY_SECS: u64 = 30; // wait 30 secs before touching thermal
 
     let now = Instant::now();
 

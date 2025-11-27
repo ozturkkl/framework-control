@@ -13,7 +13,7 @@ pub async fn run(
 ) {
     info!("Battery task started");
 
-    const REAPPLY_INTERVAL_SECS: u64 = 30 * 60;
+    const REAPPLY_INTERVAL_SECS: u64 = 10 * 60;
     const CL_MIN: u8 = 25;
     const CL_MAX: u8 = 100;
 
@@ -29,73 +29,83 @@ pub async fn run(
         let ft_opt = { framework_tool_lock.read().await.clone() };
 
         if let Some(cli) = ft_opt {
-            // Apply charge limit
             if let Some(setting) = cfg_bat.charge_limit_max_pct.clone() {
-                // If disabled, restore to 100%
-                let desired = if setting.enabled {
-                    setting
-                        .value
-                        .clamp(CL_MIN, CL_MAX)
-                } else {
-                    100
-                };
-                let need_apply = match last_charge_limit_pct {
-                    None => true,
-                    Some(prev) => prev != desired,
-                };
-                let past_reapply = match last_charge_apply_at {
-                    None => true,
-                    Some(t) => Instant::now().saturating_duration_since(t)
-                        >= Duration::from_secs(REAPPLY_INTERVAL_SECS),
-                };
-                if need_apply || past_reapply {
-                    debug!("battery: applying charge limit {}%", desired);
-                    match cli.charge_limit_set(desired).await {
-                        Ok(_) => {
-                            last_charge_limit_pct = Some(desired);
-                            last_charge_apply_at = Some(Instant::now());
+                if setting.enabled {
+                    let desired = setting.value.clamp(CL_MIN, CL_MAX);
+                    let need_apply = match last_charge_limit_pct {
+                        None => true,
+                        Some(prev) => prev != desired,
+                    };
+                    let past_reapply = match last_charge_apply_at {
+                        None => true,
+                        Some(t) => {
+                            Instant::now().saturating_duration_since(t)
+                                >= Duration::from_secs(REAPPLY_INTERVAL_SECS)
                         }
-                        Err(e) => {
-                            warn!("battery: charge_limit_set failed: {}", e);
+                    };
+                    if need_apply || past_reapply {
+                        debug!("battery: applying charge limit {}%", desired);
+                        match cli.charge_limit_set(desired).await {
+                            Ok(_) => {
+                                last_charge_limit_pct = Some(desired);
+                                last_charge_apply_at = Some(Instant::now());
+                            }
+                            Err(e) => {
+                                warn!("battery: charge_limit_set failed: {}", e);
+                            }
                         }
                     }
+                } else {
+                    // Disabled: stop tracking so we won't keep reapplying an old limit once turned off.
+                    last_charge_limit_pct = None;
+                    last_charge_apply_at = None;
                 }
             }
 
-            // Apply rate limit (C). Disabled approximates "no limit" by using 1.0C.
             if let Some(setting) = cfg_bat.charge_rate_c.clone() {
-                let mut desired_c = if setting.enabled { setting.value } else { 1.0 };
-                // snap to 0.05 steps like UI
-                desired_c = (desired_c * 20.0).round() / 20.0;
-                desired_c = desired_c.clamp(0.0, 1.0);
-                let desired_threshold = cfg_bat.charge_rate_soc_threshold_pct;
-                let need_apply = match (last_rate_c, last_threshold_pct) {
-                    (Some(prev_c), prev_t) => prev_c != desired_c || prev_t != desired_threshold,
-                    _ => true,
-                };
-                let past_reapply = match last_rate_apply_at {
-                    None => true,
-                    Some(t) => Instant::now().saturating_duration_since(t)
-                        >= Duration::from_secs(REAPPLY_INTERVAL_SECS),
-                };
-                if need_apply || past_reapply {
-                    debug!(
-                        "battery: applying charge rate {}C (threshold={:?})",
-                        desired_c, desired_threshold
-                    );
-                    match cli
-                        .charge_rate_limit_set(desired_c, desired_threshold)
-                        .await
-                    {
-                        Ok(_) => {
-                            last_rate_c = Some(desired_c);
-                            last_threshold_pct = desired_threshold;
-                            last_rate_apply_at = Some(Instant::now());
+                if setting.enabled {
+                    let mut desired_c = setting.value;
+                    // snap to 0.05 steps like UI
+                    desired_c = (desired_c * 20.0).round() / 20.0;
+                    desired_c = desired_c.clamp(0.05, 1.0);
+                    let desired_threshold = cfg_bat.charge_rate_soc_threshold_pct;
+                    let need_apply = match (last_rate_c, last_threshold_pct) {
+                        (Some(prev_c), prev_t) => {
+                            prev_c != desired_c || prev_t != desired_threshold
                         }
-                        Err(e) => {
-                            warn!("battery: charge_rate_limit_set failed: {}", e);
+                        _ => true,
+                    };
+                    let past_reapply = match last_rate_apply_at {
+                        None => true,
+                        Some(t) => {
+                            Instant::now().saturating_duration_since(t)
+                                >= Duration::from_secs(REAPPLY_INTERVAL_SECS)
+                        }
+                    };
+                    if need_apply || past_reapply {
+                        debug!(
+                            "battery: applying charge rate {}C (threshold={:?})",
+                            desired_c, desired_threshold
+                        );
+                        match cli
+                            .charge_rate_limit_set(desired_c, desired_threshold)
+                            .await
+                        {
+                            Ok(_) => {
+                                last_rate_c = Some(desired_c);
+                                last_threshold_pct = desired_threshold;
+                                last_rate_apply_at = Some(Instant::now());
+                            }
+                            Err(e) => {
+                                warn!("battery: charge_rate_limit_set failed: {}", e);
+                            }
                         }
                     }
+                } else {
+                    // Disabled: stop tracking so we won't keep reapplying an old limit once turned off.
+                    last_rate_c = None;
+                    last_threshold_pct = None;
+                    last_rate_apply_at = None;
                 }
             }
         }
@@ -103,5 +113,3 @@ pub async fn run(
         sleep(Duration::from_secs(1)).await;
     }
 }
-
-
