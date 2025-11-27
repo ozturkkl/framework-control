@@ -76,6 +76,14 @@
   let unlockTipVisible = false;
   let highTdpUnlocked = false;
 
+  function recomputeHighTdpUnlocked() {
+    const acVal = powerConfig.ac.tdp_watts.value;
+    const batVal = powerConfig.battery.tdp_watts.value;
+    highTdpUnlocked =
+      (acVal != null && acVal > TDP_SAFE_AC_MAX) ||
+      (batVal != null && batVal > TDP_SAFE_BATTERY_MAX);
+  }
+
   async function setPower(
     profile: keyof PowerConfig,
     field: keyof PowerProfile,
@@ -157,8 +165,9 @@
       powerConfig = deepMerge(
         powerConfig,
         cfg.power as typeof powerConfig,
-        true
+        true,
       );
+      recomputeHighTdpUnlocked();
     } catch {}
     await pollPower();
     infoPoll = setInterval(pollPower, 2000);

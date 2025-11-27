@@ -230,7 +230,7 @@ pub struct BatteryConfig {
     /// EC charge limit maximum percent (25-100)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub charge_limit_max_pct: Option<SettingU8>,
-    /// Charge rate in C (0.0 - 1.0). When disabled, use 1.0C to approximate no limit.
+    /// Charge rate in C (0.05 - 1.0). When disabled, use 1.0C to approximate no limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub charge_rate_c: Option<SettingF32>,
     /// Optional SoC threshold (%) for rate limiting

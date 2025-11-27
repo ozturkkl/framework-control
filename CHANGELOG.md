@@ -1,6 +1,11 @@
 ## Unreleased
 
 
+## 0.4.3 - 2025-11-27
+
+- Battery: Disabling max charge limit now performs a no-op instead of forcing 100%, allowing users to rely on their BIOS/EC charge limit configuration. Charge-rate (C) control now supports 0.05 as a minimum value to avoid users getting stuck at 0.
+- Power: Fixed the max TDP unlock state not persisting after refresh; the UI now restores the correct unlock state when reloaded.
+
 ## 0.4.2 - 2025-11-24
 
 - Battery: New Battery panel with live stats (health, C-rate, ETA) and configurable max charge limit / charge-rate (C) with SoC threshold; background task applies settings at boot.
