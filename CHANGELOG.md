@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Linux: Store config at `/etc/framework-control/config.json` instead of the Windows `ProgramData` path.
 
 ## 0.4.3 - 2025-11-27
 

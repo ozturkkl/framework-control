@@ -6,12 +6,33 @@ use tracing::info;
 use crate::types::Config;
 
 pub fn config_path() -> PathBuf {
+    // Explicit override always wins (all platforms)
     if let Ok(p) = std::env::var("FRAMEWORK_CONTROL_CONFIG") {
         return PathBuf::from(p);
     }
-    // Prefer ProgramData for system-wide service config
-    let base = std::env::var("PROGRAMDATA").unwrap_or_else(|_| r"C:\ProgramData".into());
-    PathBuf::from(base).join("FrameworkControl").join("config.json")
+
+    // Windows: prefer ProgramData for system-wide service config
+    #[cfg(windows)]
+    {
+        let base = std::env::var("PROGRAMDATA").unwrap_or_else(|_| r"C:\ProgramData".into());
+        return PathBuf::from(base)
+            .join("FrameworkControl")
+            .join("config.json");
+    }
+
+    // Linux: system-wide config
+    #[cfg(target_os = "linux")]
+    {
+        return PathBuf::from("/etc")
+            .join("framework-control")
+            .join("config.json");
+    }
+
+    // Unsupported platforms: make this explicit instead of silently picking a path.
+    #[cfg(all(not(windows), not(target_os = "linux")))]
+    {
+        panic!("Unsupported platform: Framework Control currently supports Windows and Linux only");
+    }
 }
 
 pub fn load() -> Config {
@@ -35,5 +56,3 @@ pub fn save(cfg: &Config) -> Result<(), String> {
     let s = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
     f.write_all(s.as_bytes()).map_err(|e| e.to_string())
 }
-
-

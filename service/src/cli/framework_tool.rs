@@ -2,13 +2,18 @@ use super::framework_tool_parser::{
     parse_power, parse_thermal, parse_versions, PowerBatteryInfo, ThermalParsed, VersionsParsed,
 };
 use crate::utils::{download as dl, github as gh, global_cache, wget as wg};
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 use tokio::process::Command;
 use tracing::{error, info, warn};
 use which::which;
 
 /// Thin wrapper around the `framework_tool` CLI.
 /// Resolves the binary path once and provides async helpers to run commands.
+///
+/// Resolution strategy:
+/// - Prefer `framework_tool` found on `PATH` 
+/// - Then fall back to a copy alongside the running service binary.
+/// - Windows can optionally auto-install via winget; 
 #[derive(Clone)]
 pub struct FrameworkTool {
     pub(crate) path: String,
@@ -135,7 +140,14 @@ impl FrameworkTool {
 }
 
 async fn resolve_framework_tool() -> Result<String, String> {
-    // Prefer alongside the running service binary
+    if let Ok(p) = which("framework_tool") {
+        return Ok(p.to_string_lossy().to_string());
+    }
+    if let Ok(p) = which("framework_tool.exe") {
+        return Ok(p.to_string_lossy().to_string());
+    }
+
+    // Fallback: alongside the running service binary (used by Windows MSI and some dev flows)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let candidate = if cfg!(windows) {
@@ -151,37 +163,34 @@ async fn resolve_framework_tool() -> Result<String, String> {
         }
     }
 
-    if let Ok(p) = which("framework_tool") {
-        return Ok(p.to_string_lossy().to_string());
-    }
-    if let Ok(p) = which("framework_tool.exe") {
-        return Ok(p.to_string_lossy().to_string());
-    }
-
-    Err("framework_tool not found. Please install via winget: winget install FrameworkComputer.framework_tool".into())
+    Err("framework_tool not found. Install it and ensure it is on PATH (Linux/macOS), or via winget on Windows: winget install FrameworkComputer.framework_tool".into())
 }
 
 /// Resolve framework_tool, attempting installation if not present.
 pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
-    // 1) Try resolve immediately
+    // 1) Try resolve immediately (PATH-first; see resolve_framework_tool)
     if let Ok(cli) = FrameworkTool::new().await {
         return Ok(cli);
     }
 
-    // 2) Try winget install once
-    if let Err(err) = wg::try_winget_install_package("FrameworkComputer.framework_tool", None).await
+    // 2) Windows: try winget install once
+    #[cfg(windows)]
     {
-        warn!("winget automatic install failed: {}", err);
-    }
+        if let Err(err) =
+            wg::try_winget_install_package("FrameworkComputer.framework_tool", None).await
+        {
+            warn!("winget automatic install failed: {}", err);
+        }
 
-    // 3) Try resolve again
-    if let Ok(cli) = FrameworkTool::new().await {
-        return Ok(cli);
-    }
+        // 3) Try resolve again
+        if let Ok(cli) = FrameworkTool::new().await {
+            return Ok(cli);
+        }
 
-    // 4) Try direct download once
-    if let Err(err) = attempt_install_via_direct_download().await {
-        warn!("direct download fallback failed: {}", err);
+        // 4) Try direct download once (Windows fallback)
+        if let Err(err) = attempt_install_via_direct_download().await {
+            warn!("direct download fallback failed: {}", err);
+        }
     }
 
     // 5) Final resolve attempt (post direct-download)

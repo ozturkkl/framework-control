@@ -81,7 +81,9 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 ### Configuration
 
-- Persisted at `C:\ProgramData\FrameworkControl\config.json`
+- Persisted at:
+  - Windows: `C:\ProgramData\FrameworkControl\config.json`
+  - Linux: `/etc/framework-control/config.json`
 - Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors)
 - Telemetry: `telemetry.poll_ms`, `telemetry.retain_seconds` (history for `/api/thermal/history`)
 - Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting)
