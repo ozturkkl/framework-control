@@ -19,7 +19,7 @@
   const TDP_SAFE_BATTERY_MAX = 60;
   const TDP_ABSOLUTE_BATTERY_MAX = 120;
   const POWER_INFO_CONTAINER_CLASS =
-    "flex flex-col h-52 my-0.5 px-6 justify-center gap-2";
+    "flex flex-col h-44 my-0.5 px-6 justify-center gap-2";
 
   // Basic CPU vendor + OS detection to gate controls (header is always shown)
   let isIntel: boolean = false;
@@ -393,8 +393,7 @@
         Linux version coming soon…
       </h3>
       <div class="text-sm opacity-80 text-center mb-2">
-        Power controls are not available on Linux yet. The battery/charger
-        information above is still live.
+        Power controls are not available on Linux yet. Please check back soon.
       </div>
     </div>
   {:else if isIntel}

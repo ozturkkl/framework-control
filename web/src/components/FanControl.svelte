@@ -589,7 +589,7 @@
 
 <!-- Overlay mode toggle positioned into the parent panel header area -->
 <div
-  class="absolute top-[0.62rem] left-36 right-14 flex items-center justify-start gap-2 text-sm"
+  class="absolute top-[0.62rem] left-40 right-14 flex items-center justify-start gap-2 text-sm"
 >
   <div class="join border border-primary/35">
     <input
