@@ -184,15 +184,18 @@ pub async fn create_shortcuts_if_installer_requested() {
     info!("Installer shortcut request detected, creating shortcuts...");
 
     // Get port from environment (required for service to run)
-    let port = match env::var("FRAMEWORK_CONTROL_PORT") {
-        Ok(p) => match p.parse::<u16>() {
+    let port = match env::var("FRAMEWORK_CONTROL_PORT")
+        .ok()
+        .or_else(|| option_env!("FRAMEWORK_CONTROL_PORT").map(String::from))
+    {
+        Some(p) => match p.parse::<u16>() {
             Ok(port) => port,
             Err(e) => {
                 error!("Invalid FRAMEWORK_CONTROL_PORT: {}", e);
                 return;
             }
         },
-        Err(_) => {
+        None => {
             error!("FRAMEWORK_CONTROL_PORT not set, cannot create shortcuts");
             return;
         }

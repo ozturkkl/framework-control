@@ -389,7 +389,9 @@ impl Api {
 
         // Get port from environment (required at startup)
         let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
-            .expect("FRAMEWORK_CONTROL_PORT must be set")
+            .ok()
+            .or_else(|| option_env!("FRAMEWORK_CONTROL_PORT").map(String::from))
+            .expect("FRAMEWORK_CONTROL_PORT must be set (either at runtime or baked at compile-time)")
             .parse()
             .expect("FRAMEWORK_CONTROL_PORT must be valid");
 

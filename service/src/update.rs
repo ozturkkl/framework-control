@@ -2,7 +2,9 @@ use crate::utils::github as gh;
 use tracing::{error, info};
 
 pub fn parse_github_repo_env() -> Option<(String, String)> {
-    let repo = std::env::var("FRAMEWORK_CONTROL_UPDATE_REPO").ok()?;
+    let repo = std::env::var("FRAMEWORK_CONTROL_UPDATE_REPO")
+        .ok()
+        .or_else(|| option_env!("FRAMEWORK_CONTROL_UPDATE_REPO").map(String::from))?;
     if repo.contains('/') && !repo.contains("github.com") {
         let mut it = repo.splitn(2, '/');
         Some((

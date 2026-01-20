@@ -7,6 +7,7 @@
     "gen:api": "node scripts/gen-api.mjs",
     "gen:icons": "node scripts/gen-icons.mjs",
     "build:msi": "node scripts/build-msi.mjs",
+    "build:linux": "node scripts/build-linux.mjs",
     "predev": "npm run gen:icons && npm run gen:api",
     "dev": "vite",
     "prebuild": "npm run gen:icons && npm run gen:api",

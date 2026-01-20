@@ -16,7 +16,9 @@ pub struct AppState {
 impl AppState {
     pub async fn initialize() -> Self {
         let config = Arc::new(tokio::sync::RwLock::new(crate::config::load()));
-        let token = std::env::var("FRAMEWORK_CONTROL_TOKEN").ok();
+        let token = std::env::var("FRAMEWORK_CONTROL_TOKEN")
+            .ok()
+            .or_else(|| option_env!("FRAMEWORK_CONTROL_TOKEN").map(String::from));
 
         // Do not auto-install RyzenAdj on init; only periodically resolve if user has installed
         let ryzenadj = Arc::new(tokio::sync::RwLock::new(RyzenAdj::new().await.ok()));

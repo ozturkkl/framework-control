@@ -92,6 +92,20 @@ npm run dev
   1. Build the service to refresh `web/openapi.json`
   2. From `framework-control/web`, run: `npm run gen:api`
 
+### Backend Environment Variables Policy (Important)
+
+ ⚠️ **Compile-Time Configuration Baking**
+
+ All `FRAMEWORK_CONTROL_*` environment variables read in the service code **must** support both runtime and compile-time fallback using `option_env!()`. This allows the Linux build process to bake configuration into the binary.
+
+ **Pattern to follow:**
+ ```rust
+ std::env::var("FRAMEWORK_CONTROL_PORT")
+     .ok()
+     .or_else(|| option_env!("FRAMEWORK_CONTROL_PORT").map(String::from))
+     .expect("FRAMEWORK_CONTROL_PORT must be set")
+ ```
+
 **Environment Variables**:
 
 Service `.env` file (`framework-control/service/.env`):
