@@ -21,9 +21,17 @@
   const POWER_INFO_CONTAINER_CLASS =
     "flex flex-col h-52 my-0.5 px-6 justify-center gap-2";
 
-  // Basic CPU vendor detection to gate AMD-only controls
+  // Basic CPU vendor + OS detection to gate controls (header is always shown)
   let isIntel: boolean = false;
+  let isLinux: boolean = false;
   let detectedCpu: string | null = null;
+
+  // Controls are only available when not Intel and not Linux (for now)
+  $: controlsSupported = !isIntel && !isLinux;
+
+  // Header actions + TDP/Thermal readouts should only show when the helper is installed
+  $: showPowerValues =
+    controlsSupported && hasCheckedInstallStatus && ryzenInstalled;
 
   let activeProfile: keyof PowerConfig = "ac";
   const ACTIVE_PROFILE_KEY = "fc.power.activeProfile";
@@ -88,7 +96,7 @@
     profile: keyof PowerConfig,
     field: keyof PowerProfile,
     enabled: boolean,
-    value: number
+    value: number,
   ) {
     try {
       const auth = `Bearer ${OpenAPI.TOKEN}`;
@@ -153,6 +161,9 @@
     } catch (_) {
       isIntel = false;
     }
+
+    isLinux = navigator?.userAgent?.toLowerCase().includes("linux");
+
     try {
       const saved = localStorage.getItem(ACTIVE_PROFILE_KEY);
       if (saved === "ac" || saved === "battery") {
@@ -235,7 +246,7 @@
 <div
   class="absolute top-[0.62rem] left-24 right-11 flex items-center justify-between gap-2 text-sm"
 >
-  {#if hasCheckedInstallStatus && ryzenInstalled}
+  {#if showPowerValues}
     <div class="join border border-primary/35">
       <input
         type="radio"
@@ -320,7 +331,73 @@
 </div>
 
 <div class="my-auto">
-  {#if isIntel}
+  <div
+    class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
+  >
+    <div
+      class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
+    >
+      {#if showPowerValues}
+        <span class="inline-flex items-center gap-1 whitespace-nowrap">
+          <Icon
+            icon="mdi:flash-outline"
+            class={`w-4 h-4 ${Number(currentTdp) > 95 ? "brightness-200" : Number(currentTdp) > 60 ? "brightness-150" : "brightness-100"} text-success`}
+          />
+          <span class="tabular-nums text-xs">{currentTdp ?? "—"} W</span>
+        </span>
+        <span class="inline-flex items-center gap-1 whitespace-nowrap">
+          <span class="opacity-60">•</span>
+          <Icon
+            icon="mdi:thermometer"
+            class={`w-4 h-4 ${Number(currentThermal) > 95 ? "text-error" : Number(currentThermal) > 90 ? "text-warning" : "text-success"}`}
+          />
+          <span class="tabular-nums text-xs">{currentThermal ?? "—"} °C</span>
+        </span>
+      {/if}
+
+      {#if acPresent && showPowerValues}
+        <span class="opacity-60">•</span>
+      {/if}
+
+      {#if acPresent}
+        <span class="inline-flex items-center gap-1 whitespace-nowrap">
+          <Icon icon="mdi:power-plug-outline" class="w-3.5 h-3.5" />
+          <span class="tabular-nums text-xs"
+            >{chargerRequestedWatts != null
+              ? Math.round(chargerRequestedWatts)
+              : "—"}/{chargerWatts != null ? Math.round(chargerWatts) : "—"}
+            W</span
+          >
+        </span>
+      {/if}
+    </div>
+    <div class="flex gap-x-2 gap-y-1 justify-end whitespace-nowrap">
+      <span class={`inline-flex items-center gap-1 whitespace-nowrap`}>
+        <Icon
+          icon={acPresent ? "mdi:battery-charging" : "mdi:battery"}
+          class={`w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`}
+        />
+        <span class="tabular-nums text-xs">{batteryPct ?? "—"}%</span>
+      </span>
+      <span class="opacity-60">•</span>
+      <span
+        class={`text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`}
+        >{acPresent ? "Plugged in" : "On battery"}</span
+      >
+    </div>
+  </div>
+
+  {#if isLinux}
+    <div class={POWER_INFO_CONTAINER_CLASS}>
+      <h3 class="text-lg font-bold mb-2 text-center mt-2">
+        Linux version coming soon…
+      </h3>
+      <div class="text-sm opacity-80 text-center mb-2">
+        Power controls are not available on Linux yet. The battery/charger
+        information above is still live.
+      </div>
+    </div>
+  {:else if isIntel}
     <div class={POWER_INFO_CONTAINER_CLASS}>
       <h3 class="text-lg font-bold mb-2 text-center mt-2">
         Intel systems not yet supported
@@ -389,56 +466,6 @@
       {/if}
     </div>
   {:else}
-    <div
-      class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
-    >
-      <div
-        class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
-      >
-        <span class="inline-flex items-center gap-1 whitespace-nowrap">
-          <Icon
-            icon="mdi:flash-outline"
-            class={`w-4 h-4 ${Number(currentTdp) > 95 ? "brightness-200" : Number(currentTdp) > 60 ? "brightness-150" : "brightness-100"} text-success`}
-          />
-          <span class="tabular-nums text-xs">{currentTdp ?? "—"} W</span>
-        </span>
-        <span class="inline-flex items-center gap-1 whitespace-nowrap">
-          <span class="opacity-60">•</span>
-          <Icon
-            icon="mdi:thermometer"
-            class={`w-4 h-4 ${Number(currentThermal) > 95 ? "text-error" : Number(currentThermal) > 90 ? "text-warning" : "text-success"}`}
-          />
-          <span class="tabular-nums text-xs">{currentThermal ?? "—"} °C</span>
-        </span>
-
-        {#if acPresent}
-          <span class="opacity-60">•</span>
-          <span class="inline-flex items-center gap-1 whitespace-nowrap">
-            <Icon icon="mdi:power-plug-outline" class="w-3.5 h-3.5" />
-            <span class="tabular-nums text-xs"
-              >{chargerRequestedWatts != null
-                ? Math.round(chargerRequestedWatts)
-                : "—"}/{chargerWatts != null ? Math.round(chargerWatts) : "—"}
-              W</span
-            >
-          </span>
-        {/if}
-      </div>
-      <div class="flex gap-x-2 gap-y-1 justify-end whitespace-nowrap">
-        <span class={`inline-flex items-center gap-1 whitespace-nowrap`}>
-          <Icon
-            icon={acPresent ? "mdi:battery-charging" : "mdi:battery"}
-            class={`w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`}
-          />
-          <span class="tabular-nums text-xs">{batteryPct ?? "—"}%</span>
-        </span>
-        <span class="opacity-60">•</span>
-        <span
-          class={`text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`}
-          >{acPresent ? "Plugged in" : "On battery"}</span
-        >
-      </div>
-    </div>
     <div
       class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
     >
