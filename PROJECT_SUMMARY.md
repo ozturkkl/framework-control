@@ -28,8 +28,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /config`: return persisted config
     - `POST /config`: update config (requires `Authorization: Bearer <token>`)
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
-    - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
-    - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
+    - `GET /shortcuts/status`: Desktop/application menu shortcut existence
+    - `POST /shortcuts/create`: create desktop shortcuts with browser detection (auth required, Windows + Linux)
 - `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
 - `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required)
   - `GET /update/check`: check for latest version from update feed (see env below)
@@ -43,7 +43,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs`
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, etc.
   - `service/src/static.rs`: static file serving for the UI
-  - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
+  - `service/src/shortcuts.rs`: Desktop shortcut creation for Windows (Edge/Chrome/Brave app mode + .url fallback) and Linux (simple .desktop entry using xdg-open)
 
 ### Frontend Web UI (Svelte)
 
@@ -75,7 +75,9 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 ### Installation & Packaging
 
 - MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`).
-- Shortcuts: created on demand via `/api/shortcuts/create`; auto‑update preserves original shortcut choice.
+- Shortcuts: created on demand via `/api/shortcuts/create`
+  - Windows: Start Menu + Desktop (.lnk with app mode or .url fallback)
+  - Linux: Desktop entry in applications menu (~/.local/share/applications/framework-control.desktop) using xdg-open
 - Updates: `GET /api/update/check`, `POST /api/update/apply` (Windows `msiexec`).
 - MSI injects env values into the service (allowed origins, token, port, update repo).
 

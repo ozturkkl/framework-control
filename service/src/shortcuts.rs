@@ -19,23 +19,36 @@ pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
     Ok((start_menu, desktop))
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
 pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
-    Err("Shortcuts only supported on Windows".to_string())
+    // Script handles user detection and path construction
+    // Return dummy path for shortcuts_exist() check
+    let home = env::var("HOME").unwrap_or_else(|_| String::from("/tmp"));
+    let applications = PathBuf::from(home).join(".local/share/applications/framework-control.desktop");
+    Ok((applications.clone(), applications))
 }
 
 pub fn shortcuts_exist() -> bool {
     match get_shortcut_paths() {
-        Ok((start_menu, desktop)) => {
-            let exists_either = |p: &PathBuf| {
-                if p.exists() {
-                    true
-                } else {
-                    let url_variant = p.with_extension("url");
-                    url_variant.exists()
-                }
-            };
-            exists_either(&start_menu) && exists_either(&desktop)
+        Ok((first, second)) => {
+            #[cfg(target_os = "windows")]
+            {
+                // Windows: check both Start Menu (.lnk or .url) and Desktop
+                let exists_either = |p: &PathBuf| {
+                    if p.exists() {
+                        true
+                    } else {
+                        let url_variant = p.with_extension("url");
+                        url_variant.exists()
+                    }
+                };
+                exists_either(&first) && exists_either(&second)
+            }
+            #[cfg(target_os = "linux")]
+            {
+                // Linux: only check applications entry (second is same path)
+                first.exists()
+            }
         }
         Err(_) => false,
     }
@@ -64,38 +77,46 @@ fn extract_icon() -> Result<PathBuf, String> {
     Err("Icon not embedded (embed-ui feature disabled)".to_string())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(target_os = "linux", feature = "embed-ui"))]
 fn extract_icon() -> Result<PathBuf, String> {
-    Err("Icon extraction only supported on Windows".to_string())
+    // Write icon to temp file - script will copy it to final location
+    let temp_icon = PathBuf::from("/tmp/framework-control-icon.png");
+
+    let png_bytes: &[u8] = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../web/public/assets/generated/logo.png"
+    ));
+    fs::write(&temp_icon, png_bytes).map_err(|e| format!("Failed to write temp icon: {}", e))?;
+    Ok(temp_icon)
+}
+
+#[cfg(all(target_os = "linux", not(feature = "embed-ui")))]
+fn extract_icon() -> Result<PathBuf, String> {
+    Err("Icon not embedded (embed-ui feature disabled)".to_string())
 }
 
 #[cfg(target_os = "windows")]
 pub async fn create_shortcuts(port: u16) -> Result<(), String> {
     let (start_menu_path, desktop_path) = get_shortcut_paths()?;
+    let icon_path = extract_icon()?;
 
-    // Log resolved paths for diagnostics
     info!(
-        "shortcuts: start_menu='{}', desktop='{}'",
+        "shortcuts: creating at start_menu='{}', desktop='{}'",
         start_menu_path.display(),
         desktop_path.display()
     );
 
-    // Extract icon from embedded assets to temp location
-    let icon_path = extract_icon()?;
-    info!("shortcuts: icon_path='{}'", icon_path.display());
-
-    // Load PowerShell script template from scripts/create_shortcuts.ps1 and inject values
-    let template: &str = include_str!(concat!(
+    let template = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/scripts/create_shortcuts.ps1"
     ));
+
     let ps_script = template
         .replace("{PORT}", &port.to_string())
         .replace("{ICON}", &icon_path.display().to_string())
         .replace("{START_MENU}", &start_menu_path.display().to_string())
         .replace("{DESKTOP}", &desktop_path.display().to_string());
 
-    // Execute PowerShell script
     let output = tokio::process::Command::new("powershell")
         .arg("-NoProfile")
         .arg("-ExecutionPolicy")
@@ -114,9 +135,34 @@ pub async fn create_shortcuts(port: u16) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
-pub async fn create_shortcuts(_port: u16) -> Result<(), String> {
-    Err("Shortcuts are only supported on Windows".to_string())
+#[cfg(target_os = "linux")]
+pub async fn create_shortcuts(port: u16) -> Result<(), String> {
+    let icon_path = extract_icon()?;
+
+    info!("shortcuts: creating desktop entry via script");
+
+    let template = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/scripts/create_desktop_entry.sh"
+    ));
+
+    let bash_script = template
+        .replace("{PORT}", &port.to_string())
+        .replace("{ICON}", &icon_path.display().to_string());
+
+    let output = tokio::process::Command::new("bash")
+        .arg("-c")
+        .arg(&bash_script)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to execute bash: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Bash script failed: {}", stderr));
+    }
+
+    Ok(())
 }
 
 /// Check for installer marker file and create shortcuts if present
@@ -130,13 +176,13 @@ pub async fn create_shortcuts_if_installer_requested() {
         },
         Err(_) => return,
     };
-    
+
     if !marker_path.exists() {
         return;
     }
-    
+
     info!("Installer shortcut request detected, creating shortcuts...");
-    
+
     // Get port from environment (required for service to run)
     let port = match env::var("FRAMEWORK_CONTROL_PORT") {
         Ok(p) => match p.parse::<u16>() {
@@ -151,7 +197,7 @@ pub async fn create_shortcuts_if_installer_requested() {
             return;
         }
     };
-    
+
     // Create shortcuts
     match create_shortcuts(port).await {
         Ok(_) => {

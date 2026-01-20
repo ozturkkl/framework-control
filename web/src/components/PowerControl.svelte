@@ -12,6 +12,7 @@
   import { deepMerge } from "../lib/utils";
   import UiSlider from "./UiSlider.svelte";
   import { tooltip } from "../lib/tooltip";
+  import { isLinux as getIsLinux } from "../lib/platform";
 
   const TDP_MIN = 5;
   const TDP_SAFE_AC_MAX = 120;
@@ -23,7 +24,7 @@
 
   // Basic CPU vendor + OS detection to gate controls (header is always shown)
   let isIntel: boolean = false;
-  let isLinux: boolean = false;
+  let isLinux: boolean = getIsLinux();
   let detectedCpu: string | null = null;
 
   // Controls are only available when not Intel and not Linux (for now)
@@ -161,8 +162,6 @@
     } catch (_) {
       isIntel = false;
     }
-
-    isLinux = navigator?.userAgent?.toLowerCase().includes("linux");
 
     try {
       const saved = localStorage.getItem(ACTIVE_PROFILE_KEY);

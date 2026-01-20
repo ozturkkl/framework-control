@@ -1,6 +1,7 @@
 ## Unreleased
 
 - Linux: Store config at `/etc/framework-control/config.json` instead of the Windows `ProgramData` path.
+- Linux: Desktop entry support creates .desktop file in applications menu (~/.local/share/applications) using xdg-open. Detects actual user when service runs as root via SUDO_USER or active sessions.
 
 ## 0.4.3 - 2025-11-27
 
