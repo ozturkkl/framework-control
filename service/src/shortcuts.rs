@@ -21,10 +21,10 @@ pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
 
 #[cfg(target_os = "linux")]
 pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
-    // Script handles user detection and path construction
-    // Return dummy path for shortcuts_exist() check
-    let home = env::var("HOME").unwrap_or_else(|_| String::from("/tmp"));
-    let applications = PathBuf::from(home).join(".local/share/applications/framework-control.desktop");
+    let user_home = crate::utils::fs::detect_user_home()
+        .ok_or_else(|| "Could not determine user home directory".to_string())?;
+    let applications = PathBuf::from(user_home)
+        .join(".local/share/applications/framework-control.desktop");
     Ok((applications.clone(), applications))
 }
 
@@ -79,15 +79,20 @@ fn extract_icon() -> Result<PathBuf, String> {
 
 #[cfg(all(target_os = "linux", feature = "embed-ui"))]
 fn extract_icon() -> Result<PathBuf, String> {
-    // Write icon to temp file - script will copy it to final location
-    let temp_icon = PathBuf::from("/tmp/framework-control-icon.png");
+    let user_home = crate::utils::fs::detect_user_home()
+        .ok_or_else(|| "Could not determine user home directory".to_string())?;
 
+    // Write icon directly to final location in user's home
+    let icon_dir = PathBuf::from(user_home).join(".local/share/framework-control/assets");
+    fs::create_dir_all(&icon_dir).map_err(|e| format!("Failed to create icon dir: {}", e))?;
+
+    let icon_path = icon_dir.join("framework-control.png");
     let png_bytes: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../web/public/assets/generated/logo.png"
     ));
-    fs::write(&temp_icon, png_bytes).map_err(|e| format!("Failed to write temp icon: {}", e))?;
-    Ok(temp_icon)
+    fs::write(&icon_path, png_bytes).map_err(|e| format!("Failed to write icon: {}", e))?;
+    Ok(icon_path)
 }
 
 #[cfg(all(target_os = "linux", not(feature = "embed-ui")))]
@@ -137,6 +142,8 @@ pub async fn create_shortcuts(port: u16) -> Result<(), String> {
 
 #[cfg(target_os = "linux")]
 pub async fn create_shortcuts(port: u16) -> Result<(), String> {
+    let user_home = crate::utils::fs::detect_user_home()
+        .ok_or_else(|| "Could not determine user home directory".to_string())?;
     let icon_path = extract_icon()?;
 
     info!("shortcuts: creating desktop entry via script");
@@ -148,7 +155,7 @@ pub async fn create_shortcuts(port: u16) -> Result<(), String> {
 
     let bash_script = template
         .replace("{PORT}", &port.to_string())
-        .replace("{ICON}", &icon_path.display().to_string());
+        .replace("{USER_HOME}", &user_home);
 
     let output = tokio::process::Command::new("bash")
         .arg("-c")
