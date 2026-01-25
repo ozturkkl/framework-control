@@ -10,6 +10,7 @@ const repoRoot = path.resolve(__dirname, "..", "..");
 const webDir = path.resolve(repoRoot, "web");
 const serviceDir = path.resolve(repoRoot, "service");
 const serviceEnvPath = path.resolve(serviceDir, ".env");
+const packageJsonPath = path.resolve(webDir, "package.json");
 
 const run = (cmd, args, opts = {}) =>
   new Promise((resolve, reject) => {
@@ -155,10 +156,11 @@ async function main() {
     "utf8",
   );
 
-  // Create tarball
-  const version = process.env.npm_package_version;
+  // Read version from package.json
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+  const version = packageJson.version;
   if (!version) {
-    throw new Error("npm_package_version is required");
+    throw new Error("version not found in package.json");
   }
   const tarballName = `framework-control-${version}-linux-x86_64.tar.gz`;
   const tarballPath = path.resolve(serviceDir, "target", tarballName);
