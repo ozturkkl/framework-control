@@ -48,10 +48,10 @@ const isValidPort = (v) =>
 
 const replaceTokens = (xml, t) =>
   xml
-    .replaceAll("@FRAMEWORK_CONTROL_ALLOWED_ORIGINS@", t.ALLOWED_ORIGINS ?? "")
-    .replaceAll("@FRAMEWORK_CONTROL_TOKEN@", t.CONTROL_TOKEN ?? "")
-    .replaceAll("@FRAMEWORK_CONTROL_PORT@", t.CONTROL_PORT ?? "")
-    .replaceAll("@FRAMEWORK_CONTROL_UPDATE_REPO@", t.UPDATE_REPO ?? "");
+    .replaceAll("@FRAMEWORK_CONTROL_ALLOWED_ORIGINS@", t.ALLOWED_ORIGINS)
+    .replaceAll("@FRAMEWORK_CONTROL_TOKEN@", t.CONTROL_TOKEN)
+    .replaceAll("@FRAMEWORK_CONTROL_PORT@", t.CONTROL_PORT)
+    .replaceAll("@FRAMEWORK_CONTROL_UPDATE_REPO@", t.UPDATE_REPO);
 
 async function main() {
   // Build web and service
@@ -72,19 +72,32 @@ async function main() {
   const tokens = {
     ALLOWED_ORIGINS:
       env.FRAMEWORK_CONTROL_ALLOWED_ORIGINS ??
-      dot.FRAMEWORK_CONTROL_ALLOWED_ORIGINS ??
-      "",
-    CONTROL_TOKEN:
-      env.FRAMEWORK_CONTROL_TOKEN ?? dot.FRAMEWORK_CONTROL_TOKEN ?? "",
+      dot.FRAMEWORK_CONTROL_ALLOWED_ORIGINS,
+    CONTROL_TOKEN: env.FRAMEWORK_CONTROL_TOKEN ?? dot.FRAMEWORK_CONTROL_TOKEN,
     CONTROL_PORT: env.FRAMEWORK_CONTROL_PORT ?? dot.FRAMEWORK_CONTROL_PORT,
     UPDATE_REPO:
-      env.FRAMEWORK_CONTROL_UPDATE_REPO ??
-      dot.FRAMEWORK_CONTROL_UPDATE_REPO ??
-      "",
+      env.FRAMEWORK_CONTROL_UPDATE_REPO ?? dot.FRAMEWORK_CONTROL_UPDATE_REPO,
   };
+
+  // Validate all config upfront
   if (!tokens.CONTROL_PORT || !isValidPort(tokens.CONTROL_PORT)) {
     throw new Error(
       "FRAMEWORK_CONTROL_PORT is required (via env FRAMEWORK_CONTROL_PORT or service/.env)",
+    );
+  }
+  if (tokens.CONTROL_TOKEN === undefined) {
+    throw new Error(
+      "FRAMEWORK_CONTROL_TOKEN is required (via env FRAMEWORK_CONTROL_TOKEN or service/.env)",
+    );
+  }
+  if (tokens.ALLOWED_ORIGINS === undefined) {
+    throw new Error(
+      "FRAMEWORK_CONTROL_ALLOWED_ORIGINS is required (via env FRAMEWORK_CONTROL_ALLOWED_ORIGINS or service/.env)",
+    );
+  }
+  if (tokens.UPDATE_REPO === undefined) {
+    throw new Error(
+      "FRAMEWORK_CONTROL_UPDATE_REPO is required (via env FRAMEWORK_CONTROL_UPDATE_REPO or service/.env)",
     );
   }
 

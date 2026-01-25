@@ -62,18 +62,15 @@ async function main() {
 
   const config = {
     port: env.FRAMEWORK_CONTROL_PORT ?? dot.FRAMEWORK_CONTROL_PORT,
-    token: env.FRAMEWORK_CONTROL_TOKEN ?? dot.FRAMEWORK_CONTROL_TOKEN ?? "",
+    token: env.FRAMEWORK_CONTROL_TOKEN ?? dot.FRAMEWORK_CONTROL_TOKEN,
     allowedOrigins:
       env.FRAMEWORK_CONTROL_ALLOWED_ORIGINS ??
-      dot.FRAMEWORK_CONTROL_ALLOWED_ORIGINS ??
-      "",
+      dot.FRAMEWORK_CONTROL_ALLOWED_ORIGINS,
     updateRepo:
-      env.FRAMEWORK_CONTROL_UPDATE_REPO ??
-      dot.FRAMEWORK_CONTROL_UPDATE_REPO ??
-      "",
+      env.FRAMEWORK_CONTROL_UPDATE_REPO ?? dot.FRAMEWORK_CONTROL_UPDATE_REPO,
   };
 
-  // Validate required config
+  // Validate all config upfront
   if (!config.port) {
     throw new Error(
       "FRAMEWORK_CONTROL_PORT is required (via env var or service/.env)",
@@ -81,6 +78,21 @@ async function main() {
   }
   if (!isValidPort(config.port)) {
     throw new Error(`Invalid port: ${config.port}`);
+  }
+  if (config.token === undefined) {
+    throw new Error(
+      "FRAMEWORK_CONTROL_TOKEN is required (via env var or service/.env)",
+    );
+  }
+  if (config.allowedOrigins === undefined) {
+    throw new Error(
+      "FRAMEWORK_CONTROL_ALLOWED_ORIGINS is required (via env var or service/.env)",
+    );
+  }
+  if (config.updateRepo === undefined) {
+    throw new Error(
+      "FRAMEWORK_CONTROL_UPDATE_REPO is required (via env var or service/.env)",
+    );
   }
 
   console.log("[build-linux] Configuration:");
@@ -92,7 +104,17 @@ async function main() {
 
   // Build web UI
   console.log("[build-linux] Building web UI...");
-  await run("npm", ["run", "build"], { cwd: webDir });
+  await run("npm", ["run", "build"], {
+    cwd: webDir,
+    env: {
+      ...process.env,
+      GITHUB_PAGES: env.GITHUB_PAGES,
+      VITE_BASE: env.VITE_BASE,
+      VITE_API_BASE: env.VITE_API_BASE,
+      VITE_INSTALLER_URL: env.VITE_INSTALLER_URL,
+      VITE_CONTROL_TOKEN: env.VITE_CONTROL_TOKEN,
+    },
+  });
 
   // Build service binary with baked-in config
   console.log("[build-linux] Building service binary with embedded config...");
@@ -134,7 +156,10 @@ async function main() {
   );
 
   // Create tarball
-  const version = process.env.npm_package_version || "0.0.0";
+  const version = process.env.npm_package_version;
+  if (!version) {
+    throw new Error("npm_package_version is required");
+  }
   const tarballName = `framework-control-${version}-linux-x86_64.tar.gz`;
   const tarballPath = path.resolve(serviceDir, "target", tarballName);
 

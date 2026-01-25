@@ -28,7 +28,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $sha = $env:GITHUB_SHA
           $parentSha = git rev-parse "$sha^"
-          $diff = git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml 2>$null
+          $diff = git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml
           if (-not $diff) {
             echo "SHOULD_RELEASE=false" | Out-File -FilePath $env:GITHUB_ENV -Append
             Write-Host "service/Cargo.toml not changed; skipping release."
@@ -36,18 +36,19 @@ jobs:
           }
           $prevMatch = ($diff -split "`n") | Select-String '^-version\s*=\s*"([^"]+)"' | Select-Object -First 1
           $currMatch = ($diff -split "`n") | Select-String '^\+version\s*=\s*"([^"]+)"' | Select-Object -First 1
-          $previous = if ($prevMatch) { $prevMatch.Matches[0].Groups[1].Value } else { $null }
-          $current = if ($currMatch) { $currMatch.Matches[0].Groups[1].Value } else { $null }
-          if (-not $current) {
-            $m = Select-String -Path service/Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
-            if ($m) { $current = $m.Matches[0].Groups[1].Value }
-          }
+          if (-not $prevMatch) { throw "Could not find previous version in diff" }
+          if (-not $currMatch) { throw "Could not find current version in diff" }
+          $previous = $prevMatch.Matches[0].Groups[1].Value
+          $current = $currMatch.Matches[0].Groups[1].Value
           $shouldRelease = ($previous -and $current -and ($current -ne $previous))
+          $isPrerelease = $current -match '-'
           echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "SHOULD_RELEASE=$shouldRelease" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "IS_PRERELEASE=$isPrerelease" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "Current version: $current"
           Write-Host "Previous version: $previous"
           Write-Host "Should release: $shouldRelease"
+          Write-Host "Is pre-release: $isPrerelease"
 
       - name: Install Rust (stable)
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
@@ -66,7 +67,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install web dependencies
@@ -78,8 +79,8 @@ jobs:
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: npm run prebuild && npm run build
         env:
-          GITHUB_PAGES: 'false'
-          VITE_BASE: '/'
+          GITHUB_PAGES: "false"
+          VITE_BASE: "/"
           VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
           VITE_INSTALLER_URL: ${{ secrets.VITE_INSTALLER_URL || vars.VITE_INSTALLER_URL }}
           VITE_CONTROL_TOKEN: ${{ secrets.VITE_CONTROL_TOKEN || vars.VITE_CONTROL_TOKEN }}
@@ -173,11 +174,133 @@ jobs:
               }
             }
           }
+          $isPrerelease = $env:IS_PRERELEASE -eq 'True' -or $env:IS_PRERELEASE -eq 'true'
+          $prereleaseFlag = if ($isPrerelease) { "--prerelease" } else { "--latest" }
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag -t "Framework Service Installer" -n "$body" --latest
+            gh release create $tag -t "Framework Service Installer" -n "$body" $prereleaseFlag
           } else {
-            gh release edit $tag -t "Framework Service Installer" -n "$body" --latest
+            gh release edit $tag -t "Framework Service Installer" -n "$body" $prereleaseFlag
           }
           gh release upload $tag "$env:STABLE_PATH" --clobber
           gh release upload $tag "$env:SHA_PATH" --clobber
+
+  build-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Determine version change
+        id: version_check
+        shell: bash
+        working-directory: .
+        run: |
+          set -euo pipefail
+          sha="${GITHUB_SHA}"
+          parentSha=$(git rev-parse "$sha^" 2>/dev/null || echo "")
+          if [ -z "$parentSha" ]; then
+            echo "No parent commit; skipping release."
+            echo "SHOULD_RELEASE=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          diff=$(git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml)
+          if [ -z "$diff" ]; then
+            echo "SHOULD_RELEASE=false" >> "$GITHUB_ENV"
+            echo "service/Cargo.toml not changed; skipping release."
+            exit 0
+          fi
+          previous=$(echo "$diff" | grep -m1 '^-version\s*=' | sed -E 's/^-version\s*=\s*"([^"]+)".*/\1/')
+          current=$(echo "$diff" | grep -m1 '^\+version\s*=' | sed -E 's/^\+version\s*=\s*"([^"]+)".*/\1/')
+          if [ -n "$previous" ] && [ -n "$current" ] && [ "$current" != "$previous" ]; then
+            shouldRelease=true
+          else
+            shouldRelease=false
+          fi
+          isPrerelease=false
+          if echo "$current" | grep -q '-'; then
+            isPrerelease=true
+          fi
+          echo "VERSION=$current" >> "$GITHUB_ENV"
+          echo "SHOULD_RELEASE=$shouldRelease" >> "$GITHUB_ENV"
+          echo "IS_PRERELEASE=$isPrerelease" >> "$GITHUB_ENV"
+          echo "Current version: $current"
+          echo "Previous version: $previous"
+          echo "Should release: $shouldRelease"
+          echo "Is pre-release: $isPrerelease"
+
+      - name: Install Rust (stable)
+        if: env.SHOULD_RELEASE == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js 20
+        if: env.SHOULD_RELEASE == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        if: env.SHOULD_RELEASE == 'true'
+        run: npm ci
+        working-directory: web
+
+      - name: Build Linux tarball
+        if: env.SHOULD_RELEASE == 'true'
+        run: node scripts/build-linux.mjs
+        env:
+          GITHUB_PAGES: "false"
+          VITE_BASE: "/"
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
+          VITE_INSTALLER_URL: ${{ secrets.VITE_INSTALLER_URL || vars.VITE_INSTALLER_URL }}
+          VITE_CONTROL_TOKEN: ${{ secrets.VITE_CONTROL_TOKEN || vars.VITE_CONTROL_TOKEN }}
+          FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
+          FRAMEWORK_CONTROL_TOKEN: ${{ secrets.FRAMEWORK_CONTROL_TOKEN || vars.FRAMEWORK_CONTROL_TOKEN }}
+          FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
+          FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
+        working-directory: web
+
+      - name: Locate tarball and generate SHA256
+        if: env.SHOULD_RELEASE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tarballName="framework-control-${VERSION}-linux-x86_64.tar.gz"
+          tarballPath="target/$tarballName"
+          if [ ! -f "$tarballPath" ]; then
+            echo "Tarball not found: $tarballPath"
+            exit 1
+          fi
+          hash=$(sha256sum "$tarballPath" | awk '{print $1}')
+          sha_file="${tarballPath}.sha256"
+          echo -n "$hash" > "$sha_file"
+          echo "TARBALL_PATH=$tarballPath" >> "$GITHUB_ENV"
+          echo "SHA_PATH=$sha_file" >> "$GITHUB_ENV"
+          echo "Found tarball: $tarballPath"
+
+      - name: Ensure gh CLI
+        if: env.SHOULD_RELEASE == 'true'
+        run: gh --version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Linux assets to release
+        if: env.SHOULD_RELEASE == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$VERSION"
+          if ! gh release view "$tag" 2>/dev/null; then
+            echo "Release $tag does not exist yet; Windows job should create it first"
+            exit 1
+          fi
+          gh release upload "$tag" "$TARBALL_PATH" --clobber
+          gh release upload "$tag" "$SHA_PATH" --clobber
