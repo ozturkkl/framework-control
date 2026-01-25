@@ -186,6 +186,7 @@ jobs:
           gh release upload $tag "$env:SHA_PATH" --clobber
 
   build-linux:
+    needs: build-msi
     runs-on: ubuntu-latest
     defaults:
       run:
