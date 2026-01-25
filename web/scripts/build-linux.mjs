@@ -57,6 +57,11 @@ WantedBy=multi-user.target
 async function main() {
   console.log("[build-linux] Building Framework Control for Linux\n");
 
+  // Install web dependencies
+  console.log("[build-linux] Installing web dependencies...");
+  await run("npm", ["ci"], { cwd: webDir });
+  console.log("[build-linux] Web dependencies installed\n");
+
   // Collect configuration from env > .env
   const env = process.env;
   const dot = readDotEnv(serviceEnvPath);
@@ -118,8 +123,27 @@ async function main() {
   });
 
   // Build service binary with baked-in config
+  const useStaticBuild = env.STATIC_BUILD === "true";
+  const target = useStaticBuild ? "x86_64-unknown-linux-musl" : null;
+
   console.log("[build-linux] Building service binary with embedded config...");
-  await run("cargo", ["build", "--release", "--features", "embed-ui"], {
+  if (useStaticBuild) {
+    console.log(
+      "[build-linux] Using x86_64-unknown-linux-musl target for static linking (CI mode)...",
+    );
+  } else {
+    console.log(
+      "[build-linux] Using default target for dynamic linking (local dev mode)...",
+    );
+  }
+
+  const cargoArgs = ["build", "--release"];
+  if (target) {
+    cargoArgs.push("--target", target);
+  }
+  cargoArgs.push("--features", "embed-ui");
+
+  await run("cargo", cargoArgs, {
     cwd: serviceDir,
     env: {
       ...process.env,
@@ -138,12 +162,21 @@ async function main() {
   fs.mkdirSync(distDir, { recursive: true });
 
   // Copy binary
-  const binarySource = path.resolve(
-    serviceDir,
-    "target",
-    "release",
-    "framework-control-service",
-  );
+  const targetPath = useStaticBuild ? "x86_64-unknown-linux-musl" : "";
+  const binarySource = targetPath
+    ? path.resolve(
+        serviceDir,
+        "target",
+        targetPath,
+        "release",
+        "framework-control-service",
+      )
+    : path.resolve(
+        serviceDir,
+        "target",
+        "release",
+        "framework-control-service",
+      );
   const binaryDest = path.resolve(distDir, "framework-control");
   fs.copyFileSync(binarySource, binaryDest);
   fs.chmodSync(binaryDest, 0o755);

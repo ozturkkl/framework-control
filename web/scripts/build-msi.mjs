@@ -57,6 +57,22 @@ const replaceTokens = (xml, t) =>
 async function main() {
   console.log("[build-msi] Building Framework Control MSI for Windows\n");
 
+  // Check and install cargo-wix if needed
+  console.log("[build-msi] Checking for cargo-wix...");
+  try {
+    await run("cargo.exe", ["wix", "--version"], { cwd: serviceDir });
+    console.log("[build-msi] cargo-wix is already installed\n");
+  } catch (e) {
+    console.log("[build-msi] cargo-wix not found, installing...");
+    await run("cargo.exe", ["install", "cargo-wix"], { cwd: serviceDir });
+    console.log("[build-msi] cargo-wix installed successfully\n");
+  }
+
+  // Install web dependencies
+  console.log("[build-msi] Installing web dependencies...");
+  await run("npm.cmd", ["ci"], { cwd: webDir });
+  console.log("[build-msi] Web dependencies installed\n");
+
   // Read version from package.json
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
   const version = packageJson.version;

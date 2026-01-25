@@ -58,10 +58,6 @@ jobs:
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: choco install wixtoolset --no-progress -y
 
-      - name: Install cargo-wix
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: cargo install cargo-wix
-
       - name: Setup Node.js 20
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         uses: actions/setup-node@v4
@@ -69,11 +65,6 @@ jobs:
           node-version: 20
           cache: "npm"
           cache-dependency-path: web/package-lock.json
-
-      - name: Install web dependencies
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: npm ci
-        working-directory: web
 
       - name: Build MSI
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
@@ -219,6 +210,12 @@ jobs:
       - name: Install Rust (stable)
         if: env.SHOULD_RELEASE == 'true'
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install musl-tools
+        if: env.SHOULD_RELEASE == 'true'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Setup Node.js 20
         if: env.SHOULD_RELEASE == 'true'
@@ -228,15 +225,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
-      - name: Install web dependencies
-        if: env.SHOULD_RELEASE == 'true'
-        run: npm ci
-        working-directory: web
-
       - name: Build Linux tarball
         if: env.SHOULD_RELEASE == 'true'
         run: node scripts/build-linux.mjs
         env:
+          STATIC_BUILD: "true"
           GITHUB_PAGES: "false"
           VITE_BASE: "/"
           VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
