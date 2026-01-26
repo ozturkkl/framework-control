@@ -1,7 +1,7 @@
 <script lang="ts">
     export let healthy = false;
-    export let installerUrl: string = "";
     export let cliPresent: boolean = true;
+
     const repoLink = "https://github.com/ozturkkl/framework-control/tree/main";
     const MAIN_PAGE = `${import.meta.env.BASE_URL}assets/main-page.jpg`;
     const IMG_DESKTOP = `${import.meta.env.BASE_URL}assets/desktop.jpg`;
@@ -16,6 +16,7 @@
     import LogsModal from "./LogsModal.svelte";
     import { gtSemver } from "../lib/semver";
     import { tooltip } from "../lib/tooltip";
+    import { isLinux } from "../lib/platform";
 
     let triedToFetchVersions = false;
     let displayTitle = "Your Laptop";
@@ -45,6 +46,11 @@
     };
 
     const screenRes = getScreenResolution();
+
+    // Use platform-specific installer URL if OS is detected
+    $: platformInstallerUrl = isLinux()
+        ? "https://github.com/ozturkkl/framework-control/blob/linux-support/LINUX_INSTALL.MD"
+        : "https://github.com/ozturkkl/framework-control/releases/latest/download/framework-control-service-x86_64.msi";
 
     $: if (healthy && !triedToFetchVersions) {
         (async () => {
@@ -192,7 +198,7 @@
                             {:else}
                                 <a
                                     class="btn btn-error btn-xs mx-3 p-2 rounded-full h-0 w-0 min-h-0 md:w-auto md:h-auto md:py-1 md:mx-2"
-                                    href={installerUrl}
+                                    href={platformInstallerUrl}
                                     aria-label="framework_tool missing — Reinstall"
                                     bind:this={statusBtn}
                                     on:mouseenter={() =>
@@ -342,16 +348,12 @@
                             Windows.
                         </p>
                         <div class="flex items-center gap-6 lg:gap-4 flex-wrap">
-                            {#if installerUrl}
-                                <a
-                                    class="btn btn-primary btn-lg px-6"
-                                    href={installerUrl}>Download Service</a
-                                >
-                            {:else}
-                                <button class="btn btn-disabled btn-lg px-6"
-                                    >Download coming soon</button
-                                >
-                            {/if}
+                            <a
+                                class="btn btn-primary btn-lg px-6"
+                                href={platformInstallerUrl ||
+                                    "https://github.com/ozturkkl/framework-control"}
+                                >Download Service</a
+                            >
                             <a
                                 class="btn btn-ghost btn-lg px-4"
                                 href={repoLink}

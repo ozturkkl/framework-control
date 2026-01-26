@@ -14,7 +14,6 @@
 
     let healthy: boolean = false;
     let cliPresent: boolean = true;
-    const installerUrl: string = import.meta.env?.VITE_INSTALLER_URL || "";
 
     let pollId: ReturnType<typeof setInterval> | null = null;
 
@@ -69,7 +68,7 @@
         aria-hidden={showMismatchGate}
     >
         <section>
-            <DeviceHeader {healthy} {installerUrl} {cliPresent} />
+            <DeviceHeader {healthy} {cliPresent} />
         </section>
 
         <section
@@ -282,7 +281,6 @@
             serviceCurrent={serviceCurrentVersion}
             serviceLatest={serviceLatestVersion}
             {apiOrigin}
-            {installerUrl}
         />
     {/if}
 </main>

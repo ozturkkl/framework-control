@@ -136,7 +136,6 @@ async function main() {
       GITHUB_PAGES: env.GITHUB_PAGES,
       VITE_BASE: env.VITE_BASE,
       VITE_API_BASE: env.VITE_API_BASE,
-      VITE_INSTALLER_URL: env.VITE_INSTALLER_URL,
       VITE_CONTROL_TOKEN: env.VITE_CONTROL_TOKEN,
     },
   });

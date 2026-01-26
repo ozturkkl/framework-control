@@ -61,12 +61,11 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Prefer typed responses from OpenAPI models NEVER EVER use fetch() when interacting with the backend service.
 - For authenticated calls, pass `Bearer ${OpenAPI.TOKEN}`.
 - To reflect backend changes, rebuild the service to refresh `openapi.json`, then run `npm run gen:api` in `web/`.
-- Hosted vs Embedded: when hosted and an update is available, `VersionMismatchModal.svelte` blocks with actions to open the local app or download the installer (`VITE_INSTALLER_URL`). Embedded mode (127.0.0.1) continues normally.
+- Hosted vs Embedded: when hosted and an update is available, `VersionMismatchModal.svelte` blocks with actions to open the local app or view releases. Embedded mode (127.0.0.1) continues normally.
 
 - Env: `web/.env.local`
   - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
   - `VITE_CONTROL_TOKEN` (bearer token for write ops)
-  - `VITE_INSTALLER_URL` (MSI URL for "Download Service" button)
 - Build/dev:
   - `npm i && npm run dev` (dev)
   - `npm run build` (generates `web/dist` used by service/static)

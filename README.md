@@ -132,9 +132,6 @@ VITE_API_BASE=http://127.0.0.1:8090
 
 # Same token as the service
 VITE_CONTROL_TOKEN=<long-random-token>
-
-# Optional: MSI installer URL for the "Download Service" button in hosted mode
-VITE_INSTALLER_URL=<installer-download-url>
 ```
 
 ## Updates & Caching
