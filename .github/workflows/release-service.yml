@@ -9,172 +9,12 @@ permissions:
   contents: write
 
 jobs:
-  build-msi:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: service
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Determine version change
-        id: version_check
-        shell: pwsh
-        working-directory: .
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $sha = $env:GITHUB_SHA
-          $parentSha = git rev-parse "$sha^"
-          $diff = git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml
-          if (-not $diff) {
-            echo "SHOULD_RELEASE=false" | Out-File -FilePath $env:GITHUB_ENV -Append
-            Write-Host "service/Cargo.toml not changed; skipping release."
-            exit 0
-          }
-          $prevMatch = ($diff -split "`n") | Select-String '^-version\s*=\s*"([^"]+)"' | Select-Object -First 1
-          $currMatch = ($diff -split "`n") | Select-String '^\+version\s*=\s*"([^"]+)"' | Select-Object -First 1
-          if (-not $prevMatch) { throw "Could not find previous version in diff" }
-          if (-not $currMatch) { throw "Could not find current version in diff" }
-          $previous = $prevMatch.Matches[0].Groups[1].Value
-          $current = $currMatch.Matches[0].Groups[1].Value
-          $shouldRelease = ($previous -and $current -and ($current -ne $previous))
-          $isPrerelease = $current -match '-'
-          echo "VERSION=$current" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "SHOULD_RELEASE=$shouldRelease" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "IS_PRERELEASE=$isPrerelease" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "Current version: $current"
-          Write-Host "Previous version: $previous"
-          Write-Host "Should release: $shouldRelease"
-          Write-Host "Is pre-release: $isPrerelease"
-
-      - name: Install Rust (stable)
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Cargo registry and build
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            service/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('service/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install WiX Toolset
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: choco install wixtoolset --no-progress -y
-
-      - name: Setup Node.js 20
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "npm"
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build MSI
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: node scripts/build-msi.mjs
-        env:
-          GITHUB_PAGES: "false"
-          VITE_BASE: "/"
-          VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
-          VITE_INSTALLER_URL: ${{ secrets.VITE_INSTALLER_URL || vars.VITE_INSTALLER_URL }}
-          VITE_CONTROL_TOKEN: ${{ secrets.VITE_CONTROL_TOKEN || vars.VITE_CONTROL_TOKEN }}
-          FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
-          FRAMEWORK_CONTROL_TOKEN: ${{ secrets.FRAMEWORK_CONTROL_TOKEN || vars.FRAMEWORK_CONTROL_TOKEN }}
-          FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
-          FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
-        working-directory: web
-
-      - name: Locate MSI and read version
-        shell: pwsh
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $msi = Get-ChildItem -Path "target/wix" -Filter *.msi | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $msi) { throw "MSI not found in target/wix" }
-          echo "MSI_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "STABLE_NAME=framework-control-service-x86_64.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Create stable-named copy for upload
-        shell: pwsh
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $stable = Join-Path $env:RUNNER_TEMP $env:STABLE_NAME
-          Copy-Item -Path "$env:MSI_PATH" -Destination "$stable" -Force
-          echo "STABLE_PATH=$stable" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Generate SHA256
-        shell: pwsh
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $hash = (Get-FileHash "$env:MSI_PATH" -Algorithm SHA256).Hash
-          $shaPath = "$env:RUNNER_TEMP/" + $env:STABLE_NAME + ".sha256"
-          Set-Content -Path $shaPath -Value $hash -NoNewline
-          echo "SHA_PATH=$shaPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Ensure gh CLI
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        run: gh --version
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish versioned release for bumped version
-        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $tag = "$env:VERSION"
-          $changelogPath = "../CHANGELOG.md"
-          $defaultBody = "Refer to the CHANGELOG.md for information about version $env:VERSION."
-          $body = $defaultBody
-          if (Test-Path $changelogPath) {
-            $lines = Get-Content $changelogPath
-            $pattern = ('^##\s+' + [regex]::Escape($env:VERSION) + '(\s|$)')
-            $match = ($lines | Select-String -Pattern $pattern | Select-Object -First 1)
-            if ($match) {
-              $startIndex = [int]$match.LineNumber - 1  # Convert to 0-based index
-              $after = $lines[$startIndex..($lines.Length-1)]
-              $headers = ($after | Select-String -Pattern '^##\s+' -AllMatches)
-              if ($headers.Count -ge 2) {
-                $endIndex = [int]$headers[1].LineNumber - 2
-              } else {
-                $endIndex = $after.Length - 1
-              }
-              if ($endIndex -ge 0) {
-                $section = $after[0..$endIndex]
-                $body = ($section -join "`n")
-              }
-            }
-          }
-          $isPrerelease = $env:IS_PRERELEASE -eq 'True' -or $env:IS_PRERELEASE -eq 'true'
-          $prereleaseFlag = if ($isPrerelease) { "--prerelease" } else { "--latest" }
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag -t "Framework Service Installer" -n "$body" $prereleaseFlag
-          } else {
-            gh release edit $tag -t "Framework Service Installer" -n "$body" $prereleaseFlag
-          }
-          gh release upload $tag "$env:STABLE_PATH" --clobber
-          gh release upload $tag "$env:SHA_PATH" --clobber
-
-  build-linux:
-    needs: build-msi
+  check-version:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: service
+    outputs:
+      should_release: ${{ steps.version_check.outputs.should_release }}
+      version: ${{ steps.version_check.outputs.version }}
+      is_prerelease: ${{ steps.version_check.outputs.is_prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -184,19 +24,18 @@ jobs:
       - name: Determine version change
         id: version_check
         shell: bash
-        working-directory: .
         run: |
           set -euo pipefail
           sha="${GITHUB_SHA}"
           parentSha=$(git rev-parse "$sha^" 2>/dev/null || echo "")
           if [ -z "$parentSha" ]; then
             echo "No parent commit; skipping release."
-            echo "SHOULD_RELEASE=false" >> "$GITHUB_ENV"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           diff=$(git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml)
           if [ -z "$diff" ]; then
-            echo "SHOULD_RELEASE=false" >> "$GITHUB_ENV"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
             echo "service/Cargo.toml not changed; skipping release."
             exit 0
           fi
@@ -211,22 +50,161 @@ jobs:
           if echo "$current" | grep -q '-'; then
             isPrerelease=true
           fi
-          echo "VERSION=$current" >> "$GITHUB_ENV"
-          echo "SHOULD_RELEASE=$shouldRelease" >> "$GITHUB_ENV"
-          echo "IS_PRERELEASE=$isPrerelease" >> "$GITHUB_ENV"
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+          echo "should_release=$shouldRelease" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$isPrerelease" >> "$GITHUB_OUTPUT"
           echo "Current version: $current"
           echo "Previous version: $previous"
           echo "Should release: $shouldRelease"
           echo "Is pre-release: $isPrerelease"
 
+  create-release:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+          IS_PRERELEASE: ${{ needs.check-version.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          tag="$VERSION"
+          changelogPath="CHANGELOG.md"
+          defaultBody="Refer to the CHANGELOG.md for information about version $VERSION."
+          body="$defaultBody"
+
+          if [ -f "$changelogPath" ]; then
+            # Extract version section from changelog
+            section=$(awk "/^## $VERSION(\$| )/{flag=1; next} /^## /{flag=0} flag" "$changelogPath" || echo "")
+            if [ -n "$section" ]; then
+              body="$section"
+            fi
+          fi
+
+          prereleaseFlag=""
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            prereleaseFlag="--prerelease"
+          else
+            prereleaseFlag="--latest"
+          fi
+
+          if ! gh release view "$tag" 2>/dev/null; then
+            gh release create "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
+            echo "Created release $tag"
+          else
+            gh release edit "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
+            echo "Updated existing release $tag"
+          fi
+
+  build-msi:
+    needs: [check-version, create-release]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install Rust (stable)
-        if: env.SHOULD_RELEASE == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            service/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('service/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install WiX Toolset
+        run: choco install wixtoolset --no-progress -y
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build MSI
+        run: node scripts/build-msi.mjs
+        env:
+          GITHUB_PAGES: "false"
+          VITE_BASE: "/"
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
+          VITE_INSTALLER_URL: ${{ secrets.VITE_INSTALLER_URL || vars.VITE_INSTALLER_URL }}
+          VITE_CONTROL_TOKEN: ${{ secrets.VITE_CONTROL_TOKEN || vars.VITE_CONTROL_TOKEN }}
+          FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
+          FRAMEWORK_CONTROL_TOKEN: ${{ secrets.FRAMEWORK_CONTROL_TOKEN || vars.FRAMEWORK_CONTROL_TOKEN }}
+          FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
+          FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
+        working-directory: web
+
+      - name: Locate MSI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msi = Get-ChildItem -Path "target/wix" -Filter *.msi | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $msi) { throw "MSI not found in target/wix" }
+          echo "MSI_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "STABLE_NAME=framework-control-service-x86_64.msi" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Create stable-named copy for upload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stable = Join-Path $env:RUNNER_TEMP $env:STABLE_NAME
+          Copy-Item -Path "$env:MSI_PATH" -Destination "$stable" -Force
+          echo "STABLE_PATH=$stable" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Generate MSI SHA256
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $hash = (Get-FileHash "$env:STABLE_PATH" -Algorithm SHA256).Hash.ToLower()
+          $shaFile = Join-Path $env:RUNNER_TEMP "msi.sha256"
+          "$hash *$env:STABLE_NAME" | Out-File -FilePath $shaFile -Encoding ASCII -NoNewline
+          echo "MSI_SHA_PATH=$shaFile" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload MSI and its SHA to release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "$env:VERSION"
+          gh release upload $tag "$env:STABLE_PATH" --clobber
+          gh release upload $tag "$env:MSI_SHA_PATH" --clobber
+
+  build-linux:
+    needs: [check-version, create-release]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
 
       - name: Cache Cargo registry and build
-        if: env.SHOULD_RELEASE == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -238,11 +216,9 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install musl-tools
-        if: env.SHOULD_RELEASE == 'true'
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Setup Node.js 20
-        if: env.SHOULD_RELEASE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -250,7 +226,6 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Build Linux tarball
-        if: env.SHOULD_RELEASE == 'true'
         run: node scripts/build-linux.mjs
         env:
           STATIC_BUILD: "true"
@@ -265,9 +240,10 @@ jobs:
           FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
         working-directory: web
 
-      - name: Locate tarball and generate SHA256
-        if: env.SHOULD_RELEASE == 'true'
+      - name: Locate tarball
         shell: bash
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
         run: |
           set -euo pipefail
           tarballName="framework-control-${VERSION}-linux-x86_64.tar.gz"
@@ -276,30 +252,55 @@ jobs:
             echo "Tarball not found: $tarballPath"
             exit 1
           fi
-          hash=$(sha256sum "$tarballPath" | awk '{print $1}')
-          sha_file="${tarballPath}.sha256"
-          echo -n "$hash" > "$sha_file"
           echo "TARBALL_PATH=$tarballPath" >> "$GITHUB_ENV"
-          echo "SHA_PATH=$sha_file" >> "$GITHUB_ENV"
+          echo "TARBALL_NAME=$tarballName" >> "$GITHUB_ENV"
           echo "Found tarball: $tarballPath"
 
-      - name: Ensure gh CLI
-        if: env.SHOULD_RELEASE == 'true'
-        run: gh --version
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate tarball SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash=$(sha256sum "$TARBALL_PATH" | awk '{print $1}')
+          shaFile="$RUNNER_TEMP/tarball.sha256"
+          echo "$hash *$TARBALL_NAME" > "$shaFile"
+          echo "TARBALL_SHA_PATH=$shaFile" >> "$GITHUB_ENV"
 
-      - name: Publish Linux assets to release
-        if: env.SHOULD_RELEASE == 'true'
+      - name: Upload tarball and its SHA to release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
         run: |
           set -euo pipefail
           tag="$VERSION"
-          if ! gh release view "$tag" 2>/dev/null; then
-            echo "Release $tag does not exist yet; Windows job should create it first"
-            exit 1
-          fi
           gh release upload "$tag" "$TARBALL_PATH" --clobber
-          gh release upload "$tag" "$SHA_PATH" --clobber
+          gh release upload "$tag" "$TARBALL_SHA_PATH" --clobber
+
+  create-sha256sums:
+    needs: [check-version, build-msi, build-linux]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download individual SHA files and create SHA256SUMS
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="$VERSION"
+
+          # Download the individual SHA files
+          gh release download "$tag" -p "*.sha256" -D "$RUNNER_TEMP"
+
+          # Combine into SHA256SUMS
+          cat "$RUNNER_TEMP"/*.sha256 > "$RUNNER_TEMP/SHA256SUMS"
+
+          # Upload SHA256SUMS
+          gh release upload "$tag" "$RUNNER_TEMP/SHA256SUMS" --clobber
+
+          # Clean up individual SHA files from release
+          gh release delete-asset "$tag" msi.sha256 --yes || true
+          gh release delete-asset "$tag" tarball.sha256 --yes || true
+
+          echo "Created SHA256SUMS with all hashes"

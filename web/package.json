@@ -1,7 +1,7 @@
 {
   "name": "framework-control-web",
   "private": true,
-  "version": "0.1.0-test.5",
+  "version": "0.1.0-test.6",
   "type": "module",
   "scripts": {
     "gen:api": "node scripts/gen-api.mjs",
