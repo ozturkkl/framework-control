@@ -120,6 +120,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
+            ~/.cargo/bin
             ~/.cargo/registry
             ~/.cargo/git
             service/target
@@ -174,7 +175,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $hash = (Get-FileHash "$env:STABLE_PATH" -Algorithm SHA256).Hash.ToLower()
           $shaFile = Join-Path $env:RUNNER_TEMP "msi.sha256"
-          "$hash *$env:STABLE_NAME" | Out-File -FilePath $shaFile -Encoding ASCII -NoNewline
+          "$hash *$env:STABLE_NAME" | Out-File -FilePath $shaFile -Encoding ASCII
           echo "MSI_SHA_PATH=$shaFile" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Upload MSI and its SHA to release
@@ -208,6 +209,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
+            ~/.cargo/bin
             ~/.cargo/registry
             ~/.cargo/git
             service/target
