@@ -6,9 +6,18 @@ export type BrowserInfo = {
   screen: { width: number; height: number; pixelRatio: number };
 };
 
+export type VersionsSummary = {
+  mainboardType: string | null;
+  mainboardRevision: string | null;
+  uefiVersion: string | null;
+  uefiReleaseDate: string | null;
+  ecBuildVersion: string | null;
+  ecCurrentImage: string | null;
+};
+
 export function getScreenResolution() {
   const dpr = window.devicePixelRatio || 1;
-  // Common Windows/macOS scaling factors
+  // Common Windows/Linux scaling factors
   const candidates = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
   let best = candidates[0];
   let bestDiff = Number.POSITIVE_INFINITY;
@@ -32,7 +41,7 @@ export function getScreenResolution() {
 }
 
 export function parseFrameworkVersions(
-  text: string | undefined | null
+  text: string | undefined | null,
 ): VersionsSummary {
   const init: VersionsSummary = {
     mainboardType: null,

@@ -144,7 +144,7 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     };
     #[cfg(target_os = "windows")]
     let ext: &str = ".exe";
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(target_os = "linux")]
     let ext: &str = "";
     let filename = format!("ryzenadj{}", ext);
 

@@ -1,5 +1,5 @@
 use serde_json::Value;
-use crate::utils::zip_extract::zip_contains_any_suffix;
+use crate::utils::extract::archive_contains_any_suffix;
 
 async fn fetch_latest_release(owner: &str, name: &str) -> Result<Value, String> {
     let api = format!(
@@ -76,7 +76,7 @@ pub async fn get_latest_release_url_ending_with(
             let Some(url) = a.get("browser_download_url").and_then(|v| v.as_str()) else {
                 continue;
             };
-            if zip_contains_any_suffix(url, preferred_suffixes)
+            if archive_contains_any_suffix(url, preferred_suffixes)
                 .await
                 .unwrap_or(false)
             {
@@ -86,4 +86,3 @@ pub async fn get_latest_release_url_ending_with(
     }
     Ok(None)
 }
-

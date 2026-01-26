@@ -11,9 +11,9 @@ use which::which;
 /// Resolves the binary path once and provides async helpers to run commands.
 ///
 /// Resolution strategy:
-/// - Prefer `framework_tool` found on `PATH` 
+/// - Prefer `framework_tool` found on `PATH`
 /// - Then fall back to a copy alongside the running service binary.
-/// - Windows can optionally auto-install via winget; 
+/// - Windows can optionally auto-install via winget;
 #[derive(Clone)]
 pub struct FrameworkTool {
     pub(crate) path: String,
@@ -163,7 +163,7 @@ async fn resolve_framework_tool() -> Result<String, String> {
         }
     }
 
-    Err("framework_tool not found. Install it and ensure it is on PATH (Linux/macOS), or via winget on Windows: winget install FrameworkComputer.framework_tool".into())
+    Err("framework_tool not found. Install it and ensure it is on PATH (Linux), or via winget on Windows: winget install FrameworkComputer.framework_tool".into())
 }
 
 /// Resolve framework_tool, attempting installation if not present.
@@ -218,7 +218,7 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     };
     #[cfg(target_os = "windows")]
     let ext: &str = ".exe";
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(target_os = "linux")]
     let ext: &str = "";
     let filename = format!("framework_tool{}", ext);
     let url = gh::get_latest_release_url_ending_with(

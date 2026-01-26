@@ -66,19 +66,24 @@
 
     async function applyUpdate() {
         applying = true;
+        let success = false;
         try {
             const auth = `Bearer ${OpenAPI.TOKEN}`;
             await DefaultService.applyUpdate(auth, {});
             await new Promise((resolve) => setTimeout(resolve, 5000));
             errorMessage = null;
+            success = true;
             if (typeof window !== "undefined") {
                 window.location.reload();
             }
-        } catch (e) {
-            errorMessage = "Failed to apply update!";
+        } catch (e: unknown) {
+            const apiError = e as { body?: { message?: string } };
+            errorMessage = apiError?.body?.message || "Failed to apply update!";
         } finally {
             applying = false;
-            await checkUpdate();
+            if (success) {
+                await checkUpdate();
+            }
         }
     }
 
@@ -232,6 +237,12 @@
                             <div>You're on the latest version. 🥳</div>
                         {/if}
                     </div>
+                    {#if errorMessage}
+                        <div class="alert alert-error py-1 px-3 text-xs mt-6">
+                            <Icon icon="mdi:alert-circle" class="w-4 h-4" />
+                            <span>{errorMessage}</span>
+                        </div>
+                    {/if}
                 </div>
                 <div class="flex flex-col items-end gap-2 md:w-auto">
                     <div class="flex items-center gap-2">
@@ -265,11 +276,6 @@
                                     Install
                                 {/if}
                             </button>
-                            {#if errorMessage}
-                                <div class="text-xs opacity-70">
-                                    {errorMessage}
-                                </div>
-                            {/if}
                         {/if}
                     </div>
                     <div class="text-right space-y-1">
