@@ -10,7 +10,7 @@
 - Refactor: Renamed `zip_extract.rs` to `extract.rs` and added tar.gz extraction support; `download_to_path` now automatically extracts both zip and tar.gz archives using system tools.
 - Removed macOS-specific code since Framework laptops don't support macOS (update system, UI icons, CLI helpers, comments).
 
-## 0.1.0-test.12 - 2026-01-25
+## 0.1.0-test.9 - 2026-01-25
 
 - Testing release
 - Hi! How do you do?

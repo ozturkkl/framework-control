@@ -132,8 +132,7 @@ async fn extract_and_replace_binary(tarball_url: &str) -> Result<(), String> {
 
         // Atomic rename (this works even if the old binary is running)
         if let Err(e) = std::fs::rename(&new_binary_clone, &current_exe_clone) {
-            error!("Failed to replace binary: {}.",
-                   e, new_binary_clone.display(), current_exe_clone.display());
+            error!("Failed to replace binary: {}", e);
             return;
         }
 
