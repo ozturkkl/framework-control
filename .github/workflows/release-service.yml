@@ -286,21 +286,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.check-version.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           tag="$VERSION"
 
           # Download the individual SHA files
-          gh release download "$tag" -p "*.sha256" -D "$RUNNER_TEMP"
+          gh release download "$tag" -p "*.sha256" -D "$RUNNER_TEMP" -R "$REPO"
 
           # Combine into SHA256SUMS
           cat "$RUNNER_TEMP"/*.sha256 > "$RUNNER_TEMP/SHA256SUMS"
 
           # Upload SHA256SUMS
-          gh release upload "$tag" "$RUNNER_TEMP/SHA256SUMS" --clobber
+          gh release upload "$tag" "$RUNNER_TEMP/SHA256SUMS" --clobber -R "$REPO"
 
           # Clean up individual SHA files from release
-          gh release delete-asset "$tag" msi.sha256 --yes || true
-          gh release delete-asset "$tag" tarball.sha256 --yes || true
+          gh release delete-asset "$tag" msi.sha256 --yes -R "$REPO" || true
+          gh release delete-asset "$tag" tarball.sha256 --yes -R "$REPO" || true
 
           echo "Created SHA256SUMS with all hashes"
