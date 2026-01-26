@@ -54,6 +54,18 @@ jobs:
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Cargo registry and build
+        if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            service/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('service/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Install WiX Toolset
         if: env.SHOULD_RELEASE == 'True' || env.SHOULD_RELEASE == 'true'
         run: choco install wixtoolset --no-progress -y
@@ -212,6 +224,18 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
+
+      - name: Cache Cargo registry and build
+        if: env.SHOULD_RELEASE == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            service/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('service/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Install musl-tools
         if: env.SHOULD_RELEASE == 'true'
