@@ -1,10 +1,14 @@
-## Unreleased
+# Unreleased
 
 - Linux: Store config at `/etc/framework-control/config.json` instead of the Windows `ProgramData` path.
 - Linux: Desktop entry support creates .desktop file in applications menu (~/.local/share/applications) using xdg-open. Detects actual user when service runs as root via SUDO_USER or active sessions.
-- Linux: CI releases now build statically-linked binaries using musl target for compatibility with NixOS and other Linux distributions; local builds remain dynamic for faster iteration.
+- Linux: CI releases now build statically-linked binaries using musl target for compatibility with all Linux distributions; local builds remain dynamic for faster iteration.
 - Build: Windows workflow now uses single runner calling `build-msi.mjs` for all steps (build web, build service, create MSI), reducing build time from ~8min to ~3min by avoiding redundant compilation across separate steps.
-- Build: Fixed `npm_package_version` error in Linux builds by reading version directly from `package.json` instead of relying on npm environment variables.
+
+## 0.1.0-test.10 - 2026-01-25
+
+- Testing release
+- Hi! How do you do?
 
 ## 0.4.3 - 2025-11-27
 
