@@ -255,16 +255,24 @@ jobs:
             exit 1
           fi
           echo "TARBALL_PATH=$tarballPath" >> "$GITHUB_ENV"
-          echo "TARBALL_NAME=$tarballName" >> "$GITHUB_ENV"
+          echo "STABLE_NAME=framework-control-service-x86_64.tar.gz" >> "$GITHUB_ENV"
           echo "Found tarball: $tarballPath"
+
+      - name: Create stable-named copy for upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          stablePath="$RUNNER_TEMP/$STABLE_NAME"
+          cp "$TARBALL_PATH" "$stablePath"
+          echo "STABLE_PATH=$stablePath" >> "$GITHUB_ENV"
 
       - name: Generate tarball SHA256
         shell: bash
         run: |
           set -euo pipefail
-          hash=$(sha256sum "$TARBALL_PATH" | awk '{print $1}')
+          hash=$(sha256sum "$STABLE_PATH" | awk '{print $1}')
           shaFile="$RUNNER_TEMP/tarball.sha256"
-          echo "$hash *$TARBALL_NAME" > "$shaFile"
+          echo "$hash *$STABLE_NAME" > "$shaFile"
           echo "TARBALL_SHA_PATH=$shaFile" >> "$GITHUB_ENV"
 
       - name: Upload tarball and its SHA to release
@@ -275,7 +283,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="$VERSION"
-          gh release upload "$tag" "$TARBALL_PATH" --clobber
+          gh release upload "$tag" "$STABLE_PATH" --clobber
           gh release upload "$tag" "$TARBALL_SHA_PATH" --clobber
 
   create-sha256sums:

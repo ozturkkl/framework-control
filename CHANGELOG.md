@@ -5,7 +5,7 @@
 - Linux: CI releases now build statically-linked binaries using musl target for compatibility with all Linux distributions; local builds remain dynamic for faster iteration.
 - Build: Windows workflow now uses single runner calling `build-msi.mjs` for all steps (build web, build service, create MSI), reducing build time from ~8min to ~3min by avoiding redundant compilation across separate steps.
 
-## 0.1.0-test.10 - 2026-01-25
+## 0.1.0-test.11 - 2026-01-25
 
 - Testing release
 - Hi! How do you do?
