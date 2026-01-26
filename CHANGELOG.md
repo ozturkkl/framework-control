@@ -1,5 +1,8 @@
 # Unreleased
 
+
+## 0.5.0-beta-1 - 2026-01-26
+
 - Linux: Auto-update support with tar.gz extraction and in-place binary replacement (requires sudo/root permissions); service attempts automatic restart after update.
 - UI: Update error messages now show specific backend error details (e.g., "installer asset not found") instead of generic text.
 - Linux: Store config at `/etc/framework-control/config.json` instead of the Windows `ProgramData` path.

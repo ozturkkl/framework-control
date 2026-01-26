@@ -140,6 +140,7 @@ impl FrameworkTool {
 }
 
 async fn resolve_framework_tool() -> Result<String, String> {
+    // Check PATH first (prefer user/system installation)
     if let Ok(p) = which("framework_tool") {
         return Ok(p.to_string_lossy().to_string());
     }
@@ -147,7 +148,7 @@ async fn resolve_framework_tool() -> Result<String, String> {
         return Ok(p.to_string_lossy().to_string());
     }
 
-    // Fallback: alongside the running service binary (used by Windows MSI and some dev flows)
+    // Fallback: alongside the running service binary (where we auto-install it)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let candidate = if cfg!(windows) {
@@ -168,7 +169,7 @@ async fn resolve_framework_tool() -> Result<String, String> {
 
 /// Resolve framework_tool, attempting installation if not present.
 pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
-    // 1) Try resolve immediately (PATH-first; see resolve_framework_tool)
+    // 1) Try resolve immediately (PATH first, then current exe dir)
     if let Ok(cli) = FrameworkTool::new().await {
         return Ok(cli);
     }
@@ -186,11 +187,11 @@ pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
         if let Ok(cli) = FrameworkTool::new().await {
             return Ok(cli);
         }
+    }
 
-        // 4) Try direct download once (Windows fallback)
-        if let Err(err) = attempt_install_via_direct_download().await {
-            warn!("direct download fallback failed: {}", err);
-        }
+    // 4) Try direct download (both Windows and Linux)
+    if let Err(err) = attempt_install_via_direct_download().await {
+        warn!("direct download fallback failed: {}", err);
     }
 
     // 5) Final resolve attempt (post direct-download)
@@ -239,5 +240,19 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     if let Ok(meta) = std::fs::metadata(&final_path) {
         info!("downloaded size: {} bytes", meta.len());
     }
+
+    // Make executable on Unix systems
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&final_path)
+            .map_err(|e| format!("failed to get binary metadata: {}", e))?
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&final_path, perms)
+            .map_err(|e| format!("failed to set executable permissions: {}", e))?;
+        info!("set executable permissions on framework_tool");
+    }
+
     Ok(())
 }

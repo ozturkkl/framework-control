@@ -3,6 +3,7 @@
     import { onMount } from "svelte";
     import Icon from "@iconify/svelte";
     import ShortcutInstaller from "./ShortcutInstaller.svelte";
+    import LogsModal from "./LogsModal.svelte";
     import { DefaultService, OpenAPI, type PartialConfig } from "../api";
     import { gtSemver } from "../lib/semver";
     import { listAvailableDaisyUIThemes } from "../lib/themes";
@@ -24,6 +25,7 @@
     let isPaused: boolean = false;
     let applying = false;
     let errorMessage: string | null = null;
+    let showLogs = false;
 
     // Theme handling (DaisyUI)
     let themeOptions: string[] = listAvailableDaisyUIThemes();
@@ -332,6 +334,19 @@
                 </div>
                 <ShortcutInstaller />
             </section>
+            <div class="divider opacity-80"></div>
+            <section class="flex items-center justify-between gap-4">
+                <div>
+                    <h4 class="font-semibold">Logs</h4>
+                    <p class="text-xs opacity-70">
+                        View recent service logs for troubleshooting
+                    </p>
+                </div>
+                <button class="btn btn-sm" on:click={() => (showLogs = true)}>
+                    <Icon icon="mdi:text-box-search-outline" class="w-4 h-4" />
+                    View Logs
+                </button>
+            </section>
         </div>
         <div class="modal-action">
             <button class="btn" on:click={close}>Close</button>
@@ -340,3 +355,7 @@
     <button class="modal-backdrop" on:click={close} aria-label="Close settings"
     ></button>
 </div>
+
+{#if showLogs}
+    <LogsModal on:close={() => (showLogs = false)} />
+{/if}

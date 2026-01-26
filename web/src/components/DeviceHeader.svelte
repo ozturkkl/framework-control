@@ -13,6 +13,7 @@
     import { getScreenResolution } from "../lib/device";
     import Icon from "@iconify/svelte";
     import SettingsModal from "./SettingsModal.svelte";
+    import LogsModal from "./LogsModal.svelte";
     import { gtSemver } from "../lib/semver";
     import { tooltip } from "../lib/tooltip";
 
@@ -84,6 +85,7 @@
         "inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 transition-colors rounded-lg px-3 py-1.5  text-xs md:text-sm border border-primary/20 ";
     let infoCardIconClass = "w-4 h-4 md:w-5 md:h-5";
     let showSettings = false;
+    let showLogs = false;
     let statusBtn: HTMLElement;
     let statusTipVisible = false;
 
@@ -204,6 +206,16 @@
                                         >framework_tool missing — Reinstall</span
                                     >
                                 </a>
+                                <button
+                                    class="btn btn-warning btn-sm mr-2"
+                                    aria-label="View logs"
+                                    on:click={() => (showLogs = true)}
+                                >
+                                    <Icon
+                                        icon="mdi:text-box-search-outline"
+                                        class="w-5 h-5"
+                                    />
+                                </button>
                             {/if}
                             <div
                                 use:tooltip={{
@@ -246,6 +258,9 @@
                         <SettingsModal
                             on:close={() => (showSettings = false)}
                         />
+                    {/if}
+                    {#if showLogs}
+                        <LogsModal on:close={() => (showLogs = false)} />
                     {/if}
                     <hr class="my-2 border border-primary/15" />
                     {#if sys}
