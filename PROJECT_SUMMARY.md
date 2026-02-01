@@ -73,12 +73,18 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 ### Installation & Packaging
 
-- MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`).
+- Windows: MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`). MSI injects env values into the service (allowed origins, token, port, update repo). Updates via `msiexec`.
+- Linux: 
+  - Automated install script (`install-linux.sh` in repo root) downloads latest release tarball from GitHub
+  - Installs binary to `/usr/local/bin/framework-control` and systemd service to `/etc/systemd/system/`
+  - Built via `web/scripts/build-linux.mjs` (static musl build in CI, creates tarball with binary + service file)
+  - Config baked into binary at build time; runtime config stored at `/etc/framework-control/config.json`
+  - Service runs as root (required for `framework_tool` EC access)
+  - Updates via tarball download and service restart
 - Shortcuts: created on demand via `/api/shortcuts/create`
   - Windows: Start Menu + Desktop (.lnk with app mode or .url fallback)
   - Linux: Desktop entry in applications menu (~/.local/share/applications/framework-control.desktop) using xdg-open
-- Updates: `GET /api/update/check`, `POST /api/update/apply` (Windows `msiexec`).
-- MSI injects env values into the service (allowed origins, token, port, update repo).
+- Updates: `GET /api/update/check`, `POST /api/update/apply`
 
 ### Configuration
 

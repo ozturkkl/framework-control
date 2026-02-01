@@ -37,6 +37,7 @@ This software is provided "as is," without warranty of any kind, express or impl
   - Set Tctl thermal limit
   - Separate AC/Battery profiles with background reapply and live power readout
 - **Updates & Shortcuts**: In-app update checks and optional auto-install, plus Start Menu/Desktop shortcut management from the Settings modal
+- **Linux Support**: systemd unit with udev rules for input modules
 
 ## Upcoming Goals
 
@@ -45,8 +46,8 @@ This software is provided "as is," without warranty of any kind, express or impl
   - One/two‑module layouts (9×34 and 9×68), dithering and content scheduling
   - Optional integrations for animations/GIF/pixel art
 - **Additional EC Controls**: Keyboard backlight, fingerprint LED levels, input deck modes
-- **Linux Support**: systemd unit with udev rules for input modules
 - **Import/Export**: Settings backup and sharing
+- **App Signing for Windows**: Support for Windows Store app signing and distribution
 
 ## Architecture
 
@@ -58,11 +59,11 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Frontend UI**: Svelte + Vite
   - Responsive panel layout adapting to active fan mode
   - Real-time telemetry updates
-- **Packaging**: WiX MSI installer for Windows (Linux support planned)
+- **Packaging**: WiX MSI installer for Windows, automated install script for Linux
 
 ## Why CLI‑only for EC?
 
-Early iterations used the Rust `framework_lib` directly. On Windows that required build‑time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux later.
+Early iterations used the Rust `framework_lib` directly. On Windows that required build‑time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux.
 
 ## Developer Setup
 

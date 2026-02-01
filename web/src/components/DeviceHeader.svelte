@@ -18,6 +18,25 @@
     import { tooltip } from "../lib/tooltip";
     import { isLinux } from "../lib/platform";
 
+    const INSTALL_COMMAND =
+        "curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash";
+
+    let copySuccess = false;
+    let copyTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    async function copyInstallCommand() {
+        try {
+            await navigator.clipboard.writeText(INSTALL_COMMAND);
+            copySuccess = true;
+            if (copyTimeout) clearTimeout(copyTimeout);
+            copyTimeout = setTimeout(() => {
+                copySuccess = false;
+            }, 2000);
+        } catch (err) {
+            console.error("Failed to copy:", err);
+        }
+    }
+
     let triedToFetchVersions = false;
     let displayTitle = "Your Laptop";
     let openImage = IMG_13;
@@ -343,37 +362,96 @@
                             Make your Framework come alive
                         </h1>
                         <p class="opacity-70 leading-relaxed">
-                            Install the small background service to unlock live
-                            telemetry and fan control. Currently only works on
-                            Windows.
+                            Install the background service to unlock live
+                            telemetry, fan control and more.
                         </p>
-                        <div class="flex items-center gap-6 lg:gap-4 flex-wrap">
-                            <a
-                                class="btn btn-primary btn-lg px-6"
-                                href={platformInstallerUrl ||
-                                    "https://github.com/ozturkkl/framework-control"}
-                                >Download Service</a
+                        {#if isLinux()}
+                            <div class="space-y-3">
+                                <div class="flex gap-2 items-center">
+                                    <div
+                                        class="flex-1 bg-base-200 rounded-lg px-4 py-3 font-mono text-sm flex items-center overflow-x-auto"
+                                    >
+                                        <code class="whitespace-nowrap"
+                                            >{INSTALL_COMMAND}</code
+                                        >
+                                    </div>
+                                    <button
+                                        class="btn btn-primary px-4"
+                                        on:click={copyInstallCommand}
+                                        aria-label="Copy install command"
+                                    >
+                                        {#if copySuccess}
+                                            <Icon
+                                                icon="mdi:check"
+                                                class="w-5 h-5"
+                                            />
+                                        {:else}
+                                            <Icon
+                                                icon="mdi:content-copy"
+                                                class="w-5 h-5"
+                                            />
+                                        {/if}
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <a
+                                        class="btn btn-ghost btn-sm gap-2"
+                                        href="https://github.com/ozturkkl/framework-control/blob/linux-support/LINUX_INSTALL.MD"
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                    >
+                                        Manual Install Instructions
+                                        <Icon
+                                            icon="mdi:open-in-new"
+                                            class="w-4 h-4"
+                                        />
+                                    </a>
+                                    <div class="flex-1"></div>
+                                    <a
+                                        class="btn btn-ghost btn-sm px-4"
+                                        href={repoLink}
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        aria-label="Open GitHub repository"
+                                    >
+                                        <Icon
+                                            icon="mdi:github"
+                                            class="w-5 h-5"
+                                        />
+                                    </a>
+                                </div>
+                            </div>
+                        {:else}
+                            <div
+                                class="flex items-center gap-6 lg:gap-4 flex-wrap"
                             >
-                            <a
-                                class="btn btn-ghost btn-lg px-4"
-                                href={repoLink}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                aria-label="Open GitHub repository"
-                            >
-                                <Icon icon="mdi:github" class="w-5 h-5" />
-                            </a>
-                            <span
-                                class="text-sm opacity-60 min-w-[14.5rem] whitespace-wrap w-0 flex-1"
-                                >Choose "More info" → "Run anyway". The page
-                                will update automatically.</span
-                            >
-                        </div>
-                        <div class="text-sm opacity-60 whitespace-normal">
-                            *You may see a warning when installing; if you're
-                            paranoid, you can build the installer yourself from
-                            the repo.
-                        </div>
+                                <a
+                                    class="btn btn-primary btn-lg px-6"
+                                    href={platformInstallerUrl ||
+                                        "https://github.com/ozturkkl/framework-control"}
+                                    >Download Service</a
+                                >
+                                <a
+                                    class="btn btn-ghost btn-lg px-4"
+                                    href={repoLink}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    aria-label="Open GitHub repository"
+                                >
+                                    <Icon icon="mdi:github" class="w-5 h-5" />
+                                </a>
+                                <span
+                                    class="text-sm opacity-60 min-w-[14.5rem] whitespace-wrap w-0 flex-1"
+                                    >Choose "More info" → "Run anyway". The page
+                                    will update automatically.</span
+                                >
+                            </div>
+                            <div class="text-sm opacity-60 whitespace-normal">
+                                *You may see a warning when installing; if
+                                you're paranoid, you can build the installer
+                                yourself from the repo.
+                            </div>
+                        {/if}
                     </div>
                 {/if}
             </div>

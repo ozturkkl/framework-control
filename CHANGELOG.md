@@ -1,5 +1,8 @@
 # Unreleased
 
+- UI: Linux users now see a copy-able install command with one-click copy button instead of download link; manual install instructions and GitHub link provided as secondary actions.
+- Linux: Added automated install script (`install-linux.sh`) that downloads latest release, installs binary to `/usr/local/bin`, sets up systemd service, and verifies installation with health check.
+
 
 ## 0.5.0-beta.1 - 2026-01-26
 
