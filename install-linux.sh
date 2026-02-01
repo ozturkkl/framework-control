@@ -55,14 +55,9 @@ check_dependencies() {
 check_framework_tool() {
     if ! command -v framework_tool >/dev/null 2>&1; then
         warn "framework_tool not found on PATH"
-        warn "The service requires framework_tool to communicate with the EC"
-        warn "Install it from: https://github.com/FrameworkComputer/framework-system"
-        echo ""
-        read -p "Continue anyway? (y/N) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+        warn "The service will attempt to download it automatically on first run"
+        warn "Or install it manually from: https://github.com/FrameworkComputer/framework-system"
+        echo "" >&2
     else
         info "framework_tool found: $(command -v framework_tool)"
     fi
