@@ -25,7 +25,7 @@ impl AppState {
         Self::spawn_ryzenadj_resolver(ryzenadj.clone());
 
         // Wrap framework_tool in a lock and spawn a passive resolver (no auto-install here)
-        let framework_tool = Arc::new(tokio::sync::RwLock::new(resolve_or_install().await.ok()));
+        let framework_tool = Arc::new(tokio::sync::RwLock::new(None));
         Self::spawn_framework_tool_resolver(framework_tool.clone());
 
         Self {
@@ -82,8 +82,8 @@ impl AppState {
                         }
                     }
                     None => {
-                        // Only try resolving if present on the system; do not auto-install here
-                        if let Ok(cli) = FrameworkTool::new().await {
+                        // Try resolving or installing if not present
+                        if let Ok(cli) = resolve_or_install().await {
                             let mut w = ft_lock.write().await;
                             *w = Some(cli);
                             tracing::info!("state: framework_tool is now available");

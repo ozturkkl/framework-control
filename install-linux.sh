@@ -70,7 +70,7 @@ download_release() {
 
     info "Downloading latest release from GitHub..."
     # local download_url="https://github.com/${REPO}/releases/latest/download/${TARBALL_NAME}"
-    local download_url="https://github.com/ozturkkl/framework-control/releases/download/0.5.0-beta.1/framework-control-service-x86_64.tar.gz"
+    local download_url="https://github.com/ozturkkl/framework-control/releases/download/0.5.0-beta.2/framework-control-service-x86_64.tar.gz"
 
     if ! curl -fsSL -o "$tmpdir/$TARBALL_NAME" "$download_url"; then
         error "Failed to download release tarball"
@@ -134,9 +134,18 @@ verify_installation() {
     # Give the service a moment to start listening
     sleep 2
 
-    # Try to reach the health endpoint
+    # Extract the actual port from service logs
+    local detected_port
+    detected_port=$(journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+
+    if [ -z "$detected_port" ]; then
+        warn "Could not detect port from service logs"
+        return
+    fi
+
+    # Try to reach the health endpoint on the detected port
     if command -v curl >/dev/null 2>&1; then
-        if curl -f -s http://127.0.0.1:8090/api/health >/dev/null 2>&1; then
+        if curl -f -s "http://127.0.0.1:$detected_port/api/health" >/dev/null 2>&1; then
             info "Health check passed"
         else
             warn "Service is running but health check failed"
@@ -146,19 +155,25 @@ verify_installation() {
 }
 
 print_success() {
-    echo ""
-    echo -e "${GREEN}✓ Installation complete!${NC}"
-    echo ""
-    echo "Framework Control is now running as a system service."
-    echo ""
-    echo "Access the web UI at: ${GREEN}http://127.0.0.1:8090${NC}"
-    echo ""
-    echo "Useful commands:"
-    echo "  - Check status:  sudo systemctl status $SERVICE_NAME"
-    echo "  - View logs:     sudo journalctl -u $SERVICE_NAME -f"
-    echo "  - Restart:       sudo systemctl restart $SERVICE_NAME"
-    echo "  - Stop:          sudo systemctl stop $SERVICE_NAME"
-    echo ""
+    # Extract the actual port from service logs
+    local port
+    port=$(journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+
+    local url="http://127.0.0.1:${port:-<configured-port>}"
+
+    echo "" >&2
+    echo -e "${GREEN}✓ Installation complete!${NC}" >&2
+    echo "" >&2
+    echo "Framework Control is now running as a system service." >&2
+    echo "" >&2
+    echo -e "Access the web UI at: ${GREEN}${url}${NC}" >&2
+    echo "" >&2
+    echo "Useful commands:" >&2
+    echo "  - Check status:  sudo systemctl status $SERVICE_NAME" >&2
+    echo "  - View logs:     sudo journalctl -u $SERVICE_NAME -f" >&2
+    echo "  - Restart:       sudo systemctl restart $SERVICE_NAME" >&2
+    echo "  - Stop:          sudo systemctl stop $SERVICE_NAME" >&2
+    echo "" >&2
 }
 
 main() {

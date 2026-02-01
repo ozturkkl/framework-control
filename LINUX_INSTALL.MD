@@ -17,7 +17,7 @@ This will:
 - Start the service automatically
 - Verify the installation
 
-After installation, access the web UI at: **http://127.0.0.1:8090**
+After installation, access the web UI at the address shown in the installer output.
 
 ## Prerequisites
 
@@ -73,7 +73,8 @@ sudo systemctl start framework-control.service
 
 ```bash
 sudo systemctl status framework-control.service
-curl http://127.0.0.1:8090/api/health
+# Check logs for the actual port, then:
+curl http://127.0.0.1:<port>/api/health
 ```
 
 ## Configuration
@@ -120,7 +121,7 @@ sudo systemctl disable framework-control.service
 
 After the service is running, you can create a desktop shortcut from within the web UI:
 
-1. Open http://127.0.0.1:8090
+1. Open the web UI (check installer output or service logs for the URL)
 2. Click the settings icon (⚙️)
 3. Under "Desktop Integration", click "Create Shortcuts"
 
@@ -167,7 +168,7 @@ sudo journalctl -u framework-control.service -n 50
 Common issues:
 - **framework_tool not found**: Ensure it's installed and on `PATH`
 - **Permission denied**: The service must run as root
-- **Port already in use**: Another service may be using port 8090
+- **Port already in use**: Another service may be using the configured port (check `FRAMEWORK_CONTROL_PORT`)
 
 ### UI says "framework_tool is missing"
 
@@ -185,7 +186,10 @@ If it's not found, ensure it's installed system-wide and not just for your user.
 
 The service may still be starting up. Wait a few seconds and try again:
 ```bash
-curl http://127.0.0.1:8090/api/health
+# First, find the port from logs:
+sudo journalctl -u framework-control.service | grep "listening on"
+# Then check health:
+curl http://127.0.0.1:<port>/api/health
 ```
 
 If it continues to fail, check the service logs.

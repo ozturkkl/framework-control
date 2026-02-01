@@ -13,7 +13,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
-3. Launch via Start Menu/Desktop shortcuts or visit http://127.0.0.1:8090 in your browser
+3. Launch via Start Menu/Desktop shortcuts or visit the local service URL in your browser (check installer output or service logs for the configured port)
 
 ## Disclaimer
 
@@ -28,7 +28,7 @@ This software is provided "as is," without warranty of any kind, express or impl
   - Background telemetry sampling with configurable poll interval and history window
   - Per-sensor series with selection and legend, sourced from the local service
 - **Persistent Settings**: Configurations saved locally with sensible defaults
-- **Clean Architecture**: Minimal always‑on local service with REST API (default: http://127.0.0.1:8090)
+- **Clean Architecture**: Minimal always‑on local service with REST API on loopback
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
 - **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold.
@@ -128,7 +128,8 @@ FRAMEWORK_CONTROL_UPDATE_REPO=ozturkkl/framework-control
 Web UI `.env.local` file (`framework-control/web/.env.local`):
 
 ```
-# Local service URL (defaults to http://127.0.0.1:8090 if omitted)
+# Local service URL (optional; auto-detects from current origin if omitted)
+# Set this to match your FRAMEWORK_CONTROL_PORT in the service
 VITE_API_BASE=http://127.0.0.1:8090
 
 # Same token as the service

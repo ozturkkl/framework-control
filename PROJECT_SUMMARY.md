@@ -4,7 +4,7 @@ This document captures the current state, architecture, and key technical detail
 
 ### Purpose
 
-Local Windows service + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. Default local API: `http://127.0.0.1:8090`.
+Local Windows service + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. API runs on loopback at a configured port (set via `FRAMEWORK_CONTROL_PORT`).
 
 ### High-Level Architecture
 
@@ -64,7 +64,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Hosted vs Embedded: when hosted and an update is available, `VersionMismatchModal.svelte` blocks with actions to open the local app or view releases. Embedded mode (127.0.0.1) continues normally.
 
 - Env: `web/.env.local`
-  - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
+  - `VITE_API_BASE` (optional; defaults to current origin + `/api` for embedded mode)
   - `VITE_CONTROL_TOKEN` (bearer token for write ops)
 - Build/dev:
   - `npm i && npm run dev` (dev)
@@ -105,7 +105,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Set `.env` with:
     - `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`
     - `FRAMEWORK_CONTROL_TOKEN`
-    - `FRAMEWORK_CONTROL_PORT=8090`
+    - `FRAMEWORK_CONTROL_PORT`
   - `cargo run`
 - Frontend (dev):
   - `cd framework-control/web`

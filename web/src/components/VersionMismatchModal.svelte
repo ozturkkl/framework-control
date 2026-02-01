@@ -4,7 +4,7 @@
 
     export let serviceCurrent: string | null = null;
     export let serviceLatest: string | null = null;
-    export let apiOrigin: string = "http://127.0.0.1:8090";
+    export let apiOrigin: string = window.location.origin;
     export let repoUrl: string =
         "https://github.com/ozturkkl/framework-control/releases";
 
