@@ -1,7 +1,7 @@
 # Unreleased
 
 
-## 0.5.0-beta.2 - 2026-01-26
+## 0.5.0-beta.2 - 2026-02-01
 
 - Service: Web server now starts immediately without waiting for `framework_tool` validation; CLI resolution/installation happens asynchronously in background, eliminating 60-second startup delay when tool is unavailable.
 - Documentation: Removed hardcoded port references (8090) throughout documentation and scripts; install script now auto-detects the configured port from service logs and displays the actual URL.
