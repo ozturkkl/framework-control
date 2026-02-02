@@ -49,16 +49,21 @@ async fn main() {
     let state = state::AppState::initialize().await;
 
     // Determine bind address to derive self-origins for CORS
+    // Use runtime env var, or fall back to compile-time baked value (required)
     let bind_host = "127.0.0.1";
     let configured_port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
-        .expect("FRAMEWORK_CONTROL_PORT must be set (no defaults)")
+        .ok()
+        .or_else(|| option_env!("FRAMEWORK_CONTROL_PORT").map(String::from))
+        .expect("FRAMEWORK_CONTROL_PORT must be set (either at runtime or baked at compile-time)")
         .parse()
-        .expect("FRAMEWORK_CONTROL_PORT must be a valid u16 (e.g. 8090)");
+        .expect("FRAMEWORK_CONTROL_PORT must be a valid u16");
     let self_origins = vec![format!("http://{}:{}", bind_host, configured_port)];
 
     // Merge configured origins with self-origins (dedup), then apply common rules
+    // Use runtime env var, or fall back to compile-time baked value (optional)
     let mut origins: Vec<String> = std::env::var("FRAMEWORK_CONTROL_ALLOWED_ORIGINS")
         .ok()
+        .or_else(|| option_env!("FRAMEWORK_CONTROL_ALLOWED_ORIGINS").map(String::from))
         .unwrap_or_default()
         .split(',')
         .map(str::trim)

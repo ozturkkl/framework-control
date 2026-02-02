@@ -2,13 +2,18 @@ use super::framework_tool_parser::{
     parse_power, parse_thermal, parse_versions, PowerBatteryInfo, ThermalParsed, VersionsParsed,
 };
 use crate::utils::{download as dl, github as gh, global_cache, wget as wg};
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 use tokio::process::Command;
 use tracing::{error, info, warn};
 use which::which;
 
 /// Thin wrapper around the `framework_tool` CLI.
 /// Resolves the binary path once and provides async helpers to run commands.
+///
+/// Resolution strategy:
+/// - Prefer `framework_tool` found on `PATH`
+/// - Then fall back to a copy alongside the running service binary.
+/// - Windows can optionally auto-install via winget;
 #[derive(Clone)]
 pub struct FrameworkTool {
     pub(crate) path: String,
@@ -135,7 +140,15 @@ impl FrameworkTool {
 }
 
 async fn resolve_framework_tool() -> Result<String, String> {
-    // Prefer alongside the running service binary
+    // Check PATH first (prefer user/system installation)
+    if let Ok(p) = which("framework_tool") {
+        return Ok(p.to_string_lossy().to_string());
+    }
+    if let Ok(p) = which("framework_tool.exe") {
+        return Ok(p.to_string_lossy().to_string());
+    }
+
+    // Fallback: alongside the running service binary (where we auto-install it)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let candidate = if cfg!(windows) {
@@ -151,35 +164,32 @@ async fn resolve_framework_tool() -> Result<String, String> {
         }
     }
 
-    if let Ok(p) = which("framework_tool") {
-        return Ok(p.to_string_lossy().to_string());
-    }
-    if let Ok(p) = which("framework_tool.exe") {
-        return Ok(p.to_string_lossy().to_string());
-    }
-
-    Err("framework_tool not found. Please install via winget: winget install FrameworkComputer.framework_tool".into())
+    Err("framework_tool not found. Install it and ensure it is on PATH (Linux), or via winget on Windows: winget install FrameworkComputer.framework_tool".into())
 }
 
 /// Resolve framework_tool, attempting installation if not present.
 pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
-    // 1) Try resolve immediately
+    // 1) Try resolve immediately (PATH first, then current exe dir)
     if let Ok(cli) = FrameworkTool::new().await {
         return Ok(cli);
     }
 
-    // 2) Try winget install once
-    if let Err(err) = wg::try_winget_install_package("FrameworkComputer.framework_tool", None).await
+    // 2) Windows: try winget install once
+    #[cfg(windows)]
     {
-        warn!("winget automatic install failed: {}", err);
+        if let Err(err) =
+            wg::try_winget_install_package("FrameworkComputer.framework_tool", None).await
+        {
+            warn!("winget automatic install failed: {}", err);
+        }
+
+        // 3) Try resolve again
+        if let Ok(cli) = FrameworkTool::new().await {
+            return Ok(cli);
+        }
     }
 
-    // 3) Try resolve again
-    if let Ok(cli) = FrameworkTool::new().await {
-        return Ok(cli);
-    }
-
-    // 4) Try direct download once
+    // 4) Try direct download (both Windows and Linux)
     if let Err(err) = attempt_install_via_direct_download().await {
         warn!("direct download fallback failed: {}", err);
     }
@@ -209,7 +219,7 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     };
     #[cfg(target_os = "windows")]
     let ext: &str = ".exe";
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(target_os = "linux")]
     let ext: &str = "";
     let filename = format!("framework_tool{}", ext);
     let url = gh::get_latest_release_url_ending_with(
@@ -230,5 +240,19 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     if let Ok(meta) = std::fs::metadata(&final_path) {
         info!("downloaded size: {} bytes", meta.len());
     }
+
+    // Make executable on Unix systems
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&final_path)
+            .map_err(|e| format!("failed to get binary metadata: {}", e))?
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&final_path, perms)
+            .map_err(|e| format!("failed to set executable permissions: {}", e))?;
+        info!("set executable permissions on framework_tool");
+    }
+
     Ok(())
 }

@@ -1,0 +1,34 @@
+name: Framework Control Context
+description: Core project context and navigation hints. Keeps the assistant aware of architecture, key files, and commands.
+
+onProjectLoad:
+  # Open the high‑signal context first
+  open:
+    - path: framework-control/PROJECT_SUMMARY.md
+    - path: framework-control/README.md
+    - path: framework-control/service/src/routes.rs
+    - path: framework-control/service/src/main.rs
+    - path: framework-control/web/src/App.svelte
+
+  # Pin summary so it remains visible
+  pinTabs:
+    - framework-control/PROJECT_SUMMARY.md
+
+search:
+  # Prioritize backend and frontend app code; de‑prioritize large build outputs
+  include:
+    - framework-control/service/src/**
+    - framework-control/web/src/**
+    - framework-control/README.md
+    - framework-control/PROJECT_SUMMARY.md
+  exclude:
+    - framework-control/web/dist/**
+    - **/target/**
+    - **/node_modules/**
+
+notes:
+  - When a feature is added, if needed update PROJECT_SUMMARY.md when adding/altering endpoints, UI components, config, or background tasks. Treat it as required documentation.
+  - Use @routes.rs, @main.rs, @App.svelte, and @README.md shorthands in prompts.
+  - If a change is made and should be in the changelog, update CHANGELOG.md under "Unreleased" with concise one-line bullets for user-visible changes (features, fixes, behavior changes). Collapse related changes into a single line when possible.
+
+
