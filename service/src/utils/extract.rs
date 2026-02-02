@@ -2,6 +2,32 @@ use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
+/// Extract a tar.gz archive to a target directory using system tar command
+pub async fn extract_tar_gz_to<P: AsRef<Path>>(tar_path: P, target_dir: P) -> Result<(), String> {
+    let tar_path = tar_path.as_ref();
+    let target_dir = target_dir.as_ref();
+
+    // Ensure target directory exists
+    std::fs::create_dir_all(target_dir)
+        .map_err(|e| format!("failed to create target dir: {}", e))?;
+
+    // Use system tar command
+    let status = tokio::process::Command::new("tar")
+        .arg("-xzf")
+        .arg(tar_path)
+        .arg("-C")
+        .arg(target_dir)
+        .status()
+        .await
+        .map_err(|e| format!("failed to run tar command: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("tar extraction failed with status: {}", status));
+    }
+
+    Ok(())
+}
+
 pub fn extract_zip_to<P: AsRef<Path>>(zip_path: P, target_dir: P) -> Result<Vec<PathBuf>, String> {
     let zip_path = zip_path.as_ref();
     let target_dir = target_dir.as_ref();
@@ -33,8 +59,8 @@ pub fn extract_zip_to<P: AsRef<Path>>(zip_path: P, target_dir: P) -> Result<Vec<
     Ok(extracted)
 }
 
-/// Download the zip to a temp dir and check whether it contains a file ending with any preferred suffixes
-pub async fn zip_contains_any_suffix(
+/// Download an archive (zip or tar.gz) to a temp dir and check whether it contains a file ending with any preferred suffixes
+pub async fn archive_contains_any_suffix(
     url: &str,
     preferred_suffixes: &[&str],
 ) -> Result<bool, String> {

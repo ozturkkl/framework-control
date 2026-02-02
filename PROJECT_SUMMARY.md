@@ -4,7 +4,7 @@ This document captures the current state, architecture, and key technical detail
 
 ### Purpose
 
-Local Windows service + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. Default local API: `http://127.0.0.1:8090`.
+Local Windows service + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. API runs on loopback at a configured port (set via `FRAMEWORK_CONTROL_PORT`).
 
 ### High-Level Architecture
 
@@ -28,8 +28,8 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /config`: return persisted config
     - `POST /config`: update config (requires `Authorization: Bearer <token>`)
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
-    - `GET /shortcuts/status`: Start menu/Desktop shortcut existence
-    - `POST /shortcuts/create`: create app-mode browser shortcuts (auth required)
+    - `GET /shortcuts/status`: Desktop/application menu shortcut existence
+    - `POST /shortcuts/create`: create desktop shortcuts with browser detection (auth required, Windows + Linux)
 - `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
 - `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required)
   - `GET /update/check`: check for latest version from update feed (see env below)
@@ -43,7 +43,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs`
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, etc.
   - `service/src/static.rs`: static file serving for the UI
-  - `service/src/shortcuts.rs`: Windows shortcut creation logic (Edge/Chrome/Brave app mode + .url fallback)
+  - `service/src/shortcuts.rs`: Desktop shortcut creation for Windows (Edge/Chrome/Brave app mode + .url fallback) and Linux (simple .desktop entry using xdg-open)
 
 ### Frontend Web UI (Svelte)
 
@@ -61,12 +61,11 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Prefer typed responses from OpenAPI models NEVER EVER use fetch() when interacting with the backend service.
 - For authenticated calls, pass `Bearer ${OpenAPI.TOKEN}`.
 - To reflect backend changes, rebuild the service to refresh `openapi.json`, then run `npm run gen:api` in `web/`.
-- Hosted vs Embedded: when hosted and an update is available, `VersionMismatchModal.svelte` blocks with actions to open the local app or download the installer (`VITE_INSTALLER_URL`). Embedded mode (127.0.0.1) continues normally.
+- Hosted vs Embedded: when hosted and an update is available, `VersionMismatchModal.svelte` blocks with actions to open the local app or view releases. Embedded mode (127.0.0.1) continues normally.
 
 - Env: `web/.env.local`
-  - `VITE_API_BASE` (defaults to `http://127.0.0.1:8090`)
+  - `VITE_API_BASE` (optional; defaults to current origin + `/api` for embedded mode)
   - `VITE_CONTROL_TOKEN` (bearer token for write ops)
-  - `VITE_INSTALLER_URL` (MSI URL for "Download Service" button)
 - Build/dev:
   - `npm i && npm run dev` (dev)
   - `npm run build` (generates `web/dist` used by service/static)
@@ -74,14 +73,24 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 ### Installation & Packaging
 
-- MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`).
-- Shortcuts: created on demand via `/api/shortcuts/create`; auto‑update preserves original shortcut choice.
-- Updates: `GET /api/update/check`, `POST /api/update/apply` (Windows `msiexec`).
-- MSI injects env values into the service (allowed origins, token, port, update repo).
+- Windows: MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`). MSI injects env values into the service (allowed origins, token, port, update repo). Updates via `msiexec`.
+- Linux: 
+  - Automated install script (`install-linux.sh` in repo root) downloads latest release tarball from GitHub
+  - Installs binary to `/usr/local/bin/framework-control` and systemd service to `/etc/systemd/system/`
+  - Built via `web/scripts/build-linux.mjs` (static musl build in CI, creates tarball with binary + service file)
+  - Config baked into binary at build time; runtime config stored at `/etc/framework-control/config.json`
+  - Service runs as root (required for `framework_tool` EC access)
+  - Updates via tarball download and service restart
+- Shortcuts: created on demand via `/api/shortcuts/create`
+  - Windows: Start Menu + Desktop (.lnk with app mode or .url fallback)
+  - Linux: Desktop entry in applications menu (~/.local/share/applications/framework-control.desktop) using xdg-open
+- Updates: `GET /api/update/check`, `POST /api/update/apply`
 
 ### Configuration
 
-- Persisted at `C:\ProgramData\FrameworkControl\config.json`
+- Persisted at:
+  - Windows: `C:\ProgramData\FrameworkControl\config.json`
+  - Linux: `/etc/framework-control/config.json`
 - Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors)
 - Telemetry: `telemetry.poll_ms`, `telemetry.retain_seconds` (history for `/api/thermal/history`)
 - Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting)
@@ -96,7 +105,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
   - Set `.env` with:
     - `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`
     - `FRAMEWORK_CONTROL_TOKEN`
-    - `FRAMEWORK_CONTROL_PORT=8090`
+    - `FRAMEWORK_CONTROL_PORT`
   - `cargo run`
 - Frontend (dev):
   - `cd framework-control/web`

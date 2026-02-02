@@ -389,7 +389,9 @@ impl Api {
 
         // Get port from environment (required at startup)
         let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
-            .expect("FRAMEWORK_CONTROL_PORT must be set")
+            .ok()
+            .or_else(|| option_env!("FRAMEWORK_CONTROL_PORT").map(String::from))
+            .expect("FRAMEWORK_CONTROL_PORT must be set (either at runtime or baked at compile-time)")
             .parse()
             .expect("FRAMEWORK_CONTROL_PORT must be valid");
 
@@ -403,6 +405,72 @@ impl Api {
                 Err(bad_gateway("shortcuts_failed", e))
             }
         }
+    }
+
+    /// Logs: retrieve recent service logs
+    #[oai(path = "/logs", method = "get", operation_id = "getLogs")]
+    async fn get_logs(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "Authorization")] auth: Header<String>,
+    ) -> Result<poem_openapi::payload::PlainText<String>, ApiErrorResponse> {
+        require_auth(&state, &auth)?;
+
+        match get_service_logs().await {
+            Ok(logs) => Ok(poem_openapi::payload::PlainText(logs)),
+            Err(e) => {
+                error!("Failed to retrieve logs: {}", e);
+                Err(bad_gateway("logs_failed", e))
+            }
+        }
+    }
+}
+
+async fn get_service_logs() -> Result<String, String> {
+    #[cfg(target_os = "linux")]
+    {
+        use tokio::process::Command;
+        let output = Command::new("journalctl")
+            .arg("-u")
+            .arg("framework-control")
+            .arg("-n")
+            .arg("500")
+            .arg("--no-pager")
+            .output()
+            .await
+            .map_err(|e| format!("failed to run journalctl: {}", e))?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        } else {
+            Err(format!(
+                "journalctl failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ))
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Read FrameworkControlService.out.log from the service directory
+        let exe = std::env::current_exe()
+            .map_err(|e| format!("failed to get current exe path: {}", e))?;
+        let dir = exe.parent()
+            .ok_or_else(|| "failed to get exe directory".to_string())?;
+        let log_path = dir.join("FrameworkControlService.out.log");
+
+        let contents = std::fs::read_to_string(&log_path)
+            .map_err(|e| format!("failed to read log file: {}", e))?;
+
+        // Return last 500 lines (approximate)
+        let lines: Vec<&str> = contents.lines().collect();
+        let start = lines.len().saturating_sub(500);
+        Ok(lines[start..].join("\n"))
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        Err("log retrieval not supported on this platform".to_string())
     }
 }
 

@@ -13,7 +13,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
-3. Launch via Start Menu/Desktop shortcuts or visit http://127.0.0.1:8090 in your browser
+3. Launch via Start Menu/Desktop shortcuts or visit the local service URL in your browser (check installer output or service logs for the configured port)
 
 ## Disclaimer
 
@@ -28,7 +28,7 @@ This software is provided "as is," without warranty of any kind, express or impl
   - Background telemetry sampling with configurable poll interval and history window
   - Per-sensor series with selection and legend, sourced from the local service
 - **Persistent Settings**: Configurations saved locally with sensible defaults
-- **Clean Architecture**: Minimal always‑on local service with REST API (default: http://127.0.0.1:8090)
+- **Clean Architecture**: Minimal always‑on local service with REST API on loopback
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
 - **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold.
@@ -37,6 +37,7 @@ This software is provided "as is," without warranty of any kind, express or impl
   - Set Tctl thermal limit
   - Separate AC/Battery profiles with background reapply and live power readout
 - **Updates & Shortcuts**: In-app update checks and optional auto-install, plus Start Menu/Desktop shortcut management from the Settings modal
+- **Linux Support**: systemd unit with udev rules for input modules
 
 ## Upcoming Goals
 
@@ -45,8 +46,8 @@ This software is provided "as is," without warranty of any kind, express or impl
   - One/two‑module layouts (9×34 and 9×68), dithering and content scheduling
   - Optional integrations for animations/GIF/pixel art
 - **Additional EC Controls**: Keyboard backlight, fingerprint LED levels, input deck modes
-- **Linux Support**: systemd unit with udev rules for input modules
 - **Import/Export**: Settings backup and sharing
+- **App Signing for Windows**: Support for Windows Store app signing and distribution
 
 ## Architecture
 
@@ -58,11 +59,11 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Frontend UI**: Svelte + Vite
   - Responsive panel layout adapting to active fan mode
   - Real-time telemetry updates
-- **Packaging**: WiX MSI installer for Windows (Linux support planned)
+- **Packaging**: WiX MSI installer for Windows, automated install script for Linux
 
 ## Why CLI‑only for EC?
 
-Early iterations used the Rust `framework_lib` directly. On Windows that required build‑time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux later.
+Early iterations used the Rust `framework_lib` directly. On Windows that required build‑time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux.
 
 ## Developer Setup
 
@@ -92,6 +93,20 @@ npm run dev
   1. Build the service to refresh `web/openapi.json`
   2. From `framework-control/web`, run: `npm run gen:api`
 
+### Backend Environment Variables Policy (Important)
+
+ ⚠️ **Compile-Time Configuration Baking**
+
+ All `FRAMEWORK_CONTROL_*` environment variables read in the service code **must** support both runtime and compile-time fallback using `option_env!()`. This allows the Linux build process to bake configuration into the binary.
+
+ **Pattern to follow:**
+ ```rust
+ std::env::var("FRAMEWORK_CONTROL_PORT")
+     .ok()
+     .or_else(|| option_env!("FRAMEWORK_CONTROL_PORT").map(String::from))
+     .expect("FRAMEWORK_CONTROL_PORT must be set")
+ ```
+
 **Environment Variables**:
 
 Service `.env` file (`framework-control/service/.env`):
@@ -113,14 +128,12 @@ FRAMEWORK_CONTROL_UPDATE_REPO=ozturkkl/framework-control
 Web UI `.env.local` file (`framework-control/web/.env.local`):
 
 ```
-# Local service URL (defaults to http://127.0.0.1:8090 if omitted)
+# Local service URL (optional; auto-detects from current origin if omitted)
+# Set this to match your FRAMEWORK_CONTROL_PORT in the service
 VITE_API_BASE=http://127.0.0.1:8090
 
 # Same token as the service
 VITE_CONTROL_TOKEN=<long-random-token>
-
-# Optional: MSI installer URL for the "Download Service" button in hosted mode
-VITE_INSTALLER_URL=<installer-download-url>
 ```
 
 ## Updates & Caching
