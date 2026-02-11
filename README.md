@@ -49,6 +49,10 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Import/Export**: Settings backup and sharing
 - **App Signing for Windows**: Support for Windows Store app signing and distribution
 
+## Star History
+[![Star History Chart](https://api.star-history.com/svg?repos=ozturkkl/framework-control&type=date&legend=top-left)](https://www.star-history.com/#ozturkkl/framework-control&type=date&legend=top-left)
+
+
 ## Architecture
 
 - **Backend Service**: Rust (Tokio + Poem + poem-openapi)
