@@ -195,9 +195,36 @@ pub struct SettingU32 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct SettingString {
+    /// Whether this setting should be applied
+    pub enabled: bool,
+    /// The last chosen value (kept even when disabled)
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct PowerProfile {
+    // Windows/RAPL: Direct TDP control
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tdp_watts: Option<SettingU32>,
+
+    // Windows/some Linux: Thermal limit
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub thermal_limit_c: Option<SettingU32>,
+
+    // Linux AMD P-State: Energy Performance Preference
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epp_preference: Option<SettingString>,
+
+    // Linux cpufreq: Governor selection
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub governor: Option<SettingString>,
+
+    // Linux cpufreq: Frequency limits (in MHz)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_freq_mhz: Option<SettingU32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_freq_mhz: Option<SettingU32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
@@ -253,11 +280,66 @@ pub struct PowerResponse {
     /// Battery info (framework_tool --power) + charge limits (charge-limit CLI)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub battery: Option<BatteryInfo>,
-    /// RyzenAdj presence and parsed info
-    pub ryzenadj_installed: bool,
-    #[oai(flatten)]
-    #[oai(skip_serializing_if = "Option::is_none")]
-    pub ryzenadj: Option<crate::cli::ryzen_adj_parser::RyzenAdjInfo>,
+
+    /// Power control information
+    pub power_control: PowerControlInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct PowerControlInfo {
+    /// Active method: "ryzenadj", "rapl", "amd-pstate", "cpufreq", "none"
+    pub method: String,
+
+    /// What capabilities are available
+    pub capabilities: PowerCapabilities,
+
+    /// Current state (what's actually applied right now)
+    pub current_state: PowerState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct PowerCapabilities {
+    pub supports_tdp: bool,
+    pub supports_thermal: bool,
+    pub supports_epp: bool,
+    pub supports_governor: bool,
+    pub supports_frequency_limits: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_epp_preferences: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_governors: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency_min_mhz: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency_max_mhz: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tdp_min_watts: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tdp_max_watts: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct PowerState {
+    // Universal (if readable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_watts: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency_mhz: Option<u32>,
+
+    // Method-specific (platform populates what it can)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tdp_limit_watts: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thermal_limit_c: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epp_preference: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub governor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_freq_mhz: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_freq_mhz: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]

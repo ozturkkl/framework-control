@@ -1,4 +1,5 @@
 use crate::cli::ryzen_adj_parser::{self, RyzenAdjInfo};
+use crate::types::{PowerCapabilities, PowerProfile, PowerState};
 use crate::utils::global_cache;
 use crate::utils::{download as dl, github as gh};
 use std::time::Duration;
@@ -62,7 +63,57 @@ impl RyzenAdj {
         .await
     }
 
+    /// Get capabilities (what RyzenAdj supports)
+    pub fn get_capabilities(&self) -> PowerCapabilities {
+        PowerCapabilities {
+            supports_tdp: true,
+            supports_thermal: true,
+            supports_epp: false,
+            supports_governor: false,
+            supports_frequency_limits: false,
+            available_epp_preferences: None,
+            available_governors: None,
+            frequency_min_mhz: None,
+            frequency_max_mhz: None,
+            tdp_min_watts: Some(5),
+            tdp_max_watts: Some(145),
+        }
+    }
+
+    /// Get current power state
+    pub async fn get_state(&self) -> Result<PowerState, String> {
+        let info = self.info().await?;
+        Ok(PowerState {
+            current_watts: None,
+            tdp_limit_watts: info.tdp_watts,
+            thermal_limit_c: info.thermal_limit_c,
+            frequency_mhz: None,
+            epp_preference: None,
+            governor: None,
+            min_freq_mhz: None,
+            max_freq_mhz: None,
+        })
+    }
+
+    /// Apply a power profile (uses TDP and thermal fields, ignores Linux-specific fields)
+    pub async fn apply_profile(&self, profile: &PowerProfile) -> Result<(), String> {
+        if let Some(tdp) = &profile.tdp_watts {
+            if tdp.enabled && tdp.value > 0 {
+                self.set_tdp_watts(tdp.value).await?;
+            }
+        }
+
+        if let Some(thermal) = &profile.thermal_limit_c {
+            if thermal.enabled && thermal.value > 0 {
+                self.set_thermal_limit_c(thermal.value).await?;
+            }
+        }
+
+        Ok(())
+    }
+
     async fn run(&self, args: &[&str]) -> Result<String, String> {
+
         use tokio::time::{timeout, Duration};
         let args: Vec<&str> = {
             let mut v: Vec<&str> = args.to_vec();

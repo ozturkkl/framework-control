@@ -32,12 +32,17 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
 - **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold.
-- **Power Controls (RyzenAdj)**:
-  - Set TDP (applies STAPM/FAST/SLOW equally)
-  - Set Tctl thermal limit
+- **Power Controls**:
+  - **Windows (RyzenAdj)**: TDP and thermal limit control for AMD Ryzen systems
+  - **Linux (Native)**: Auto-detects best available method (RAPL, AMD P-State EPP, cpufreq governor)
+  - Set TDP limits (RAPL/RyzenAdj), energy preferences (AMD P-State), or governors (cpufreq)
   - Separate AC/Battery profiles with background reapply and live power readout
+  - **Note**: Linux RAPL requires kernel parameter `intel_rapl.restrict_attr=N` for TDP control
 - **Updates & Shortcuts**: In-app update checks and optional auto-install, plus Start Menu/Desktop shortcut management from the Settings modal
-- **Linux Support**: systemd unit with udev rules for input modules
+- **Linux Support**: 
+  - systemd unit with udev rules for input modules
+  - Native power management via kernel interfaces (no external dependencies)
+  - Automated install script with service configuration
 
 ## Upcoming Goals
 
@@ -172,8 +177,63 @@ Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.
 - **Manual**: Fixed duty percentage slider
 - **Curve**: Custom temperature-to-duty curve with advanced controls
 
+## Linux Power Management Setup
+
+### Disabling Conflicting Services (Important!)
+
+If power settings don't apply or reset immediately, you likely have a conflicting power management service running:
+
+**NixOS:**
+```nix
+# In your configuration.nix:
+services.power-profiles-daemon.enable = false;
+services.tlp.enable = false;  # If using TLP
+```
+
+**Other Distros:**
+```bash
+# Disable power-profiles-daemon
+sudo systemctl disable --now power-profiles-daemon
+
+# Or disable TLP
+sudo systemctl disable --now tlp
+```
+
+After disabling, rebuild/restart and framework-control will have exclusive control.
+
+### Enabling RAPL TDP Control (Intel/Some AMD)
+
+On Linux, RAPL power limit writes are restricted by default for security. If you see permission errors when trying to set TDP, you need to disable this restriction:
+
+**Option 1: Kernel Boot Parameter (Persistent)**
+
+1. Edit GRUB configuration:
+   ```bash
+   sudo nano /etc/default/grub
+   ```
+
+2. Add `intel_rapl.restrict_attr=N` to `GRUB_CMDLINE_LINUX`:
+   ```
+   GRUB_CMDLINE_LINUX="... intel_rapl.restrict_attr=N"
+   ```
+
+3. Update GRUB and reboot:
+   ```bash
+   sudo update-grub  # Or: sudo grub-mkconfig -o /boot/grub/grub.cfg
+   sudo reboot
+   ```
+
+**Option 2: Runtime (Temporary, until reboot)**
+
+```bash
+sudo sh -c 'echo 0 > /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw'
+```
+
+After enabling, the service should be able to set TDP limits. Other methods (AMD P-State EPP, cpufreq governor) don't require special permissions.
+
 ## Security Notes
 
 - API binds to loopback only (127.0.0.1) - no remote exposure
 - Write operations require bearer token authentication
 - Service logs diagnostics via the Windows service wrapper (rolling logs in the install directory)
+- Linux: RAPL power control requires disabling kernel restrictions (see Linux Power Management Setup above)

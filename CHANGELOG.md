@@ -1,5 +1,9 @@
 # Unreleased
 
+- **Linux Power Management**: Native kernel interface support (RAPL, AMD P-State, cpufreq) replaces RyzenAdj on Linux. Auto-detects best available method and exposes appropriate controls (TDP slider for RAPL, EPP preference for AMD P-State, governor selection for cpufreq). Note: RAPL TDP control requires kernel parameter `intel_rapl.restrict_attr=N` to disable write restrictions.
+- **Power API**: `/api/power` response restructured with `power_control` object containing `method`, `capabilities`, and `current_state`. Backend now uses unified interface across Windows (RyzenAdj) and Linux (native), with platform-specific power profiles in config.
+- **Breaking Change**: PowerResponse API structure changed - clients must update to use `power_control` instead of flat `ryzenadj`/`ryzenadj_installed` fields.
+- **UI**: PowerControl component updated to show method-appropriate controls based on detected capabilities. Live power reading removed from RAPL (energy_uj is cumulative, not instantaneous).
 
 ## 0.5.0-beta.2 - 2026-02-01
 

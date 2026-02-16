@@ -10,13 +10,24 @@ pub async fn boot(state: &AppState) {
         });
     }
 
-    // Power settings task: start once at boot; it will wait until RyzenAdj is available
+    // Power settings task: start once at boot; it will wait until power backend is available
+    #[cfg(target_os = "windows")]
     {
-        let ryz_clone = state.ryzenadj.clone();
+        let power_backend = state.ryzenadj.clone();
         let cfg_clone = state.config.clone();
         let ft_clone = state.framework_tool.clone();
         tokio::spawn(async move {
-            crate::tasks::power::run(ryz_clone, cfg_clone, ft_clone).await;
+            crate::tasks::power::run(power_backend, cfg_clone, ft_clone).await;
+        });
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let power_backend = state.linux_power.clone();
+        let cfg_clone = state.config.clone();
+        let ft_clone = state.framework_tool.clone();
+        tokio::spawn(async move {
+            crate::tasks::power::run(power_backend, cfg_clone, ft_clone).await;
         });
     }
 

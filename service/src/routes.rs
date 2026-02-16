@@ -34,6 +34,7 @@ async fn require_framework_tool_async(
     }
 }
 
+#[cfg(target_os = "windows")]
 async fn require_ryzenadj_async(
     state: &AppState,
 ) -> Result<crate::cli::ryzen_adj::RyzenAdj, ApiErrorResponse> {
@@ -44,6 +45,22 @@ async fn require_ryzenadj_async(
             crate::types::ErrorEnvelope {
                 code: "ryzenadj_unavailable".into(),
                 message: "ryzenadj not found".into(),
+            },
+        ))),
+    }
+}
+
+#[cfg(target_os = "linux")]
+async fn require_linux_power_async(
+    state: &AppState,
+) -> Result<crate::cli::linux_power::LinuxPower, ApiErrorResponse> {
+    let cli_opt = { state.linux_power.read().await.clone() };
+    match cli_opt {
+        Some(cli) => Ok(cli),
+        None => Err(ApiErrorResponse::ServiceUnavailable(Json(
+            crate::types::ErrorEnvelope {
+                code: "linux_power_unavailable".into(),
+                message: "linux power management not available".into(),
             },
         ))),
     }
@@ -88,7 +105,7 @@ impl Api {
         }))
     }
 
-    /// RyzenAdj: install on demand
+    /// RyzenAdj: install on demand (Windows only)
     #[oai(
         path = "/ryzenadj/install",
         method = "post",
@@ -100,22 +117,29 @@ impl Api {
         #[oai(name = "Authorization")] auth: Header<String>,
     ) -> ApiResult<Empty> {
         require_auth(&state, &auth)?;
-        match crate::cli::ryzen_adj::attempt_install_via_direct_download().await {
-            Ok(_) => {
-                // Validate resolve, but do not spawn another task (boot task will pick it up)
-                match crate::cli::ryzen_adj::RyzenAdj::new().await {
-                    Ok(_cli) => Ok(Json(Empty {})),
-                    Err(e) => {
-                        error!("ryzenadj resolve after install failed: {}", e);
-                        Err(bad_gateway("ryzenadj_unavailable", e))
+        #[cfg(target_os = "windows")]
+        {
+            match crate::cli::ryzen_adj::attempt_install_via_direct_download().await {
+                Ok(_) => {
+                    // Validate resolve, but do not spawn another task (boot task will pick it up)
+                    match crate::cli::ryzen_adj::RyzenAdj::new().await {
+                        Ok(_cli) => Ok(Json(Empty {})),
+                        Err(e) => {
+                            error!("ryzenadj resolve after install failed: {}", e);
+                            Err(bad_gateway("ryzenadj_unavailable", e))
+                        }
                     }
                 }
+                Err(e) => Err(bad_gateway("install_failed", e)),
             }
-            Err(e) => Err(bad_gateway("install_failed", e)),
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Err(bad_gateway("unsupported_platform", "RyzenAdj is only available on Windows. Linux uses native kernel interfaces.".to_string()))
         }
     }
 
-    /// RyzenAdj: uninstall and remove any downloaded artifacts
+    /// RyzenAdj: uninstall and remove any downloaded artifacts (Windows only)
     #[oai(
         path = "/ryzenadj/uninstall",
         method = "post",
@@ -127,19 +151,26 @@ impl Api {
         #[oai(name = "Authorization")] auth: Header<String>,
     ) -> ApiResult<Empty> {
         require_auth(&state, &auth)?;
-        match crate::cli::ryzen_adj::remove_installed_files().await {
-            Ok(_) => {
-                // Clear from in-memory state so UI reflects removal soon
-                {
-                    let mut w = state.ryzenadj.write().await;
-                    *w = None;
+        #[cfg(target_os = "windows")]
+        {
+            match crate::cli::ryzen_adj::remove_installed_files().await {
+                Ok(_) => {
+                    // Clear from in-memory state so UI reflects removal soon
+                    {
+                        let mut w = state.ryzenadj.write().await;
+                        *w = None;
+                    }
+                    Ok(Json(Empty {}))
                 }
-                Ok(Json(Empty {}))
+                Err(e) => {
+                    error!("uninstall ryzenadj failed: {}", e);
+                    Err(bad_gateway("uninstall_failed", e))
+                }
             }
-            Err(e) => {
-                error!("uninstall ryzenadj failed: {}", e);
-                Err(bad_gateway("uninstall_failed", e))
-            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Err(bad_gateway("unsupported_platform", "RyzenAdj is only available on Windows. Linux uses native kernel interfaces.".to_string()))
         }
     }
 
@@ -148,15 +179,6 @@ impl Api {
         let cli = require_framework_tool_async(&state).await?;
         let p = cli.power().await.map_err(map_cli_err)?;
 
-        // Populate RyzenAdj info if available; do not fail the call if missing
-        let mut ryzenadj_installed = false;
-        let mut ryzenadj: Option<crate::cli::ryzen_adj_parser::RyzenAdjInfo> = None;
-        if let Ok(ryz) = require_ryzenadj_async(&state).await {
-            if let Ok(parsed) = ryz.info().await {
-                ryzenadj_installed = true;
-                ryzenadj = Some(parsed);
-            }
-        }
         // Also include charge limit min/max when available; do not fail if missing
         let limits = match cli.charge_limit_get().await {
             Ok(info) => info,
@@ -167,10 +189,61 @@ impl Api {
             power_info: p.clone(),
             limits,
         });
+
+        // Get power control info based on platform
+        let power_control = {
+            #[cfg(target_os = "windows")]
+            {
+                if let Ok(ryz) = require_ryzenadj_async(&state).await {
+                    let capabilities = ryz.get_capabilities();
+                    let current_state = ryz.get_state().await.unwrap_or_default();
+                    crate::types::PowerControlInfo {
+                        method: "ryzenadj".to_string(),
+                        capabilities,
+                        current_state,
+                    }
+                } else {
+                    crate::types::PowerControlInfo {
+                        method: "none".to_string(),
+                        capabilities: Default::default(),
+                        current_state: Default::default(),
+                    }
+                }
+            }
+
+            #[cfg(target_os = "linux")]
+            {
+                if let Ok(lp) = require_linux_power_async(&state).await {
+                    let method = lp.method_name();
+                    let capabilities = lp.get_capabilities().await;
+                    let current_state = lp.get_state().await.unwrap_or_default();
+                    crate::types::PowerControlInfo {
+                        method,
+                        capabilities,
+                        current_state,
+                    }
+                } else {
+                    crate::types::PowerControlInfo {
+                        method: "none".to_string(),
+                        capabilities: Default::default(),
+                        current_state: Default::default(),
+                    }
+                }
+            }
+
+            #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+            {
+                crate::types::PowerControlInfo {
+                    method: "none".to_string(),
+                    capabilities: Default::default(),
+                    current_state: Default::default(),
+                }
+            }
+        };
+
         Ok(Json(crate::types::PowerResponse {
             battery: battery_api,
-            ryzenadj_installed,
-            ryzenadj,
+            power_control,
         }))
     }
 
@@ -291,6 +364,18 @@ impl Api {
                 if let Some(s) = ac_in.thermal_limit_c {
                     ac.thermal_limit_c = Some(s);
                 }
+                if let Some(s) = ac_in.epp_preference {
+                    ac.epp_preference = Some(s);
+                }
+                if let Some(s) = ac_in.governor {
+                    ac.governor = Some(s);
+                }
+                if let Some(s) = ac_in.min_freq_mhz {
+                    ac.min_freq_mhz = Some(s);
+                }
+                if let Some(s) = ac_in.max_freq_mhz {
+                    ac.max_freq_mhz = Some(s);
+                }
                 new_pow.ac = Some(ac);
             }
             if let Some(bat_in) = pow.battery {
@@ -300,6 +385,18 @@ impl Api {
                 }
                 if let Some(s) = bat_in.thermal_limit_c {
                     bat.thermal_limit_c = Some(s);
+                }
+                if let Some(s) = bat_in.epp_preference {
+                    bat.epp_preference = Some(s);
+                }
+                if let Some(s) = bat_in.governor {
+                    bat.governor = Some(s);
+                }
+                if let Some(s) = bat_in.min_freq_mhz {
+                    bat.min_freq_mhz = Some(s);
+                }
+                if let Some(s) = bat_in.max_freq_mhz {
+                    bat.max_freq_mhz = Some(s);
                 }
                 new_pow.battery = Some(bat);
             }
