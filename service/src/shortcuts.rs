@@ -47,6 +47,7 @@ pub fn shortcuts_exist() -> bool {
             #[cfg(target_os = "linux")]
             {
                 // Linux: only check applications entry (second is same path)
+                let _ = second; // Suppress unused warning
                 first.exists()
             }
         }
@@ -144,7 +145,8 @@ pub async fn create_shortcuts(port: u16) -> Result<(), String> {
 pub async fn create_shortcuts(port: u16) -> Result<(), String> {
     let user_home = crate::utils::fs::detect_user_home()
         .ok_or_else(|| "Could not determine user home directory".to_string())?;
-    let icon_path = extract_icon()?;
+    // Ensure the icon file exists on disk before the desktop-entry script runs.
+    let _icon_path = extract_icon()?;
 
     info!("shortcuts: creating desktop entry via script");
 
