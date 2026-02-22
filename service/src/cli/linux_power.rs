@@ -146,6 +146,16 @@ impl AmdPStateBackend {
     }
 
     async fn set_epp_preference(&self, preference: &str) -> Result<(), String> {
+        if let Some(available) = self.get_available_preferences().await {
+            if !available.iter().any(|p| p == preference) {
+                warn!(
+                    "Requested EPP preference '{}' not in available list {:?}; skipping",
+                    preference, available
+                );
+                return Ok(());
+            }
+        }
+
         for (idx, cpu_path) in self.cpu_paths.iter().enumerate() {
             let epp_path = cpu_path.join("cpufreq/energy_performance_preference");
             write_sysfs_string(&epp_path, preference).await.map_err(|e| {
