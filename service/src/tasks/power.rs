@@ -160,25 +160,28 @@ impl SettingIo<String> for LinuxEppIo {
 #[cfg(target_os = "linux")]
 struct LinuxFreqLimitsIo {
     lp: LinuxPower,
+    target: (Option<u32>, Option<u32>),
 }
 
 #[cfg(target_os = "linux")]
-impl SettingIo<(u32, u32)> for LinuxFreqLimitsIo {
+impl SettingIo<(Option<u32>, Option<u32>)> for LinuxFreqLimitsIo {
     fn read_current<'a>(
         &'a self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<(u32, u32)>, String>> + Send + 'a>>
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<(Option<u32>, Option<u32>)>, String>> + Send + 'a>>
     {
+        let mask = (self.target.0.is_some(), self.target.1.is_some());
         Box::pin(async move {
-            self.lp
-                .get_configured_frequency_limits()
-                .await
-                .map(Some)
+            let (cur_min, cur_max) = self.lp.get_configured_frequency_limits().await?;
+            Ok(Some((
+                if mask.0 { Some(cur_min) } else { None },
+                if mask.1 { Some(cur_max) } else { None },
+            )))
         })
     }
 
     fn apply_target<'a>(
         &'a self,
-        target: &'a (u32, u32),
+        target: &'a (Option<u32>, Option<u32>),
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>> {
         Box::pin(async move {
             self.lp.set_freq_limits(target.0, target.1).await
@@ -276,18 +279,17 @@ pub async fn run(
             log_outcome("epp", &format!("'{}'", setting.value), &outcome);
         }
 
-        if let (Some(min_s), Some(max_s)) = (profile.min_freq_mhz.as_ref(), profile.max_freq_mhz.as_ref()) {
-            let min_en = min_s.enabled && min_s.value > 0;
-            let max_en = max_s.enabled && max_s.value > 0;
-            let (hw_min, hw_max) = lp.hardware_frequency_range().unwrap_or((0, u32::MAX));
-            let min_val = if min_en { min_s.value } else { hw_min };
-            let max_val = if max_en { max_s.value } else { hw_max };
-            let target = (min_val.min(max_val), max_val);
-            let io = LinuxFreqLimitsIo { lp: lp.clone() };
-            let outcome = freq_limits
-                .reconcile(min_en || max_en, Some(target), &io)
-                .await;
-            log_outcome("freq limits", &format!("{}-{} MHz", target.0, target.1), &outcome);
+        let min_setting = profile.min_freq_mhz.as_ref();
+        let max_setting = profile.max_freq_mhz.as_ref();
+        if min_setting.is_some() || max_setting.is_some() {
+            let target = (
+                min_setting.filter(|s| s.enabled && s.value > 0).map(|s| s.value),
+                max_setting.filter(|s| s.enabled && s.value > 0).map(|s| s.value),
+            );
+            let enabled = target.0.is_some() || target.1.is_some();
+            let io = LinuxFreqLimitsIo { lp: lp.clone(), target };
+            let outcome = freq_limits.reconcile(enabled, Some(target), &io).await;
+            log_outcome("freq limits", &format!("{:?}-{:?} MHz", target.0, target.1), &outcome);
         }
 
         sleep(Duration::from_secs(LOOP_INTERVAL_SECS)).await;

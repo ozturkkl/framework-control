@@ -321,8 +321,6 @@ pub struct PowerState {
     // Universal (if readable)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_watts: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frequency_mhz: Option<u32>,
 
     // Method-specific (platform populates what it can)
     #[serde(skip_serializing_if = "Option::is_none")]

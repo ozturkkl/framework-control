@@ -87,7 +87,6 @@ impl RyzenAdj {
             current_watts: None,
             tdp_limit_watts: info.tdp_watts,
             thermal_limit_c: info.thermal_limit_c,
-            frequency_mhz: None,
             epp_preference: None,
             governor: None,
             min_freq_mhz: None,
