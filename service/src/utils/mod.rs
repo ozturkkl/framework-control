@@ -4,3 +4,4 @@ pub mod download;
 pub mod extract;
 pub mod fs;
 pub mod global_cache;
+pub mod reconciler;
