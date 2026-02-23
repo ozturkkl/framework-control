@@ -318,10 +318,6 @@ pub struct PowerCapabilities {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct PowerState {
-    // Universal (if readable)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub current_watts: Option<f64>,
-
     // Method-specific (platform populates what it can)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tdp_limit_watts: Option<u32>,

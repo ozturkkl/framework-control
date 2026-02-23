@@ -84,7 +84,6 @@ impl RyzenAdj {
     pub async fn get_state(&self) -> Result<PowerState, String> {
         let info = self.info().await?;
         Ok(PowerState {
-            current_watts: None,
             tdp_limit_watts: info.tdp_watts,
             thermal_limit_c: info.thermal_limit_c,
             epp_preference: None,
