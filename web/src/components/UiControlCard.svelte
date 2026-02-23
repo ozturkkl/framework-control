@@ -153,6 +153,11 @@
                     on:change={handleSelectChange}
                     disabled={hasEnabled && !enabled}
                 >
+                    {#if value != null && value !== "" && !options.includes(String(value))}
+                        <option value={String(value)}>
+                            {String(value)} (unavailable)
+                        </option>
+                    {/if}
                     {#each options as opt}
                         <option value={opt}>{opt}</option>
                     {/each}

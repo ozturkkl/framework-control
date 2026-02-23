@@ -143,8 +143,6 @@
             batteryPct = bat?.percentage;
             updateChargerWattage(bat);
 
-            // Validate EPP and governor against available options
-            validatePowerOptions();
         } catch (_) {
             capabilities = null;
             currentState = null;
@@ -153,61 +151,7 @@
         }
     }
 
-    function validatePowerOptions() {
-        if (!capabilities) return;
 
-        // Validate EPP preferences for both profiles
-        if (capabilities.available_epp_preferences) {
-            for (const profile of ["ac", "battery"] as const) {
-                const eppSetting = powerConfig[profile]?.epp_preference;
-                if (eppSetting && eppSetting.enabled) {
-                    const isValid =
-                        capabilities.available_epp_preferences.includes(
-                            eppSetting.value,
-                        );
-                    if (
-                        !isValid &&
-                        capabilities.available_epp_preferences.length > 0
-                    ) {
-                        // Reset to first available option
-                        eppSetting.value =
-                            capabilities.available_epp_preferences[0];
-                        setPower(
-                            profile,
-                            "epp_preference",
-                            eppSetting.enabled,
-                            eppSetting.value,
-                        );
-                    }
-                }
-            }
-        }
-
-        // Validate governors for both profiles
-        if (capabilities.available_governors) {
-            for (const profile of ["ac", "battery"] as const) {
-                const govSetting = powerConfig[profile]?.governor;
-                if (govSetting && govSetting.enabled) {
-                    const isValid = capabilities.available_governors.includes(
-                        govSetting.value,
-                    );
-                    if (
-                        !isValid &&
-                        capabilities.available_governors.length > 0
-                    ) {
-                        // Reset to first available option
-                        govSetting.value = capabilities.available_governors[0];
-                        setPower(
-                            profile,
-                            "governor",
-                            govSetting.enabled,
-                            govSetting.value,
-                        );
-                    }
-                }
-            }
-        }
-    }
 
     onMount(async () => {
         hasCheckedStatus = false;
