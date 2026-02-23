@@ -46,10 +46,6 @@ impl<T> ReconcilerState<T> {
             warmed_up: false,
         }
     }
-
-    pub fn last_target(&self) -> Option<&T> {
-        self.last_target.as_ref()
-    }
 }
 
 /// Setting IO primitive: how to read the current value and how to apply a target value.
@@ -98,16 +94,7 @@ where
         }
     }
 
-    pub fn state(&self) -> &ReconcilerState<T> {
-        &self.state
-    }
-
-    pub async fn reconcile(
-        &mut self,
-        enabled: bool,
-        target: Option<T>,
-        io: &dyn SettingIo<T>,
-    ) -> ReconcileOutcome {
+    pub async fn reconcile(&mut self, enabled: bool, target: Option<T>, io: &dyn SettingIo<T>) -> ReconcileOutcome {
         let now = Instant::now();
 
         // Warmup: mark as warmed up on first call regardless of enabled state
@@ -146,8 +133,6 @@ where
                 Err(e) => return ReconcileOutcome::ApplyFailed(e),
             }
         }
-
-
 
         let current = match io.read_current().await {
             Ok(v) => v,

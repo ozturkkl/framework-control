@@ -21,21 +21,13 @@ async fn download_raw_to_file(url: &str, dest_file_path: &str) -> Result<(), Str
     let mut file = tokio::fs::File::create(&dest_file_path)
         .await
         .map_err(|e| format!("failed to create dest file: {e}"))?;
-    while let Some(chunk) = resp
-        .chunk()
-        .await
-        .map_err(|e| format!("download read failed: {e}"))?
-    {
+    while let Some(chunk) = resp.chunk().await.map_err(|e| format!("download read failed: {e}"))? {
         use tokio::io::AsyncWriteExt;
-        file.write_all(&chunk)
-            .await
-            .map_err(|e| format!("write failed: {e}"))?;
+        file.write_all(&chunk).await.map_err(|e| format!("write failed: {e}"))?;
     }
     {
         use tokio::io::AsyncWriteExt;
-        file.flush()
-            .await
-            .map_err(|e| format!("flush failed: {e}"))?;
+        file.flush().await.map_err(|e| format!("flush failed: {e}"))?;
     }
     if let Ok(meta) = std::fs::metadata(&dest_file_path) {
         info!("downloaded size: {} bytes", meta.len());
@@ -76,11 +68,8 @@ pub async fn download_to_path(url: &str, root_dir: &str) -> Result<String, Strin
         let tmp_zip_s = tmp_zip_path.to_string_lossy().to_string();
         download_raw_to_file(url, &tmp_zip_s).await?;
 
-        crate::utils::extract::extract_zip_to(
-            &tmp_zip_s,
-            &final_dir.to_string_lossy().to_string(),
-        )
-        .map_err(|e| format!("zip extract failed: {e}"))?;
+        crate::utils::extract::extract_zip_to(&tmp_zip_s, &final_dir.to_string_lossy().to_string())
+            .map_err(|e| format!("zip extract failed: {e}"))?;
         if let Ok(meta) = std::fs::metadata(&tmp_zip_s) {
             info!("zip downloaded size: {} bytes", meta.len());
         }
@@ -106,12 +95,9 @@ pub async fn download_to_path(url: &str, root_dir: &str) -> Result<String, Strin
         let tmp_tar_s = tmp_tar_path.to_string_lossy().to_string();
         download_raw_to_file(url, &tmp_tar_s).await?;
 
-        crate::utils::extract::extract_tar_gz_to(
-            &tmp_tar_s,
-            &final_dir.to_string_lossy().to_string(),
-        )
-        .await
-        .map_err(|e| format!("tar.gz extract failed: {e}"))?;
+        crate::utils::extract::extract_tar_gz_to(&tmp_tar_s, &final_dir.to_string_lossy().to_string())
+            .await
+            .map_err(|e| format!("tar.gz extract failed: {e}"))?;
         if let Ok(meta) = std::fs::metadata(&tmp_tar_s) {
             info!("tar.gz downloaded size: {} bytes", meta.len());
         }

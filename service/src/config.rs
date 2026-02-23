@@ -2,8 +2,8 @@ use std::fs::{create_dir_all, File};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
-use tracing::info;
 use crate::types::Config;
+use tracing::info;
 
 pub fn config_path() -> PathBuf {
     // Explicit override always wins (all platforms)
@@ -15,17 +15,13 @@ pub fn config_path() -> PathBuf {
     #[cfg(windows)]
     {
         let base = std::env::var("PROGRAMDATA").unwrap_or_else(|_| r"C:\ProgramData".into());
-        return PathBuf::from(base)
-            .join("FrameworkControl")
-            .join("config.json");
+        return PathBuf::from(base).join("FrameworkControl").join("config.json");
     }
 
     // Linux: system-wide config
     #[cfg(target_os = "linux")]
     {
-        return PathBuf::from("/etc")
-            .join("framework-control")
-            .join("config.json");
+        return PathBuf::from("/etc").join("framework-control").join("config.json");
     }
 
     // Unsupported platforms: make this explicit instead of silently picking a path.
@@ -51,7 +47,9 @@ pub fn load() -> Config {
 
 pub fn save(cfg: &Config) -> Result<(), String> {
     let path = config_path();
-    if let Some(dir) = path.parent() { create_dir_all(dir).map_err(|e| e.to_string())?; }
+    if let Some(dir) = path.parent() {
+        create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
     let mut f = File::create(&path).map_err(|e| e.to_string())?;
     let s = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
     f.write_all(s.as_bytes()).map_err(|e| e.to_string())

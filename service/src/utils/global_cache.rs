@@ -35,12 +35,7 @@ async fn get_lock_for_key(key: &str) -> Arc<Mutex<()>> {
 /// Global, key-based TTL cache with single-flight refresh per key.
 /// - Returns cached value only within TTL.
 /// - Optionally caches error results within TTL to throttle call pressure when upstream is failing.
-pub async fn cache_get_or_update<T, F, Fut, E>(
-    key: &str,
-    ttl: Duration,
-    cache_errors: bool,
-    factory: F,
-) -> Result<T, E>
+pub async fn cache_get_or_update<T, F, Fut, E>(key: &str, ttl: Duration, cache_errors: bool, factory: F) -> Result<T, E>
 where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,

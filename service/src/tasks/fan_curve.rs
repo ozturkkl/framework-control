@@ -192,12 +192,18 @@ async fn get_max_sensor_temperature(cli: &FrameworkTool, sensors: &[String]) -> 
     let mut best: Option<i32> = None;
     for name in sensors {
         if let Some(&v) = temps.get(name) {
-            best = Some(match best { Some(b) => b.max(v), None => v });
+            best = Some(match best {
+                Some(b) => b.max(v),
+                None => v,
+            });
             continue;
         }
         if let Some((_, v)) = temps.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) {
             let v = *v;
-            best = Some(match best { Some(b) => b.max(v), None => v });
+            best = Some(match best {
+                Some(b) => b.max(v),
+                None => v,
+            });
         }
     }
     best

@@ -59,8 +59,8 @@ pub async fn boot(state: &AppState) {
     }
 }
 
+pub mod auto_update;
+pub mod battery;
 pub mod fan_curve;
 pub mod power;
-pub mod battery;
-pub mod auto_update;
 pub mod telemetry;

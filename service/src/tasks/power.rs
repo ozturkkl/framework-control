@@ -32,11 +32,7 @@ async fn get_profile(
         return None;
     };
 
-    let maybe_profile = if ac_present {
-        cfg_power.ac
-    } else {
-        cfg_power.battery
-    };
+    let maybe_profile = if ac_present { cfg_power.ac } else { cfg_power.battery };
 
     maybe_profile
 }
@@ -78,8 +74,7 @@ struct WindowsTdpIo {
 impl SettingIo<u32> for WindowsTdpIo {
     fn read_current<'a>(
         &'a self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<u32>, String>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<u32>, String>> + Send + 'a>> {
         Box::pin(async move { Ok(self.ryz.info().await.ok().and_then(|i| i.tdp_watts)) })
     }
 
@@ -100,8 +95,7 @@ struct WindowsThermalIo {
 impl SettingIo<u32> for WindowsThermalIo {
     fn read_current<'a>(
         &'a self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<u32>, String>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<u32>, String>> + Send + 'a>> {
         Box::pin(async move { Ok(self.ryz.info().await.ok().and_then(|i| i.thermal_limit_c)) })
     }
 
@@ -122,8 +116,7 @@ struct LinuxGovernorIo {
 impl SettingIo<String> for LinuxGovernorIo {
     fn read_current<'a>(
         &'a self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<String>, String>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<String>, String>> + Send + 'a>> {
         Box::pin(async move { self.lp.get_state().await.map(|s| s.governor).map_err(|e| e) })
     }
 
@@ -144,8 +137,7 @@ struct LinuxEppIo {
 impl SettingIo<String> for LinuxEppIo {
     fn read_current<'a>(
         &'a self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<String>, String>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<String>, String>> + Send + 'a>> {
         Box::pin(async move { self.lp.get_state().await.map(|s| s.epp_preference).map_err(|e| e) })
     }
 
@@ -167,8 +159,9 @@ struct LinuxFreqLimitsIo {
 impl SettingIo<(Option<u32>, Option<u32>)> for LinuxFreqLimitsIo {
     fn read_current<'a>(
         &'a self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<(Option<u32>, Option<u32>)>, String>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Option<(Option<u32>, Option<u32>)>, String>> + Send + 'a>,
+    > {
         let mask = (self.target.0.is_some(), self.target.1.is_some());
         Box::pin(async move {
             let (cur_min, cur_max) = self.lp.get_configured_frequency_limits().await?;
@@ -183,9 +176,7 @@ impl SettingIo<(Option<u32>, Option<u32>)> for LinuxFreqLimitsIo {
         &'a self,
         target: &'a (Option<u32>, Option<u32>),
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>> {
-        Box::pin(async move {
-            self.lp.set_freq_limits(target.0, target.1).await
-        })
+        Box::pin(async move { self.lp.set_freq_limits(target.0, target.1).await })
     }
 }
 
@@ -264,18 +255,14 @@ pub async fn run(
         if let Some(setting) = profile.governor.as_ref() {
             let enabled = setting.enabled && !setting.value.trim().is_empty();
             let io = LinuxGovernorIo { lp: lp.clone() };
-            let outcome = governor
-                .reconcile(enabled, Some(setting.value.clone()), &io)
-                .await;
+            let outcome = governor.reconcile(enabled, Some(setting.value.clone()), &io).await;
             log_outcome("governor", &format!("'{}'", setting.value), &outcome);
         }
 
         if let Some(setting) = profile.epp_preference.as_ref() {
             let enabled = setting.enabled && !setting.value.trim().is_empty();
             let io = LinuxEppIo { lp: lp.clone() };
-            let outcome = epp
-                .reconcile(enabled, Some(setting.value.clone()), &io)
-                .await;
+            let outcome = epp.reconcile(enabled, Some(setting.value.clone()), &io).await;
             log_outcome("epp", &format!("'{}'", setting.value), &outcome);
         }
 

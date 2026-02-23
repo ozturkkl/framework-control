@@ -15,38 +15,36 @@ console.log(`[gen-api] clientOutDir=${clientOutDir}`);
 const isolatedTargetDir = path.resolve(serviceDir, 'target', 'openapi');
 
 function run(cmd, args, opts = {}) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: 'inherit', ...opts });
-    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')} -> ${code}`))));
-    p.on('error', reject);
-  });
+	return new Promise((resolve, reject) => {
+		const p = spawn(cmd, args, { stdio: 'inherit', ...opts });
+		p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')} -> ${code}`))));
+		p.on('error', reject);
+	});
 }
 
 // 1) Generate OpenAPI by running service with flag with no default features to avoid UI embedding in CI
 await run('cargo', ['run', '--no-default-features', '--', '--generate-openapi'], {
-  cwd: serviceDir,
-  env: { ...process.env, CARGO_TARGET_DIR: isolatedTargetDir },
+	cwd: serviceDir,
+	env: { ...process.env, CARGO_TARGET_DIR: isolatedTargetDir },
 });
 if (!fs.existsSync(openapiPath)) {
-  console.warn(`[gen-api] openapi.json not found at ${openapiPath}`);
-  process.exit(0);
+	console.warn(`[gen-api] openapi.json not found at ${openapiPath}`);
+	process.exit(0);
 }
 
 // 2) Generate TS API client from OpenAPI
 console.log(`[gen-api] found openapi spec at ${openapiPath}`);
 try {
-  fs.mkdirSync(clientOutDir, { recursive: true });
-  const { generate } = await import('openapi-typescript-codegen');
-  await generate({
-    input: openapiPath,
-    output: clientOutDir,
-    httpClient: 'fetch',
-    skipValidateSpec: true,
-    useUnionTypes: true,
-  });
-  console.log(`[gen-api] wrote client to ${clientOutDir}`);
+	fs.mkdirSync(clientOutDir, { recursive: true });
+	const { generate } = await import('openapi-typescript-codegen');
+	await generate({
+		input: openapiPath,
+		output: clientOutDir,
+		httpClient: 'fetch',
+		skipValidateSpec: true,
+		useUnionTypes: true,
+	});
+	console.log(`[gen-api] wrote client to ${clientOutDir}`);
 } catch (e) {
-  console.warn('[gen-api] openapi client generation skipped:', e?.message || e);
+	console.warn('[gen-api] openapi client generation skipped:', e?.message || e);
 }
-
-

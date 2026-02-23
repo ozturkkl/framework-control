@@ -27,281 +27,278 @@
 // - Everything else (layout/colors/pointer-events) is up to your CSS.
 
 export type TooltipParams = {
-  // Anchor element or a function returning an Element
-  anchor?: Element | (() => Element | null);
-  visible?: boolean; // initial visibility
-  // When false, do not attach global dismiss (outside click or Escape)
-  attachGlobalDismiss?: boolean;
-  // Optional callback invoked when the tooltip hides (outside click, Escape, or programmatic)
-  onDismiss?: () => void;
+	// Anchor element or a function returning an Element
+	anchor?: Element | (() => Element | null);
+	visible?: boolean; // initial visibility
+	// When false, do not attach global dismiss (outside click or Escape)
+	attachGlobalDismiss?: boolean;
+	// Optional callback invoked when the tooltip hides (outside click, Escape, or programmatic)
+	onDismiss?: () => void;
 };
 
 export function tooltip(node: HTMLElement, initial?: TooltipParams) {
-  let params: TooltipParams = { ...initial };
-  // Tunables (internal constants to keep API minimal)
-  const OFFSET = 8;
-  const PADDING = 8;
-  const Z_INDEX = 10000;
+	let params: TooltipParams = { ...initial };
+	// Tunables (internal constants to keep API minimal)
+	const OFFSET = 8;
+	const PADDING = 8;
+	const Z_INDEX = 10000;
 
-  // Remember original DOM position to restore on destroy
-  const originalParent = node.parentElement;
-  const originalNextSibling = node.nextSibling;
+	// Remember original DOM position to restore on destroy
+	const originalParent = node.parentElement;
+	const originalNextSibling = node.nextSibling;
 
-  // Internal state
-  let isShown = false;
-  let attached = false;
-  let observedAnchor: Element | null = null;
-  let mutationObserver: MutationObserver | null = null;
-  let onDocPointerDown: ((ev: PointerEvent) => void) | null = null;
-  let onDocKeydown: ((ev: KeyboardEvent) => void) | null = null;
+	// Internal state
+	let isShown = false;
+	let attached = false;
+	let observedAnchor: Element | null = null;
+	let mutationObserver: MutationObserver | null = null;
+	let onDocPointerDown: ((ev: PointerEvent) => void) | null = null;
+	let onDocKeydown: ((ev: KeyboardEvent) => void) | null = null;
 
-  // Ensure node is under body for clipping-free rendering
-  function ensureAttached() {
-    if (attached) return;
-    try {
-      document.body.appendChild(node);
-      attached = true;
-    } catch {
-      // ignore
-    }
-  }
+	// Ensure node is under body for clipping-free rendering
+	function ensureAttached() {
+		if (attached) return;
+		try {
+			document.body.appendChild(node);
+			attached = true;
+		} catch {
+			// ignore
+		}
+	}
 
-  function getAnchorRect(): DOMRect {
-    const el = resolveAnchorElement();
-    if (el) return el.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const w = 1;
-    const h = 1;
-    const x = Math.max(PADDING, Math.min(vw - PADDING - w, vw / 2 - w / 2));
-    const y = Math.max(PADDING, Math.min(vh - PADDING - h, vh / 2 - h / 2));
-    // Synthetic rect
-    return {
-      x,
-      y,
-      width: w,
-      height: h,
-      left: x,
-      top: y,
-      right: x + w,
-      bottom: y + h,
-      toJSON: () => ({}),
-    } as DOMRect;
-  }
+	function getAnchorRect(): DOMRect {
+		const el = resolveAnchorElement();
+		if (el) return el.getBoundingClientRect();
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const w = 1;
+		const h = 1;
+		const x = Math.max(PADDING, Math.min(vw - PADDING - w, vw / 2 - w / 2));
+		const y = Math.max(PADDING, Math.min(vh - PADDING - h, vh / 2 - h / 2));
+		// Synthetic rect
+		return {
+			x,
+			y,
+			width: w,
+			height: h,
+			left: x,
+			top: y,
+			right: x + w,
+			bottom: y + h,
+			toJSON: () => ({}),
+		} as DOMRect;
+	}
 
-  // Temporarily reveal for measurement
-  function withMeasured<T>(fn: () => T): T {
-    const prevDisplay = node.style.display;
-    const prevVisibility = node.style.visibility;
-    const prevOpacity = node.style.opacity;
-    node.style.visibility = "hidden";
-    node.style.display = "block";
-    node.style.opacity = "0";
-    const result = fn();
-    // Always restore prior styles so visible tooltips remain visible
-    node.style.display = prevDisplay;
-    node.style.visibility = prevVisibility;
-    node.style.opacity = prevOpacity;
-    return result;
-  }
+	// Temporarily reveal for measurement
+	function withMeasured<T>(fn: () => T): T {
+		const prevDisplay = node.style.display;
+		const prevVisibility = node.style.visibility;
+		const prevOpacity = node.style.opacity;
+		node.style.visibility = 'hidden';
+		node.style.display = 'block';
+		node.style.opacity = '0';
+		const result = fn();
+		// Always restore prior styles so visible tooltips remain visible
+		node.style.display = prevDisplay;
+		node.style.visibility = prevVisibility;
+		node.style.opacity = prevOpacity;
+		return result;
+	}
 
-  function clamp(val: number, min: number, max: number) {
-    return Math.max(min, Math.min(val, max));
-  }
+	function clamp(val: number, min: number, max: number) {
+		return Math.max(min, Math.min(val, max));
+	}
 
-  function resolveAnchorElement(): Element | null {
-    const a = params.anchor;
-    if (typeof a === "function") {
-      try {
-        const res = a();
-        if (res instanceof Element) return res;
-        return null;
-      } catch {
-        return null;
-      }
-    }
-    return a instanceof Element ? a : null;
-  }
+	function resolveAnchorElement(): Element | null {
+		const a = params.anchor;
+		if (typeof a === 'function') {
+			try {
+				const res = a();
+				if (res instanceof Element) return res;
+				return null;
+			} catch {
+				return null;
+			}
+		}
+		return a instanceof Element ? a : null;
+	}
 
-  function detachAnchorObserver() {
-    if (mutationObserver) {
-      try {
-        mutationObserver.disconnect();
-      } catch {}
-    }
-    mutationObserver = null;
-    observedAnchor = null;
-  }
+	function detachAnchorObserver() {
+		if (mutationObserver) {
+			try {
+				mutationObserver.disconnect();
+			} catch {}
+		}
+		mutationObserver = null;
+		observedAnchor = null;
+	}
 
-  function attachAnchorObserver() {
-    const el = resolveAnchorElement();
-    if (el === observedAnchor) return;
-    detachAnchorObserver();
-    if (!el) return;
-    observedAnchor = el;
-    try {
-      mutationObserver = new MutationObserver(() => {
-        if (!isShown) return;
-        positionNow();
-      });
-      mutationObserver.observe(el, {
-        attributes: true,
-        attributeFilter: undefined, // any attribute change (cx, cy, transform, style, etc.)
-        subtree: false,
-      });
-    } catch {
-      // ignore observer failures
-    }
-  }
+	function attachAnchorObserver() {
+		const el = resolveAnchorElement();
+		if (el === observedAnchor) return;
+		detachAnchorObserver();
+		if (!el) return;
+		observedAnchor = el;
+		try {
+			mutationObserver = new MutationObserver(() => {
+				if (!isShown) return;
+				positionNow();
+			});
+			mutationObserver.observe(el, {
+				attributes: true,
+				attributeFilter: undefined, // any attribute change (cx, cy, transform, style, etc.)
+				subtree: false,
+			});
+		} catch {
+			// ignore observer failures
+		}
+	}
 
-  function attachGlobalDismiss() {
-    // Respect flag: when explicitly false, attach neither
-    if (params.attachGlobalDismiss === false) return;
-    // Outside click dismiss
-    if (!onDocPointerDown) {
-      onDocPointerDown = (ev: PointerEvent) => {
-        if (!isShown) return;
-        const target = ev.target as Node | null;
-        if (!target) return;
-        const anchorEl = resolveAnchorElement();
-        if (node.contains(target)) return;
-        if (anchorEl && anchorEl.contains(target)) return;
-        hide();
-      };
-      document.addEventListener("pointerdown", onDocPointerDown, true);
-    }
-    // Escape dismiss (always enabled)
-    if (!onDocKeydown) {
-      onDocKeydown = (ev: KeyboardEvent) => {
-        if (!isShown) return;
-        if (ev.key === "Escape") hide();
-      };
-      document.addEventListener("keydown", onDocKeydown, true);
-    }
-  }
+	function attachGlobalDismiss() {
+		// Respect flag: when explicitly false, attach neither
+		if (params.attachGlobalDismiss === false) return;
+		// Outside click dismiss
+		if (!onDocPointerDown) {
+			onDocPointerDown = (ev: PointerEvent) => {
+				if (!isShown) return;
+				const target = ev.target as Node | null;
+				if (!target) return;
+				const anchorEl = resolveAnchorElement();
+				if (node.contains(target)) return;
+				if (anchorEl && anchorEl.contains(target)) return;
+				hide();
+			};
+			document.addEventListener('pointerdown', onDocPointerDown, true);
+		}
+		// Escape dismiss (always enabled)
+		if (!onDocKeydown) {
+			onDocKeydown = (ev: KeyboardEvent) => {
+				if (!isShown) return;
+				if (ev.key === 'Escape') hide();
+			};
+			document.addEventListener('keydown', onDocKeydown, true);
+		}
+	}
 
-  function detachGlobalDismiss() {
-    if (onDocPointerDown) {
-      document.removeEventListener("pointerdown", onDocPointerDown, true);
-      onDocPointerDown = null;
-    }
-    if (onDocKeydown) {
-      document.removeEventListener("keydown", onDocKeydown, true);
-      onDocKeydown = null;
-    }
-  }
+	function detachGlobalDismiss() {
+		if (onDocPointerDown) {
+			document.removeEventListener('pointerdown', onDocPointerDown, true);
+			onDocPointerDown = null;
+		}
+		if (onDocKeydown) {
+			document.removeEventListener('keydown', onDocKeydown, true);
+			onDocKeydown = null;
+		}
+	}
 
-  function positionNow() {
-    if (!attached) return;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const pad = PADDING;
+	function positionNow() {
+		if (!attached) return;
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const pad = PADDING;
 
-    // Prepare base styles
-    node.style.position = "fixed";
-    node.style.zIndex = String(Z_INDEX);
-    node.style.maxWidth = `${vw - pad * 2}px`;
+		// Prepare base styles
+		node.style.position = 'fixed';
+		node.style.zIndex = String(Z_INDEX);
+		node.style.maxWidth = `${vw - pad * 2}px`;
 
-    // Measure tooltip size
-    const size = withMeasured(() => node.getBoundingClientRect());
-    const anchor = getAnchorRect();
-    let left = 0;
-    let top = 0;
-    const gap = OFFSET;
+		// Measure tooltip size
+		const size = withMeasured(() => node.getBoundingClientRect());
+		const anchor = getAnchorRect();
+		let left = 0;
+		let top = 0;
+		const gap = OFFSET;
 
-    // Simple vertical placement: prefer above, otherwise below; clamp to viewport
-    const centerX = anchor.left + anchor.width / 2;
-    left = Math.round(centerX - size.width / 2);
-    left = clamp(left, pad, vw - pad - size.width);
-    top = Math.round(anchor.top - size.height - gap);
-    if (top < pad) {
-      top = Math.min(vh - pad - size.height, anchor.bottom + gap);
-    }
+		// Simple vertical placement: prefer above, otherwise below; clamp to viewport
+		const centerX = anchor.left + anchor.width / 2;
+		left = Math.round(centerX - size.width / 2);
+		left = clamp(left, pad, vw - pad - size.width);
+		top = Math.round(anchor.top - size.height - gap);
+		if (top < pad) {
+			top = Math.min(vh - pad - size.height, anchor.bottom + gap);
+		}
 
-    node.style.left = `${left}px`;
-    node.style.top = `${top}px`;
-  }
+		node.style.left = `${left}px`;
+		node.style.top = `${top}px`;
+	}
 
-  function show() {
-    ensureAttached();
-    isShown = true;
-    node.style.display = "block";
-    node.style.opacity = "1";
-    attachAnchorObserver();
-    positionNow();
-    if (params.attachGlobalDismiss !== false) attachGlobalDismiss();
-  }
-  function hide() {
-    isShown = false;
-    node.style.display = "none";
-    detachGlobalDismiss();
-    params.onDismiss?.();
-  }
+	function show() {
+		ensureAttached();
+		isShown = true;
+		node.style.display = 'block';
+		node.style.opacity = '1';
+		attachAnchorObserver();
+		positionNow();
+		if (params.attachGlobalDismiss !== false) attachGlobalDismiss();
+	}
+	function hide() {
+		isShown = false;
+		node.style.display = 'none';
+		detachGlobalDismiss();
+		params.onDismiss?.();
+	}
 
-  // Initial attachment and visibility
-  ensureAttached();
-  node.style.position = "fixed";
-  node.style.left = "0px";
-  node.style.top = "0px";
-  node.style.zIndex = String(Z_INDEX);
-  node.style.display = params.visible ? "block" : "none";
-  if (params.visible) {
-    // Use same path as normal show to keep behavior consistent
-    show();
-  }
+	// Initial attachment and visibility
+	ensureAttached();
+	node.style.position = 'fixed';
+	node.style.left = '0px';
+	node.style.top = '0px';
+	node.style.zIndex = String(Z_INDEX);
+	node.style.display = params.visible ? 'block' : 'none';
+	if (params.visible) {
+		// Use same path as normal show to keep behavior consistent
+		show();
+	}
 
-  // Keep in place on viewport changes
-  const onResize = () => {
-    if (isShown) positionNow();
-  };
-  const onScroll = () => {
-    if (isShown) positionNow();
-  };
-  window.addEventListener("resize", onResize);
-  window.addEventListener("scroll", onScroll, true);
+	// Keep in place on viewport changes
+	const onResize = () => {
+		if (isShown) positionNow();
+	};
+	const onScroll = () => {
+		if (isShown) positionNow();
+	};
+	window.addEventListener('resize', onResize);
+	window.addEventListener('scroll', onScroll, true);
 
-  return {
-    update(next?: TooltipParams) {
-      const wasShown = isShown;
-      const prevVisible = params.visible ?? false;
-      params = { ...params, ...next };
-      const nextVisible = params.visible ?? prevVisible;
-      if (next?.visible != null) {
-        if (nextVisible && !wasShown) {
-          show();
-        } else if (!nextVisible && wasShown) {
-          hide();
-        } else if (nextVisible && wasShown) {
-          attachAnchorObserver();
-          positionNow();
-        }
-      } else if (wasShown) {
-        attachAnchorObserver();
-        positionNow();
-      }
-    },
-    destroy() {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll, true);
-      detachAnchorObserver();
-      detachGlobalDismiss();
-      // Restore original placement if possible
-      if (originalParent) {
-        try {
-          if (
-            originalNextSibling &&
-            originalNextSibling.parentNode === originalParent
-          ) {
-            originalParent.insertBefore(node, originalNextSibling);
-          } else {
-            originalParent.appendChild(node);
-          }
-        } catch {
-          // ignore
-        }
-      }
-      // Hide on destroy so it does not linger
-      node.style.display = "none";
-    },
-  };
+	return {
+		update(next?: TooltipParams) {
+			const wasShown = isShown;
+			const prevVisible = params.visible ?? false;
+			params = { ...params, ...next };
+			const nextVisible = params.visible ?? prevVisible;
+			if (next?.visible != null) {
+				if (nextVisible && !wasShown) {
+					show();
+				} else if (!nextVisible && wasShown) {
+					hide();
+				} else if (nextVisible && wasShown) {
+					attachAnchorObserver();
+					positionNow();
+				}
+			} else if (wasShown) {
+				attachAnchorObserver();
+				positionNow();
+			}
+		},
+		destroy() {
+			window.removeEventListener('resize', onResize);
+			window.removeEventListener('scroll', onScroll, true);
+			detachAnchorObserver();
+			detachGlobalDismiss();
+			// Restore original placement if possible
+			if (originalParent) {
+				try {
+					if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+						originalParent.insertBefore(node, originalNextSibling);
+					} else {
+						originalParent.appendChild(node);
+					}
+				} catch {
+					// ignore
+				}
+			}
+			// Hide on destroy so it does not linger
+			node.style.display = 'none';
+		},
+	};
 }

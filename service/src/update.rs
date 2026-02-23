@@ -7,20 +7,11 @@ pub fn parse_github_repo_env() -> Option<(String, String)> {
         .or_else(|| option_env!("FRAMEWORK_CONTROL_UPDATE_REPO").map(String::from))?;
     if repo.contains('/') && !repo.contains("github.com") {
         let mut it = repo.splitn(2, '/');
-        Some((
-            it.next().unwrap_or("").to_string(),
-            it.next().unwrap_or("").to_string(),
-        ))
+        Some((it.next().unwrap_or("").to_string(), it.next().unwrap_or("").to_string()))
     } else {
         let parts: Vec<&str> = repo.split('/').collect();
-        let owner = parts
-            .get(parts.len().saturating_sub(2))
-            .cloned()
-            .unwrap_or("");
-        let name = parts
-            .get(parts.len().saturating_sub(1))
-            .cloned()
-            .unwrap_or("");
+        let owner = parts.get(parts.len().saturating_sub(2)).cloned().unwrap_or("");
+        let name = parts.get(parts.len().saturating_sub(1)).cloned().unwrap_or("");
         if owner.is_empty() || name.is_empty() {
             None
         } else {
@@ -49,10 +40,7 @@ async fn spawn_msiexec_install(msi_url: &str) -> Result<(), String> {
     let resp = reqwest::get(msi_url.to_string())
         .await
         .map_err(|_| "failed to download msi".to_string())?;
-    let bytes = resp
-        .bytes()
-        .await
-        .map_err(|_| "failed to read msi bytes".to_string())?;
+    let bytes = resp.bytes().await.map_err(|_| "failed to read msi bytes".to_string())?;
     std::fs::write(&tmp, &bytes).map_err(|_| "failed to write msi".to_string())?;
     tokio::process::Command::new("msiexec")
         // install
@@ -75,11 +63,8 @@ async fn extract_and_replace_binary(tarball_url: &str) -> Result<(), String> {
     std::fs::create_dir_all(&tmp_dir).map_err(|e| format!("failed to create temp dir: {}", e))?;
 
     // Download and extract tarball (download_to_path handles tar.gz extraction automatically)
-    let extracted_dir = crate::utils::download::download_to_path(
-        tarball_url,
-        &tmp_dir.to_string_lossy().to_string(),
-    )
-    .await?;
+    let extracted_dir =
+        crate::utils::download::download_to_path(tarball_url, &tmp_dir.to_string_lossy().to_string()).await?;
 
     // Find the extracted binary
     let extracted_binary = std::path::Path::new(&extracted_dir).join("framework-control");
@@ -88,11 +73,11 @@ async fn extract_and_replace_binary(tarball_url: &str) -> Result<(), String> {
     }
 
     // Get the current binary path
-    let current_exe = std::env::current_exe()
-        .map_err(|e| format!("failed to get current exe path: {}", e))?;
+    let current_exe = std::env::current_exe().map_err(|e| format!("failed to get current exe path: {}", e))?;
 
     // Create path for new binary (same directory as current)
-    let current_dir = current_exe.parent()
+    let current_dir = current_exe
+        .parent()
         .ok_or_else(|| "failed to get current binary directory".to_string())?;
     let new_binary = current_dir.join("framework-control.new");
 
@@ -100,12 +85,7 @@ async fn extract_and_replace_binary(tarball_url: &str) -> Result<(), String> {
 
     // Copy to .new file
     std::fs::copy(&extracted_binary, &new_binary)
-        .map_err(|e| {
-            format!(
-                "failed to copy new binary (may need root/sudo permissions): {}",
-                e
-            )
-        })?;
+        .map_err(|e| format!("failed to copy new binary (may need root/sudo permissions): {}", e))?;
 
     // Make it executable
     #[cfg(unix)]
@@ -115,8 +95,7 @@ async fn extract_and_replace_binary(tarball_url: &str) -> Result<(), String> {
             .map_err(|e| format!("failed to get binary metadata: {}", e))?
             .permissions();
         perms.set_mode(0o755);
-        std::fs::set_permissions(&new_binary, perms)
-            .map_err(|e| format!("failed to set binary permissions: {}", e))?;
+        std::fs::set_permissions(&new_binary, perms).map_err(|e| format!("failed to set binary permissions: {}", e))?;
     }
 
     // Clean up temp files

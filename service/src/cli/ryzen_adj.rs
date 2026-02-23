@@ -29,14 +29,7 @@ impl RyzenAdj {
     pub async fn set_tdp_watts(&self, watts: u32) -> Result<(), String> {
         let mw = watts.saturating_mul(1000).to_string();
         let _ = self
-            .run(&[
-                "--stapm-limit",
-                &mw,
-                "--fast-limit",
-                &mw,
-                "--slow-limit",
-                &mw,
-            ])
+            .run(&["--stapm-limit", &mw, "--fast-limit", &mw, "--slow-limit", &mw])
             .await?;
         Ok(())
     }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::cli::FrameworkTool;
 use crate::cli::framework_tool::resolve_or_install;
+use crate::cli::FrameworkTool;
 use crate::types::Config;
 
 #[cfg(target_os = "windows")]

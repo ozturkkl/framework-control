@@ -125,8 +125,7 @@ impl AmdPStateBackend {
             return None;
         }
 
-        let mut cpu_paths =
-            collect_cpu_paths_with_file("cpufreq/energy_performance_preference").await;
+        let mut cpu_paths = collect_cpu_paths_with_file("cpufreq/energy_performance_preference").await;
 
         if cpu_paths.is_empty() {
             return None;
@@ -158,9 +157,9 @@ impl AmdPStateBackend {
 
         for (idx, cpu_path) in self.cpu_paths.iter().enumerate() {
             let epp_path = cpu_path.join("cpufreq/energy_performance_preference");
-            write_sysfs_string(&epp_path, preference).await.map_err(|e| {
-                format!("Failed to set EPP on CPU{}: {}", idx, e)
-            })?;
+            write_sysfs_string(&epp_path, preference)
+                .await
+                .map_err(|e| format!("Failed to set EPP on CPU{}: {}", idx, e))?;
         }
         Ok(())
     }
@@ -277,7 +276,6 @@ impl CpufreqBackend {
         debug!("Set frequency limits: {}-{} MHz", min_mhz, max_mhz);
         Ok(())
     }
-
 
     async fn get_live_frequency_range(&self) -> Result<(u32, u32), String> {
         let mut min_freq = u32::MAX;
