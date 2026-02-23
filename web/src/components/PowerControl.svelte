@@ -87,22 +87,16 @@
 
     $: showControls = hasCheckedStatus && hasAnyPowerCapability;
 
-    function hasAnyFreqLimitEnabled(profile: keyof PowerConfig) {
-        const minEnabled = !!powerConfig?.[profile]?.min_freq_mhz?.enabled;
-        const maxEnabled = !!powerConfig?.[profile]?.max_freq_mhz?.enabled;
-        return minEnabled || maxEnabled;
-    }
-
-    function hasBothFreqLimitsDisabled(profile: keyof PowerConfig) {
-        const minEnabled = !!powerConfig?.[profile]?.min_freq_mhz?.enabled;
-        const maxEnabled = !!powerConfig?.[profile]?.max_freq_mhz?.enabled;
-        return !minEnabled && !maxEnabled;
-    }
-
-    $: hasFreqLimitsMismatchWarning =
-        !!capabilities?.supports_frequency_limits &&
-        ((hasAnyFreqLimitEnabled("ac") && hasBothFreqLimitsDisabled("battery")) ||
-            (hasAnyFreqLimitEnabled("battery") && hasBothFreqLimitsDisabled("ac")));
+    $: hasFreqLimitsMismatchWarning = (() => {
+        if (!capabilities?.supports_frequency_limits) return false;
+        const acMin = !!powerConfig?.ac?.min_freq_mhz?.enabled;
+        const acMax = !!powerConfig?.ac?.max_freq_mhz?.enabled;
+        const batMin = !!powerConfig?.battery?.min_freq_mhz?.enabled;
+        const batMax = !!powerConfig?.battery?.max_freq_mhz?.enabled;
+        const acAny = acMin || acMax;
+        const batAny = batMin || batMax;
+        return (acAny && !batMin && !batMax) || (batAny && !acMin && !acMax);
+    })();
 
     function recomputeHighTdpUnlocked() {
         if (!capabilities?.supports_tdp) return;
