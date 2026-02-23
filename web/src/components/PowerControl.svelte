@@ -73,6 +73,10 @@
     let unlockTipVisible = false;
     let highTdpUnlocked = false;
 
+    // Frequency-limits mismatch warning (one profile applies limits, the other noops)
+    let freqWarningBtn: HTMLButtonElement;
+    let freqWarningTipVisible = false;
+
     $: hasAnyPowerCapability =
         !!capabilities &&
         (capabilities.supports_tdp ||
@@ -82,6 +86,23 @@
             capabilities.supports_frequency_limits);
 
     $: showControls = hasCheckedStatus && hasAnyPowerCapability;
+
+    function hasAnyFreqLimitEnabled(profile: keyof PowerConfig) {
+        const minEnabled = !!powerConfig?.[profile]?.min_freq_mhz?.enabled;
+        const maxEnabled = !!powerConfig?.[profile]?.max_freq_mhz?.enabled;
+        return minEnabled || maxEnabled;
+    }
+
+    function hasBothFreqLimitsDisabled(profile: keyof PowerConfig) {
+        const minEnabled = !!powerConfig?.[profile]?.min_freq_mhz?.enabled;
+        const maxEnabled = !!powerConfig?.[profile]?.max_freq_mhz?.enabled;
+        return !minEnabled && !maxEnabled;
+    }
+
+    $: hasFreqLimitsMismatchWarning =
+        !!capabilities?.supports_frequency_limits &&
+        ((hasAnyFreqLimitEnabled("ac") && hasBothFreqLimitsDisabled("battery")) ||
+            (hasAnyFreqLimitEnabled("battery") && hasBothFreqLimitsDisabled("ac")));
 
     function recomputeHighTdpUnlocked() {
         if (!capabilities?.supports_tdp) return;
@@ -268,25 +289,54 @@
     class="absolute top-[0.62rem] left-24 right-11 flex items-center justify-between gap-2 text-sm"
 >
     {#if showControls}
-        <div class="join border border-primary/35">
-            <input
-                type="radio"
-                name="power-profile"
-                aria-label="Plugged in"
-                class="btn btn-xs join-item"
-                value="ac"
-                on:change={() => setActiveProfile("ac")}
-                checked={activeProfile === "ac"}
-            />
-            <input
-                type="radio"
-                name="power-profile"
-                aria-label="On battery"
-                class="btn btn-xs join-item"
-                value="battery"
-                on:change={() => setActiveProfile("battery")}
-                checked={activeProfile === "battery"}
-            />
+        <div class="flex items-center">
+            <div class="join border border-primary/35">
+                <input
+                    type="radio"
+                    name="power-profile"
+                    aria-label="Plugged in"
+                    class="btn btn-xs join-item"
+                    value="ac"
+                    on:change={() => setActiveProfile("ac")}
+                    checked={activeProfile === "ac"}
+                />
+                <input
+                    type="radio"
+                    name="power-profile"
+                    aria-label="On battery"
+                    class="btn btn-xs join-item"
+                    value="battery"
+                    on:change={() => setActiveProfile("battery")}
+                    checked={activeProfile === "battery"}
+                />
+            </div>
+
+            {#if hasFreqLimitsMismatchWarning}
+                <div class="relative ml-1">
+                    <button
+                        class="btn btn-ghost btn-xs text-warning"
+                        aria-label="Frequency limits warning"
+                        bind:this={freqWarningBtn}
+                        on:mouseenter={() => (freqWarningTipVisible = true)}
+                        on:mouseleave={() => (freqWarningTipVisible = false)}
+                        on:focus={() => (freqWarningTipVisible = true)}
+                        on:blur={() => (freqWarningTipVisible = false)}
+                    >
+                        <Icon icon="mdi:alert-outline" class="w-4 h-4" />
+                    </button>
+
+                    <div
+                        use:tooltip={{
+                            anchor: freqWarningBtn,
+                            visible: freqWarningTipVisible,
+                            attachGlobalDismiss: false,
+                        }}
+                        class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-64 text-center"
+                    >
+                        One profile applies CPU frequency limits, but the other profile has them disabled. When switching to the disabled profile, Framework Control won’t reset touch the limits, so they may remain active until something else changes them (reboot/OS power daemon/etc).
+                    </div>
+                </div>
+            {/if}
         </div>
 
         {#if capabilities?.supports_tdp}
