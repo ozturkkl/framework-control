@@ -1,5 +1,9 @@
 # Unreleased
 
+- **Linux Power Management**: Native kernel interface support (AMD P-State EPP, cpufreq) replaces RyzenAdj on Linux. Exposes energy preference (EPP) and governor/frequency controls where available.
+- **Power API**: `/api/power` response restructured with `power_control` object containing `capabilities` and `current_state`. Backend now uses a unified interface across Windows (RyzenAdj) and Linux (native), with platform-specific power profiles in config.
+- **Breaking Change**: PowerResponse API structure changed - clients must update to use `power_control` instead of flat `ryzenadj`/`ryzenadj_installed` fields.
+- **UI**: PowerControl component updated to show controls based on detected capabilities.
 
 ## 0.5.0-beta.2 - 2026-02-01
 

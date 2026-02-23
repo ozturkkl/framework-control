@@ -12,7 +12,7 @@
     } from "../api";
     import Icon from "@iconify/svelte";
     import { deepMerge } from "../lib/utils";
-    import UiSlider from "./UiSlider.svelte";
+    import UiControlCard from "./UiControlCard.svelte";
     import { tooltip } from "../lib/tooltip";
     import { isWindows as getIsWindows } from "../lib/platform";
 
@@ -621,7 +621,7 @@
                     class:scale-[0.985]={!powerConfig[activeProfile]?.tdp_watts
                         ?.enabled}
                 >
-                    <UiSlider
+                    <UiControlCard
                         label="TDP Limit"
                         icon={activeProfile === "ac"
                             ? "mdi:power-plug-outline"
@@ -654,7 +654,7 @@
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.thermal_limit_c?.enabled}
                 >
-                    <UiSlider
+                    <UiControlCard
                         label="Thermal Limit"
                         icon={activeProfile === "ac"
                             ? "mdi:power-plug-outline"
@@ -683,7 +683,7 @@
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.epp_preference?.enabled}
                 >
-                    <UiSlider
+                    <UiControlCard
                         label="Energy Preference"
                         icon={activeProfile === "ac"
                             ? "mdi:power-plug-outline"
@@ -714,7 +714,7 @@
                     class:scale-[0.985]={!powerConfig[activeProfile]?.governor
                         ?.enabled}
                 >
-                    <UiSlider
+                    <UiControlCard
                         label="CPU Governor"
                         icon={activeProfile === "ac"
                             ? "mdi:power-plug-outline"
@@ -742,7 +742,7 @@
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.min_freq_mhz?.enabled}
                 >
-                    <UiSlider
+                    <UiControlCard
                         label="Min Frequency"
                         icon={activeProfile === "ac"
                             ? "mdi:power-plug-outline"
@@ -771,7 +771,7 @@
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.max_freq_mhz?.enabled}
                 >
-                    <UiSlider
+                    <UiControlCard
                         label="Max Frequency"
                         icon={activeProfile === "ac"
                             ? "mdi:power-plug-outline"

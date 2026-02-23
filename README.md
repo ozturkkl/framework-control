@@ -32,12 +32,16 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
 - **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold.
-- **Power Controls (RyzenAdj)**:
-  - Set TDP (applies STAPM/FAST/SLOW equally)
-  - Set Tctl thermal limit
+- **Power Controls**:
+  - **Windows (RyzenAdj)**: TDP and thermal limit control for AMD Ryzen systems
+  - **Linux (Native)**: Uses kernel interfaces (AMD P-State EPP, cpufreq governor)
+  - Set energy preferences (AMD P-State) or governors/frequency limits (cpufreq)
   - Separate AC/Battery profiles with background reapply and live power readout
 - **Updates & Shortcuts**: In-app update checks and optional auto-install, plus Start Menu/Desktop shortcut management from the Settings modal
-- **Linux Support**: systemd unit with udev rules for input modules
+- **Linux Support**: 
+  - systemd unit with udev rules for input modules
+  - Native power management via kernel interfaces (no external dependencies)
+  - Automated install script with service configuration
 
 ## Upcoming Goals
 
