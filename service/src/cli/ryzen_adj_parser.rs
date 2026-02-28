@@ -21,8 +21,7 @@ pub fn parse_info(text: &str) -> RyzenAdjInfo {
 
     // Matches lines like: | STAPM LIMIT         |    67.000 | stapm-limit        |
     // Columns: name | value | parameter
-    let row_re =
-        Regex::new(r"^\|\s*([^|]+?)\s*\|\s*([+-]?(?:\d+\.)?\d+)\s*\|\s*(?:[^|]*)\|\s*$").ok();
+    let row_re = Regex::new(r"^\|\s*([^|]+?)\s*\|\s*([+-]?(?:\d+\.)?\d+)\s*\|\s*(?:[^|]*)\|\s*$").ok();
     if let Some(re) = row_re.as_ref() {
         for line in text.lines() {
             let l = line.trim();
@@ -30,11 +29,7 @@ pub fn parse_info(text: &str) -> RyzenAdjInfo {
                 continue;
             }
             if let Some(c) = re.captures(l) {
-                let name = c
-                    .get(1)
-                    .map(|m| m.as_str().trim())
-                    .unwrap_or("")
-                    .to_ascii_uppercase();
+                let name = c.get(1).map(|m| m.as_str().trim()).unwrap_or("").to_ascii_uppercase();
                 let val = c.get(2).and_then(|m| m.as_str().trim().parse::<f32>().ok());
                 if let Some(v) = val {
                     // Collect power limit candidates

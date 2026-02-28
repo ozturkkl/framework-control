@@ -69,9 +69,7 @@ download_release() {
     trap 'rm -rf "$tmpdir"' EXIT
 
     info "Downloading latest release from GitHub..."
-    # local download_url="https://github.com/${REPO}/releases/latest/download/${TARBALL_NAME}"
-    # FIXME: update this to the real latest release after release
-    local download_url="https://github.com/ozturkkl/framework-control/releases/download/0.5.0-beta.2/framework-control-service-x86_64.tar.gz"
+    local download_url="https://github.com/${REPO}/releases/latest/download/${TARBALL_NAME}"
 
     if ! curl -fsSL -o "$tmpdir/$TARBALL_NAME" "$download_url"; then
         error "Failed to download release tarball"

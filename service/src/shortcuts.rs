@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 #[cfg(target_os = "windows")]
 pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
@@ -9,11 +9,11 @@ pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
     let start_menu_base = env::var("ALLUSERSPROFILE")
         .or_else(|_| env::var("PROGRAMDATA"))
         .map_err(|_| "Neither ALLUSERSPROFILE nor PROGRAMDATA environment variable found".to_string())?;
-    let start_menu = PathBuf::from(start_menu_base).join(r"Microsoft\Windows\Start Menu\Programs\Framework Control.lnk");
+    let start_menu =
+        PathBuf::from(start_menu_base).join(r"Microsoft\Windows\Start Menu\Programs\Framework Control.lnk");
 
     // Use PUBLIC for all-users Desktop
-    let desktop_base = env::var("PUBLIC")
-        .map_err(|_| "PUBLIC environment variable not found".to_string())?;
+    let desktop_base = env::var("PUBLIC").map_err(|_| "PUBLIC environment variable not found".to_string())?;
     let desktop = PathBuf::from(desktop_base).join(r"Desktop\Framework Control.lnk");
 
     Ok((start_menu, desktop))
@@ -21,10 +21,9 @@ pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
 
 #[cfg(target_os = "linux")]
 pub fn get_shortcut_paths() -> Result<(PathBuf, PathBuf), String> {
-    let user_home = crate::utils::fs::detect_user_home()
-        .ok_or_else(|| "Could not determine user home directory".to_string())?;
-    let applications = PathBuf::from(user_home)
-        .join(".local/share/applications/framework-control.desktop");
+    let user_home =
+        crate::utils::fs::detect_user_home().ok_or_else(|| "Could not determine user home directory".to_string())?;
+    let applications = PathBuf::from(user_home).join(".local/share/applications/framework-control.desktop");
     Ok((applications.clone(), applications))
 }
 
@@ -47,6 +46,7 @@ pub fn shortcuts_exist() -> bool {
             #[cfg(target_os = "linux")]
             {
                 // Linux: only check applications entry (second is same path)
+                let _ = second; // Suppress unused warning
                 first.exists()
             }
         }
@@ -57,8 +57,7 @@ pub fn shortcuts_exist() -> bool {
 #[cfg(all(target_os = "windows", feature = "embed-ui"))]
 fn extract_icon() -> Result<PathBuf, String> {
     // Place icon where both SYSTEM and users can access: ProgramData\FrameworkControl\assets
-    let program_data = env::var("PROGRAMDATA")
-        .map_err(|_| "PROGRAMDATA environment variable not found".to_string())?;
+    let program_data = env::var("PROGRAMDATA").map_err(|_| "PROGRAMDATA environment variable not found".to_string())?;
     let assets_dir = PathBuf::from(program_data).join(r"FrameworkControl\assets");
     fs::create_dir_all(&assets_dir).map_err(|e| format!("Failed to create assets dir: {}", e))?;
 
@@ -79,8 +78,8 @@ fn extract_icon() -> Result<PathBuf, String> {
 
 #[cfg(all(target_os = "linux", feature = "embed-ui"))]
 fn extract_icon() -> Result<PathBuf, String> {
-    let user_home = crate::utils::fs::detect_user_home()
-        .ok_or_else(|| "Could not determine user home directory".to_string())?;
+    let user_home =
+        crate::utils::fs::detect_user_home().ok_or_else(|| "Could not determine user home directory".to_string())?;
 
     // Write icon directly to final location in user's home
     let icon_dir = PathBuf::from(user_home).join(".local/share/framework-control/assets");
@@ -111,10 +110,7 @@ pub async fn create_shortcuts(port: u16) -> Result<(), String> {
         desktop_path.display()
     );
 
-    let template = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/scripts/create_shortcuts.ps1"
-    ));
+    let template = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/create_shortcuts.ps1"));
 
     let ps_script = template
         .replace("{PORT}", &port.to_string())
@@ -142,16 +138,14 @@ pub async fn create_shortcuts(port: u16) -> Result<(), String> {
 
 #[cfg(target_os = "linux")]
 pub async fn create_shortcuts(port: u16) -> Result<(), String> {
-    let user_home = crate::utils::fs::detect_user_home()
-        .ok_or_else(|| "Could not determine user home directory".to_string())?;
-    let icon_path = extract_icon()?;
+    let user_home =
+        crate::utils::fs::detect_user_home().ok_or_else(|| "Could not determine user home directory".to_string())?;
+    // Ensure the icon file exists on disk before the desktop-entry script runs.
+    let _icon_path = extract_icon()?;
 
     info!("shortcuts: creating desktop entry via script");
 
-    let template = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/scripts/create_desktop_entry.sh"
-    ));
+    let template = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/create_desktop_entry.sh"));
 
     let bash_script = template
         .replace("{PORT}", &port.to_string())

@@ -1,19 +1,19 @@
 use std::net::SocketAddr;
 
-use poem::{listener::TcpListener, EndpointExt, Route, get};
+use poem::http::Method;
 use poem::middleware::Cors;
-use poem::http::{Method};
+use poem::{get, listener::TcpListener, EndpointExt, Route};
 use poem_openapi::OpenApiService;
-use tracing::{info};
+use tracing::info;
 
 mod cli;
 mod config;
 mod routes;
-mod update;
 mod shortcuts;
 mod state;
 mod tasks;
 pub mod types;
+mod update;
 mod utils;
 
 mod r#static;
@@ -22,22 +22,26 @@ mod r#static;
 async fn main() {
     let _ = dotenvy::dotenv();
     tracing_subscriber::fmt()
-        .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info,tower_http=info".into()),
-        )
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info,tower_http=info".into()))
         .without_time()
         .init();
 
     // If we're only generating OpenAPI, do it immediately and exit without requiring env or starting tasks
     let flag_arg = std::env::args().any(|a| a == "--generate-openapi");
     if flag_arg {
-        let api = OpenApiService::new(crate::routes::Api, "framework-control-service", env!("CARGO_PKG_VERSION"))
-            .server("");
+        let api = OpenApiService::new(
+            crate::routes::Api,
+            "framework-control-service",
+            env!("CARGO_PKG_VERSION"),
+        )
+        .server("");
         let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("web")
             .join("openapi.json");
-        if let Some(parent) = out.parent() { let _ = std::fs::create_dir_all(parent); }
+        if let Some(parent) = out.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
         let spec_json = api.spec();
         let _ = std::fs::write(&out, spec_json);
         return;
@@ -86,8 +90,12 @@ async fn main() {
     tasks::boot(&state).await;
 
     // Build OpenApiService from routes::Api
-    let api = OpenApiService::new(crate::routes::Api, "framework-control-service", env!("CARGO_PKG_VERSION"))
-        .server("");
+    let api = OpenApiService::new(
+        crate::routes::Api,
+        "framework-control-service",
+        env!("CARGO_PKG_VERSION"),
+    )
+    .server("");
 
     // Build the actual Poem app and apply CORS globally (API and static UI)
     let app = Route::new()
@@ -99,8 +107,5 @@ async fn main() {
 
     let addr: SocketAddr = (bind_host.parse::<std::net::IpAddr>().unwrap(), configured_port).into();
     info!("listening on http://{}", addr);
-    poem::Server::new(TcpListener::bind(addr))
-        .run(app)
-        .await
-        .unwrap();
+    poem::Server::new(TcpListener::bind(addr)).run(app).await.unwrap();
 }

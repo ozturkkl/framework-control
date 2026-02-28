@@ -4,13 +4,13 @@ This document captures the current state, architecture, and key technical detail
 
 ### Purpose
 
-Local Windows service + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. API runs on loopback at a configured port (set via `FRAMEWORK_CONTROL_PORT`).
+Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. Power management uses RyzenAdj on Windows and native kernel interfaces (AMD P-State EPP, cpufreq) on Linux. API runs on loopback at a configured port (set via `FRAMEWORK_CONTROL_PORT`).
 
 ### High-Level Architecture
 
 - Backend service: Rust (Tokio + Poem + poem-openapi) in `framework-control/service`
 - Frontend web UI: Svelte + Vite in `framework-control/web`
-- Packaging: WiX MSI for Windows (service registration, assets)
+- Packaging: WiX MSI for Windows (service registration, assets), automated install script + tarball for Linux
 - Security: loopback-only API; write operations require bearer token
 
 ### Backend Service (Rust)
@@ -21,7 +21,7 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 - Routes: `service/src/routes.rs` (@routes.rs)
   - Endpoints (under `/api`):
     - `GET /health`: health + version + `cli_present`
-  - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and RyzenAdj state
+  - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`
     - `GET /thermal`: parsed thermal report (temps map + fan RPMs)
     - `GET /thermal/history`: recent telemetry samples collected by the service (trimmed by configured retention)
     - `GET /versions`: parsed versions (mainboard_type, uefi_version, etc.)
@@ -30,28 +30,29 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Desktop/application menu shortcut existence
     - `POST /shortcuts/create`: create desktop shortcuts with browser detection (auth required, Windows + Linux)
-- `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required)
-- `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required)
+- `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required, Windows only; returns "unsupported_platform" on Linux)
+- `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required, Windows only)
   - `GET /update/check`: check for latest version from update feed (see env below)
   - `POST /update/apply`: install the update (auth required)
 - Helpers: GPU detection via PowerShell on Windows
 - Other key files (condensed):
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
-  - `service/src/types.rs`: API and config types; includes power AC/Battery profiles, battery config (charge limit/rate + SoC threshold), UI theme, `telemetry` config (`poll_ms`, `retain_seconds`), and `TelemetrySample`
-  - `service/src/state.rs`: shared `AppState` (locks, token, in‑memory `telemetry_samples`)
-- Background tasks (`service/src/tasks`): `power`, `fan_curve`, `battery`, `auto_update`, `telemetry`
-  - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs`
-  - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, etc.
+  - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme, `telemetry` config, and `TelemetrySample`
+  - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), config, token, in‑memory `telemetry_samples`
+- Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `battery`, `auto_update`, `telemetry`
+  - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only — reads/writes sysfs for AMD P-State EPP, cpufreq governor, and frequency limits)
+  - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, `reconciler` (generic drift-aware reconciler with quiet-window + cooldown logic), etc.
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Desktop shortcut creation for Windows (Edge/Chrome/Brave app mode + .url fallback) and Linux (simple .desktop entry using xdg-open)
 
 ### Frontend Web UI (Svelte)
 
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (AC/Battery profiles; shows live TDP/thermal and charger wattage), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector).
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector).
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
+- Shared controls: `web/src/components/UiControlCard.svelte` — composite card supporting both range sliders and select dropdowns (replaces former `UiSlider`); used by Power and Battery panels.
 - Device header: static images (no crossfade/width/pulse).
 - API client: generated (`web/src/api/*`). Use `DefaultService` and `OpenAPI` for all requests.
 
@@ -116,11 +117,11 @@ Local Windows service + Svelte web UI to monitor telemetry and control core plat
 
 - `framework-system`: houses `framework_tool` and `framework_lib`
 - `inputmodule-rs`: firmware and tooling for Framework 16 input modules (e.g., `qtpy/src/main.rs` @main.rs for USB CDC commands + LED control)
-- `RyzenAdj`: third-party CLI to adjust AMD Ryzen power/thermal parameters; downloaded from GitHub releases when missing.
+- `RyzenAdj`: third-party CLI to adjust AMD Ryzen power/thermal parameters; downloaded from GitHub releases when missing (Windows only).
 
 ### Roadmap (per README)
 
-- TDP control, telemetry dashboards, LED matrix support, additional EC controls, Linux support, import/export.
+- LED matrix support, additional EC controls, import/export, app signing.
 
 ### How to Update This Summary
 

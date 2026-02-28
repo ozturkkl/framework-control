@@ -64,9 +64,5 @@ pub async fn run(
 fn unix_time_ms() -> i64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     let now = SystemTime::now();
-    now.duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as i64
+    now.duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as i64
 }
-
-

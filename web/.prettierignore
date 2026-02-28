@@ -1,0 +1,15 @@
+dist/
+.svelte-kit/
+build/
+node_modules/
+.vite/
+
+# Generated artifacts
+openapi.json
+src/api/
+
+# Vite/TS build info (if present)
+tsconfig.tsbuildinfo
+
+# Lockfile should not be formatted
+package-lock.json

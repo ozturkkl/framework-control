@@ -39,8 +39,7 @@ pub async fn run(
                     let past_reapply = match last_charge_apply_at {
                         None => true,
                         Some(t) => {
-                            Instant::now().saturating_duration_since(t)
-                                >= Duration::from_secs(REAPPLY_INTERVAL_SECS)
+                            Instant::now().saturating_duration_since(t) >= Duration::from_secs(REAPPLY_INTERVAL_SECS)
                         }
                     };
                     if need_apply || past_reapply {
@@ -70,16 +69,13 @@ pub async fn run(
                     desired_c = desired_c.clamp(0.05, 1.0);
                     let desired_threshold = cfg_bat.charge_rate_soc_threshold_pct;
                     let need_apply = match (last_rate_c, last_threshold_pct) {
-                        (Some(prev_c), prev_t) => {
-                            prev_c != desired_c || prev_t != desired_threshold
-                        }
+                        (Some(prev_c), prev_t) => prev_c != desired_c || prev_t != desired_threshold,
                         _ => true,
                     };
                     let past_reapply = match last_rate_apply_at {
                         None => true,
                         Some(t) => {
-                            Instant::now().saturating_duration_since(t)
-                                >= Duration::from_secs(REAPPLY_INTERVAL_SECS)
+                            Instant::now().saturating_duration_since(t) >= Duration::from_secs(REAPPLY_INTERVAL_SECS)
                         }
                     };
                     if need_apply || past_reapply {
@@ -87,10 +83,7 @@ pub async fn run(
                             "battery: applying charge rate {}C (threshold={:?})",
                             desired_c, desired_threshold
                         );
-                        match cli
-                            .charge_rate_limit_set(desired_c, desired_threshold)
-                            .await
-                        {
+                        match cli.charge_rate_limit_set(desired_c, desired_threshold).await {
                             Ok(_) => {
                                 last_rate_c = Some(desired_c);
                                 last_threshold_pct = desired_threshold;
