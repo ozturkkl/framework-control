@@ -187,6 +187,10 @@ main() {
     tmpdir=$(download_release)
 
     install_binary "$tmpdir"
+
+    # Signal the service to create a desktop entry on first startup
+    touch "$INSTALL_DIR/create_shortcuts.flag"
+
     install_service "$tmpdir"
     verify_installation
     print_success
