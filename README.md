@@ -58,8 +58,8 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Backend Service**: Rust (Tokio + Poem + poem-openapi)
   - Exposes HTTP API with OpenAPI generation
   - Executes Framework CLI (`framework_tool`) for all EC interactions
-  - Executes RyzenAdj (`ryzenadj`) for AMD power/thermal adjustments
-  - Applies persisted fan-control config at boot
+  - Power management: RyzenAdj on Windows, native kernel interfaces (AMD P-State EPP, cpufreq) on Linux
+  - Applies persisted fan-control and power config at boot
 - **Frontend UI**: Svelte + Vite
   - Responsive panel layout adapting to active fan mode
   - Real-time telemetry updates
@@ -149,7 +149,7 @@ VITE_CONTROL_TOKEN=<long-random-token>
 
 The service provides a REST API for health and telemetry (`/api/health`, `/api/thermal`, `/api/thermal/history`, `/api/power`, `/api/versions`), system info (`/api/system`), update and helper management (`/api/update/*`, `/api/ryzenadj/*`), shortcut management (`/api/shortcuts/*`), and config management (`/api/config`).
 
-- `/api/power`: combined battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and RyzenAdj state.
+- `/api/power`: combined battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`.
 - `/api/thermal/history`: recent temperature/RPM samples collected by the background telemetry task.
 
 Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.json` (Windows, overridable via `FRAMEWORK_CONTROL_CONFIG`) and includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters, power AC/Battery profiles, battery charge-limit/rate settings and SoC threshold, telemetry poll/retention, update preferences, and UI theme.

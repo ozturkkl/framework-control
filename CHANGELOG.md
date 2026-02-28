@@ -1,9 +1,17 @@
 # Unreleased
 
-- **Linux Power Management**: Native kernel interface support (AMD P-State EPP, cpufreq) replaces RyzenAdj on Linux. Exposes energy preference (EPP) and governor/frequency controls where available.
-- **Power API**: `/api/power` response restructured with `power_control` object containing `capabilities` and `current_state`. Backend now uses a unified interface across Windows (RyzenAdj) and Linux (native), with platform-specific power profiles in config.
-- **Breaking Change**: PowerResponse API structure changed - clients must update to use `power_control` instead of flat `ryzenadj`/`ryzenadj_installed` fields.
-- **UI**: PowerControl component updated to show controls based on detected capabilities.
+## 0.5.1 - 2026-02-28
+
+- **Linux Power Management**: Native kernel interface support (AMD P-State EPP, cpufreq) replaces RyzenAdj on Linux. Exposes energy preference (EPP), governor selection, and frequency limit controls where available.
+- **Power API**: `/api/power` response restructured with `power_control` object containing `capabilities` and `current_state`. Backend uses a unified interface across Windows (RyzenAdj) and Linux (native), with platform-specific power profiles in config.
+- **Breaking Change**: `PowerResponse` API structure changed — clients must update to use `power_control` instead of flat `ryzenadj`/`ryzenadj_installed` fields.
+- Power task refactored: extracted a generic drift-aware `Reconciler` utility (`service/src/utils/reconciler.rs`) that handles quiet-window, cooldown, and immediate-apply logic. Replaces inline TDP/thermal reapply state tracking.
+- Backend modules (`ryzen_adj`, `ryzen_adj_parser`) are now conditionally compiled for Windows only; new `linux_power` module compiled for Linux only. `AppState` carries platform-specific power backend behind `#[cfg]` gates.
+- RyzenAdj install/uninstall endpoints now return an "unsupported_platform" error on Linux instead of attempting Windows-only operations.
+- UI: `UiSlider` replaced by `UiControlCard` component supporting both range sliders and select dropdowns (used for governor/EPP selection).
+- UI: PowerControl panel is now fully capability-driven — controls appear based on `PowerCapabilities` reported by the backend rather than OS/CPU detection heuristics.
+- UI: Frequency-limit mismatch warning shown when one power profile (AC or Battery) has frequency limits enabled but the other does not.
+- Tooling: Added `.editorconfig`, `rustfmt.toml`, Prettier config (`.prettierrc.cjs`, `.prettierignore`); unified `lint` script runs ESLint + Prettier + `cargo fmt --check`; added `format` script.
 
 ## 0.5.0-beta.2 - 2026-02-01
 
