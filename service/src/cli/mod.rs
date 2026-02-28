@@ -10,7 +10,7 @@ pub mod ryzen_adj_parser;
 #[cfg(target_os = "linux")]
 pub mod linux_power;
 
-// Back-compat re-export for existing imports: crate::cli::FrameworkTool
+// For imports: crate::cli::FrameworkTool
 pub use framework_tool::FrameworkTool;
 
 // RyzenAdj exports (Windows only)
