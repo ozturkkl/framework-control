@@ -12,10 +12,7 @@ module.exports = {
 				parser: '@typescript-eslint/parser',
 				project: false,
 			},
-			extends: [
-				'plugin:svelte/recommended',
-				'plugin:@typescript-eslint/recommended',
-			],
+			extends: ['plugin:svelte/recommended', 'plugin:@typescript-eslint/recommended'],
 			rules: {
 				'@typescript-eslint/no-explicit-any': 'error',
 			},
@@ -28,14 +25,10 @@ module.exports = {
 				sourceType: 'module',
 				project: false,
 			},
-			extends: [
-				'plugin:@typescript-eslint/recommended',
-			],
+			extends: ['plugin:@typescript-eslint/recommended'],
 			rules: {
 				'@typescript-eslint/no-explicit-any': 'error',
 			},
 		},
 	],
 };
-
-

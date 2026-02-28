@@ -1,0 +1,13 @@
+# Minimal, stable defaults to keep formatting deterministic across machines.
+# Most formatting remains rustfmt-default; these just lock a few common sources of churn.
+edition = "2021"
+max_width = 120
+newline_style = "Unix"
+hard_tabs = false
+tab_spaces = 4
+
+# Avoid large diffs from version-to-version heuristics.
+use_small_heuristics = "Default"
+
+# Keep formatting predictable.
+reorder_imports = true

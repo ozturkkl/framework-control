@@ -1,5 +1,5 @@
-use poem::{handler, IntoResponse, Response};
 use poem::http::StatusCode;
+use poem::{handler, IntoResponse, Response};
 use tracing::debug;
 
 #[cfg(feature = "embed-ui")]
@@ -12,21 +12,42 @@ struct EmbeddedWeb;
 
 fn sanitize_path(p: &str) -> Option<String> {
     let mut s = p.trim_start_matches('/');
-    if s.is_empty() || s.ends_with('/') { s = "index.html"; }
-    if s.contains("..") { return None; }
+    if s.is_empty() || s.ends_with('/') {
+        s = "index.html";
+    }
+    if s.contains("..") {
+        return None;
+    }
     Some(s.to_string())
 }
 
+#[cfg(feature = "embed-ui")]
 fn guess_mime(path: &str) -> &'static str {
     let lower = path.to_ascii_lowercase();
-    if lower.ends_with(".html") || lower.ends_with(".htm") { return "text/html; charset=utf-8"; }
-    if lower.ends_with(".js") || lower.ends_with(".mjs") { return "application/javascript"; }
-    if lower.ends_with(".css") { return "text/css"; }
-    if lower.ends_with(".json") || lower.ends_with(".map") { return "application/json"; }
-    if lower.ends_with(".svg") { return "image/svg+xml"; }
-    if lower.ends_with(".png") { return "image/png"; }
-    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") { return "image/jpeg"; }
-    if lower.ends_with(".woff2") { return "font/woff2"; }
+    if lower.ends_with(".html") || lower.ends_with(".htm") {
+        return "text/html; charset=utf-8";
+    }
+    if lower.ends_with(".js") || lower.ends_with(".mjs") {
+        return "application/javascript";
+    }
+    if lower.ends_with(".css") {
+        return "text/css";
+    }
+    if lower.ends_with(".json") || lower.ends_with(".map") {
+        return "application/json";
+    }
+    if lower.ends_with(".svg") {
+        return "image/svg+xml";
+    }
+    if lower.ends_with(".png") {
+        return "image/png";
+    }
+    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        return "image/jpeg";
+    }
+    if lower.ends_with(".woff2") {
+        return "font/woff2";
+    }
     "application/octet-stream"
 }
 
@@ -35,7 +56,12 @@ pub fn serve_static(req: &poem::Request) -> Response {
     let request_path = req.uri().path();
     let rel = match sanitize_path(request_path) {
         Some(r) => r,
-        None => return Response::builder().status(StatusCode::NOT_FOUND).body(()).into_response(),
+        None => {
+            return Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(())
+                .into_response()
+        }
     };
     #[cfg(feature = "embed-ui")]
     if let Some(content) = EmbeddedWeb::get(&rel) {
@@ -46,7 +72,8 @@ pub fn serve_static(req: &poem::Request) -> Response {
             .into_response();
     }
     debug!("static: not found '{}'", rel);
-    Response::builder().status(StatusCode::NOT_FOUND).body(()).into_response()
+    Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .body(())
+        .into_response()
 }
-
-

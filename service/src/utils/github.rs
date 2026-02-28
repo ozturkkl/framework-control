@@ -1,11 +1,8 @@
-use serde_json::Value;
 use crate::utils::extract::archive_contains_any_suffix;
+use serde_json::Value;
 
 async fn fetch_latest_release(owner: &str, name: &str) -> Result<Value, String> {
-    let api = format!(
-        "https://api.github.com/repos/{}/{}/releases/latest",
-        owner, name
-    );
+    let api = format!("https://api.github.com/repos/{}/{}/releases/latest", owner, name);
     let resp = reqwest::Client::new()
         .get(api)
         .header("user-agent", "framework-control-service")
@@ -44,10 +41,7 @@ fn find_asset_url_ending_with(parsed: &Value, preferred_suffixes: &[&str]) -> Op
     })
 }
 
-pub async fn get_latest_release_version_tag(
-    owner: &str,
-    name: &str,
-) -> Result<Option<String>, String> {
+pub async fn get_latest_release_version_tag(owner: &str, name: &str) -> Result<Option<String>, String> {
     let parsed = fetch_latest_release(owner, name).await?;
     Ok(extract_latest_version_tag(&parsed))
 }

@@ -1,8 +1,11 @@
 use super::framework_tool_parser::{
     parse_power, parse_thermal, parse_versions, PowerBatteryInfo, ThermalParsed, VersionsParsed,
 };
-use crate::utils::{download as dl, github as gh, global_cache, wget as wg};
-use std::{path::Path, time::Duration};
+use crate::utils::{download as dl, github as gh, global_cache};
+use std::time::Duration;
+
+#[cfg(target_os = "windows")]
+use crate::utils::wget as wg;
 use tokio::process::Command;
 use tracing::{error, info, warn};
 use which::which;
@@ -72,9 +75,7 @@ impl FrameworkTool {
     }
 
     /// Get charge limit min/max percentage as reported by EC
-    pub async fn charge_limit_get(
-        &self,
-    ) -> Result<super::framework_tool_parser::BatteryChargeLimitInfo, String> {
+    pub async fn charge_limit_get(&self) -> Result<super::framework_tool_parser::BatteryChargeLimitInfo, String> {
         use super::framework_tool_parser::parse_charge_limit;
         const TTL: Duration = Duration::from_millis(2000);
         global_cache::cache_get_or_update("framework_tool.charge_limit", TTL, true, || async {
@@ -97,11 +98,7 @@ impl FrameworkTool {
     }
 
     /// Set charge rate limit in C; optional SoC threshold in percent
-    pub async fn charge_rate_limit_set(
-        &self,
-        rate_c: f32,
-        soc_threshold_pct: Option<u8>,
-    ) -> Result<(), String> {
+    pub async fn charge_rate_limit_set(&self, rate_c: f32, soc_threshold_pct: Option<u8>) -> Result<(), String> {
         let rate = format!("{:.3}", rate_c);
         match soc_threshold_pct {
             Some(soc) => {
@@ -177,9 +174,7 @@ pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
     // 2) Windows: try winget install once
     #[cfg(windows)]
     {
-        if let Err(err) =
-            wg::try_winget_install_package("FrameworkComputer.framework_tool", None).await
-        {
+        if let Err(err) = wg::try_winget_install_package("FrameworkComputer.framework_tool", None).await {
             warn!("winget automatic install failed: {}", err);
         }
 
@@ -222,14 +217,10 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     #[cfg(target_os = "linux")]
     let ext: &str = "";
     let filename = format!("framework_tool{}", ext);
-    let url = gh::get_latest_release_url_ending_with(
-        "FrameworkComputer",
-        "framework-system",
-        &[filename.as_str()],
-    )
-    .await
-    .map_err(|e| format!("failed to resolve framework_tool asset: {e}"))?
-    .ok_or_else(|| "framework_tool asset not found in latest release".to_string())?;
+    let url = gh::get_latest_release_url_ending_with("FrameworkComputer", "framework-system", &[filename.as_str()])
+        .await
+        .map_err(|e| format!("failed to resolve framework_tool asset: {e}"))?
+        .ok_or_else(|| "framework_tool asset not found in latest release".to_string())?;
     info!(
         "Attempting direct download of framework_tool into '{}' from '{}'",
         base_dir.to_string_lossy(),

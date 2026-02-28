@@ -51,10 +51,7 @@ pub fn parse_thermal(stdout: &str) -> ThermalParsed {
         }
         if let Some(pos) = l.find("Fan Speed:") {
             let rest = &l[pos + "Fan Speed:".len()..];
-            if let Some(tok) = rest
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-            {
+            if let Some(tok) = rest.split_whitespace().find(|t| t.chars().all(|c| c.is_ascii_digit())) {
                 if let Ok(v) = tok.parse::<u32>() {
                     if v > 0 {
                         rpms.push(v);
@@ -126,35 +123,25 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
     for line in stdout.lines() {
         let l = line.trim();
         if l.starts_with("AC is:") {
-            ac_present = Some(
-                l.to_ascii_lowercase().contains("connected")
-                    && !l.to_ascii_lowercase().contains("not connected"),
-            );
+            ac_present =
+                Some(l.to_ascii_lowercase().contains("connected") && !l.to_ascii_lowercase().contains("not connected"));
             continue;
         }
         if l.starts_with("Battery is:") {
-            battery_present = Some(
-                l.to_ascii_lowercase().contains("connected")
-                    && !l.to_ascii_lowercase().contains("not connected"),
-            );
+            battery_present =
+                Some(l.to_ascii_lowercase().contains("connected") && !l.to_ascii_lowercase().contains("not connected"));
             continue;
         }
         if let Some(pos) = l.find("Battery LFCC:") {
             let rest = &l[pos + "Battery LFCC:".len()..];
-            if let Some(num) = rest
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-            {
+            if let Some(num) = rest.split_whitespace().find(|t| t.chars().all(|c| c.is_ascii_digit())) {
                 last_full_charge_capacity_mah = num.parse::<u32>().ok();
             }
             continue;
         }
         if let Some(pos) = l.find("Battery Capacity:") {
             let rest = &l[pos + "Battery Capacity:".len()..];
-            if let Some(num) = rest
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-            {
+            if let Some(num) = rest.split_whitespace().find(|t| t.chars().all(|c| c.is_ascii_digit())) {
                 remaining_capacity_mah = num.parse::<u32>().ok();
             }
             continue;
@@ -193,47 +180,44 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
         }
         if let Some(pos) = l.find("Charger Voltage:") {
             let rest = &l[pos + "Charger Voltage:".len()..];
-            if let Some(tok) = rest.split_whitespace().find(|t| {
-                t.ends_with("mV") && t.trim_end_matches("mV").chars().all(|c| c.is_ascii_digit())
-            }) {
+            if let Some(tok) = rest
+                .split_whitespace()
+                .find(|t| t.ends_with("mV") && t.trim_end_matches("mV").chars().all(|c| c.is_ascii_digit()))
+            {
                 charger_voltage_mv = tok.trim_end_matches("mV").parse::<u32>().ok();
             }
             continue;
         }
         if let Some(pos) = l.find("Present Rate:") {
             let rest = &l[pos + "Present Rate:".len()..];
-            if let Some(tok) = rest
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-            {
+            if let Some(tok) = rest.split_whitespace().find(|t| t.chars().all(|c| c.is_ascii_digit())) {
                 present_rate_ma = tok.parse::<u32>().ok();
             }
             continue;
         }
         if let Some(pos) = l.find("Charger Current:") {
             let rest = &l[pos + "Charger Current:".len()..];
-            if let Some(tok) = rest.split_whitespace().find(|t| {
-                t.ends_with("mA") && t.trim_end_matches("mA").chars().all(|c| c.is_ascii_digit())
-            }) {
+            if let Some(tok) = rest
+                .split_whitespace()
+                .find(|t| t.ends_with("mA") && t.trim_end_matches("mA").chars().all(|c| c.is_ascii_digit()))
+            {
                 charger_current_ma = tok.trim_end_matches("mA").parse::<u32>().ok();
             }
             continue;
         }
         if let Some(pos) = l.find("Chg Input Current:") {
             let rest = &l[pos + "Chg Input Current:".len()..];
-            if let Some(tok) = rest.split_whitespace().find(|t| {
-                t.ends_with("mA") && t.trim_end_matches("mA").chars().all(|c| c.is_ascii_digit())
-            }) {
+            if let Some(tok) = rest
+                .split_whitespace()
+                .find(|t| t.ends_with("mA") && t.trim_end_matches("mA").chars().all(|c| c.is_ascii_digit()))
+            {
                 charge_input_current_ma = tok.trim_end_matches("mA").parse::<u32>().ok();
             }
             continue;
         }
         if let Some(pos) = l.find("Design Capacity:") {
             let rest = &l[pos + "Design Capacity:".len()..];
-            if let Some(num) = rest
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-            {
+            if let Some(num) = rest.split_whitespace().find(|t| t.chars().all(|c| c.is_ascii_digit())) {
                 design_capacity_mah = num.parse::<u32>().ok();
             }
             continue;
@@ -251,10 +235,7 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
             continue;
         }
         if l.starts_with("Cycle Count:") {
-            if let Some(tok) = l
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-            {
+            if let Some(tok) = l.split_whitespace().find(|t| t.chars().all(|c| c.is_ascii_digit())) {
                 cycle_count = tok.parse::<u32>().ok();
             }
             continue;
@@ -267,7 +248,6 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
             discharging = Some(true);
             continue;
         }
-
     }
 
     PowerBatteryInfo {

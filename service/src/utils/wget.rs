@@ -1,12 +1,12 @@
+#[cfg(target_os = "windows")]
 use tokio::process::Command;
-use tracing::{warn};
+#[cfg(target_os = "windows")]
+use tracing::warn;
 
 #[cfg(target_os = "windows")]
 fn find_winget_path() -> Option<String> {
     if let Ok(windir) = std::env::var("WINDIR") {
-        let sys32 = std::path::Path::new(&windir)
-            .join("System32")
-            .join("winget.exe");
+        let sys32 = std::path::Path::new(&windir).join("System32").join("winget.exe");
         if sys32.exists() {
             return sys32.to_str().map(|s| s.to_string());
         }
@@ -42,14 +42,13 @@ fn find_winget_path() -> Option<String> {
     None
 }
 
-#[cfg(not(target_os = "windows"))]
-fn find_winget_path() -> Option<String> { None }
-
 #[cfg(target_os = "windows")]
 pub async fn try_winget_install_package(package_id: &str, location: Option<&str>) -> Result<(), String> {
     use tokio::time::{timeout, Duration};
     let winget_path = find_winget_path();
-    if winget_path.is_none() { warn!("winget.exe not resolved explicitly; relying on PATH"); }
+    if winget_path.is_none() {
+        warn!("winget.exe not resolved explicitly; relying on PATH");
+    }
 
     // Determine install location (default to directory of current executable)
     let install_location_owned: String = match location {
@@ -86,7 +85,14 @@ pub async fn try_winget_install_package(package_id: &str, location: Option<&str>
             install_location_owned.replace("'", "''")
         );
         Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &install_cmd])
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                &install_cmd,
+            ])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
@@ -103,10 +109,3 @@ pub async fn try_winget_install_package(package_id: &str, location: Option<&str>
         Err(format!("winget install failed: {}", output.status))
     }
 }
-
-#[cfg(not(target_os = "windows"))]
-pub async fn try_winget_install_package(_package_id: &str, _location: Option<&str>) -> Result<(), String> {
-    Err("winget installation is only supported on Windows".into())
-}
-
-

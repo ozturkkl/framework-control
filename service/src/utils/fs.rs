@@ -1,7 +1,9 @@
+#[cfg(target_os = "windows")]
 use tracing::warn;
 
 /// Recursively copy directory contents from src into dst, creating directories as needed and
 /// overwriting existing files. Best-effort: logs and continues on individual copy errors.
+#[cfg(target_os = "windows")]
 pub fn copy_dir_replace(src: &std::path::Path, dst: &std::path::Path) {
     let entries = match std::fs::read_dir(src) {
         Ok(e) => e,
@@ -35,8 +37,6 @@ pub fn copy_dir_replace(src: &std::path::Path, dst: &std::path::Path) {
         }
     }
 }
-
-
 
 /// Detect the actual user's home directory when running as root (Linux only)
 /// Checks SUDO_USER, active sessions in /run/user/, and falls back to HOME

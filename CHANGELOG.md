@@ -1,5 +1,30 @@
 # Unreleased
 
+## 0.5.1 - 2026-02-28
+
+- **Linux Power Management**: Native kernel interface support (AMD P-State EPP, cpufreq) replaces RyzenAdj on Linux. Exposes energy preference (EPP), governor selection, and frequency limit controls where available.
+- **Power API**: `/api/power` response restructured with `power_control` object containing `capabilities` and `current_state`. Backend uses a unified interface across Windows (RyzenAdj) and Linux (native), with platform-specific power profiles in config.
+- **Breaking Change**: `PowerResponse` API structure changed — clients must update to use `power_control` instead of flat `ryzenadj`/`ryzenadj_installed` fields.
+- Power task refactored: extracted a generic drift-aware `Reconciler` utility (`service/src/utils/reconciler.rs`) that handles quiet-window, cooldown, and immediate-apply logic. Replaces inline TDP/thermal reapply state tracking.
+- Backend modules (`ryzen_adj`, `ryzen_adj_parser`) are now conditionally compiled for Windows only; new `linux_power` module compiled for Linux only. `AppState` carries platform-specific power backend behind `#[cfg]` gates.
+- RyzenAdj install/uninstall endpoints now return an "unsupported_platform" error on Linux instead of attempting Windows-only operations.
+- UI: `UiSlider` replaced by `UiControlCard` component supporting both range sliders and select dropdowns (used for governor/EPP selection).
+- UI: PowerControl panel is now fully capability-driven — controls appear based on `PowerCapabilities` reported by the backend rather than OS/CPU detection heuristics.
+- UI: Frequency-limit mismatch warning shown when one power profile (AC or Battery) has frequency limits enabled but the other does not.
+- Tooling: Added `.editorconfig`, `rustfmt.toml`, Prettier config (`.prettierrc.cjs`, `.prettierignore`); unified `lint` script runs ESLint + Prettier + `cargo fmt --check`; added `format` script.
+- Service: Web server now starts immediately without waiting for `framework_tool` validation; CLI resolution/installation happens asynchronously in background, eliminating 60-second startup delay when tool is unavailable.
+- Documentation: Removed hardcoded port references (8090) throughout documentation and scripts; install script now auto-detects the configured port from service logs and displays the actual URL.
+- UI: Linux users now see a copy-able install command with one-click copy button instead of download link; manual install instructions and GitHub link provided as secondary actions.
+- Linux: Added automated install script (`install-linux.sh`) that downloads latest release, installs binary to `/usr/local/bin`, sets up systemd service, and verifies installation with health check.
+- Linux: Auto-update support with tar.gz extraction and in-place binary replacement (requires sudo/root permissions); service attempts automatic restart after update.
+- UI: Update error messages now show specific backend error details (e.g., "installer asset not found") instead of generic text.
+- Linux: Store config at `/etc/framework-control/config.json` instead of the Windows `ProgramData` path.
+- Linux: Desktop entry support creates .desktop file in applications menu (~/.local/share/applications) using xdg-open. Detects actual user when service runs as root via SUDO_USER or active sessions.
+- Linux: CI releases now build statically-linked binaries using musl target for compatibility with all Linux distributions; local builds remain dynamic for faster iteration.
+- Build: Release artifacts now use stable naming (`framework-control-service-x86_64.msi` and `framework-control-service-x86_64.tar.gz`) for easier update system parsing.
+- Build: Windows workflow now uses single runner calling `build-msi.mjs` for all steps (build web, build service, create MSI), reducing build time from ~8min to ~3min by avoiding redundant compilation across separate steps.
+- Refactor: Renamed `zip_extract.rs` to `extract.rs` and added tar.gz extraction support; `download_to_path` now automatically extracts both zip and tar.gz archives using system tools.
+- Removed macOS-specific code since Framework laptops don't support macOS (update system, UI icons, CLI helpers, comments).
 
 ## 0.5.0-beta.2 - 2026-02-01
 

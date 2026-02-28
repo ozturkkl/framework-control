@@ -8,8 +8,7 @@ pub async fn extract_tar_gz_to<P: AsRef<Path>>(tar_path: P, target_dir: P) -> Re
     let target_dir = target_dir.as_ref();
 
     // Ensure target directory exists
-    std::fs::create_dir_all(target_dir)
-        .map_err(|e| format!("failed to create target dir: {}", e))?;
+    std::fs::create_dir_all(target_dir).map_err(|e| format!("failed to create target dir: {}", e))?;
 
     // Use system tar command
     let status = tokio::process::Command::new("tar")
@@ -32,13 +31,10 @@ pub fn extract_zip_to<P: AsRef<Path>>(zip_path: P, target_dir: P) -> Result<Vec<
     let zip_path = zip_path.as_ref();
     let target_dir = target_dir.as_ref();
     let file = File::open(zip_path).map_err(|e| format!("open zip failed: {e}"))?;
-    let mut archive =
-        zip::ZipArchive::new(BufReader::new(file)).map_err(|e| format!("zip open failed: {e}"))?;
+    let mut archive = zip::ZipArchive::new(BufReader::new(file)).map_err(|e| format!("zip open failed: {e}"))?;
     let mut extracted: Vec<PathBuf> = Vec::new();
     for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("zip entry failed: {e}"))?;
+        let mut file = archive.by_index(i).map_err(|e| format!("zip entry failed: {e}"))?;
         let outpath = target_dir.join(file.mangled_name());
         if file.is_dir() {
             std::fs::create_dir_all(&outpath).map_err(|e| format!("mkdir failed: {e}"))?;
@@ -48,11 +44,8 @@ pub fn extract_zip_to<P: AsRef<Path>>(zip_path: P, target_dir: P) -> Result<Vec<
             }
             let mut outfile = File::create(&outpath).map_err(|e| format!("create failed: {e}"))?;
             let mut buf = Vec::new();
-            file.read_to_end(&mut buf)
-                .map_err(|e| format!("read failed: {e}"))?;
-            outfile
-                .write_all(&buf)
-                .map_err(|e| format!("write failed: {e}"))?;
+            file.read_to_end(&mut buf).map_err(|e| format!("read failed: {e}"))?;
+            outfile.write_all(&buf).map_err(|e| format!("write failed: {e}"))?;
         }
         extracted.push(outpath);
     }
@@ -60,21 +53,15 @@ pub fn extract_zip_to<P: AsRef<Path>>(zip_path: P, target_dir: P) -> Result<Vec<
 }
 
 /// Download an archive (zip or tar.gz) to a temp dir and check whether it contains a file ending with any preferred suffixes
-pub async fn archive_contains_any_suffix(
-    url: &str,
-    preferred_suffixes: &[&str],
-) -> Result<bool, String> {
+pub async fn archive_contains_any_suffix(url: &str, preferred_suffixes: &[&str]) -> Result<bool, String> {
     // Use a URL-based hash to isolate temp artifacts per asset and ensure idempotency
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     url.hash(&mut hasher);
     let h = hasher.finish();
 
-    let executable_path =
-        std::env::current_exe().map_err(|e| format!("get current executable path failed: {e}"))?;
-    let executable_dir = executable_path
-        .parent()
-        .unwrap_or(std::path::Path::new("."));
+    let executable_path = std::env::current_exe().map_err(|e| format!("get current executable path failed: {e}"))?;
+    let executable_dir = executable_path.parent().unwrap_or(std::path::Path::new("."));
     let tmp_root = executable_dir.join("fc_zip_peek");
     let _ = std::fs::create_dir_all(&tmp_root);
     let tmp_dir = tmp_root.join(format!("{}", h));
@@ -82,9 +69,7 @@ pub async fn archive_contains_any_suffix(
     let _ = std::fs::remove_dir_all(&tmp_dir);
     let _ = std::fs::create_dir_all(&tmp_dir);
 
-    let extract_dir_s =
-        crate::utils::download::download_to_path(url, &tmp_dir.to_string_lossy().to_string())
-            .await?;
+    let extract_dir_s = crate::utils::download::download_to_path(url, &tmp_dir.to_string_lossy().to_string()).await?;
     let extract_dir = std::path::Path::new(&extract_dir_s).to_path_buf();
     // walk and find preferred
     let mut stack = vec![extract_dir.clone()];

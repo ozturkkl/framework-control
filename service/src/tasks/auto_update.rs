@@ -22,5 +22,3 @@ pub async fn run(cfg: Arc<tokio::sync::RwLock<Config>>) {
         sleep(Duration::from_secs(6 * 60 * 60)).await;
     }
 }
-
-
