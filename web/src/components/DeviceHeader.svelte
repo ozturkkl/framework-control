@@ -68,7 +68,7 @@
 
     // Use platform-specific installer URL if OS is detected
     $: platformInstallerUrl = isLinux()
-        ? "https://github.com/ozturkkl/framework-control/blob/linux-support/LINUX_INSTALL.MD"
+        ? "https://github.com/ozturkkl/framework-control/blob/main/LINUX_INSTALL.MD"
         : "https://github.com/ozturkkl/framework-control/releases/latest/download/framework-control-service-x86_64.msi";
 
     $: if (healthy && !triedToFetchVersions) {
@@ -396,7 +396,7 @@
                                 <div class="flex items-center gap-3">
                                     <a
                                         class="btn btn-ghost btn-sm gap-2"
-                                        href="https://github.com/ozturkkl/framework-control/blob/linux-support/LINUX_INSTALL.MD"
+                                        href="https://github.com/ozturkkl/framework-control/blob/main/LINUX_INSTALL.MD"
                                         target="_blank"
                                         rel="noreferrer noopener"
                                     >
