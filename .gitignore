@@ -1,3 +1,7 @@
+# Nix build result symlink
+result
+result-*
+
 # Web generated OpenAPI spec and client
 web/node_modules/
 

@@ -17,4 +17,4 @@ jobs:
             experimental-features = nix-command flakes
 
       - name: Build package
-        run: nix build
+        run: nix build --no-link
