@@ -2,7 +2,7 @@ name: Build and Release Service MSI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch: {}
 
 permissions:
@@ -48,6 +48,10 @@ jobs:
           fi
           isPrerelease=false
           if echo "$current" | grep -q '-'; then
+            isPrerelease=true
+          fi
+          # Dev branch builds are always pre-releases regardless of version string
+          if [ "${GITHUB_REF_NAME}" = "dev" ]; then
             isPrerelease=true
           fi
           echo "version=$current" >> "$GITHUB_OUTPUT"
