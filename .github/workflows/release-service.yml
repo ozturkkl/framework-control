@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [dev]
+    branches: [main]
   workflow_dispatch: {}
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
           set -euo pipefail
           current=$(grep -m1 '^version\s*=' service/Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
           isPrerelease=false
-          if [ "${GITHUB_REF_NAME}" = "dev" ]; then
+          if [ "${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}" != "main" ]; then
             isPrerelease=true
           fi
           echo "version=$current" >> "$GITHUB_OUTPUT"
