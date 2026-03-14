@@ -1,6 +1,8 @@
+# Nix build result symlink
+result
+result-*
+
 # Web generated OpenAPI spec and client
-web/openapi.json
-web/src/api/
 web/node_modules/
 
 # Web build/cache

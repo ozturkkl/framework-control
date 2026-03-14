@@ -1,0 +1,1349 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "framework-control-service",
+    "version": "0.5.2"
+  },
+  "servers": [
+    {
+      "url": ""
+    }
+  ],
+  "tags": [],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health: returns overall service health and CLI presence",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "health"
+      }
+    },
+    "/ryzenadj/install": {
+      "post": {
+        "summary": "RyzenAdj: install on demand (Windows only)",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "installRyzenadj"
+      }
+    },
+    "/ryzenadj/uninstall": {
+      "post": {
+        "summary": "RyzenAdj: uninstall and remove any downloaded artifacts (Windows only)",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "uninstallRyzenadj"
+      }
+    },
+    "/power": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowerResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getPower"
+      }
+    },
+    "/update/check": {
+      "get": {
+        "summary": "Update: check for latest version from update feed",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateCheck"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "checkUpdate"
+      }
+    },
+    "/update/apply": {
+      "post": {
+        "summary": "Update: apply latest by downloading MSI and invoking msiexec (Windows only)",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "applyUpdate"
+      }
+    },
+    "/thermal": {
+      "get": {
+        "summary": "Thermal (parsed)",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThermalParsed"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getThermal"
+      }
+    },
+    "/thermal/history": {
+      "get": {
+        "summary": "Telemetry history: returns recent samples collected by the service",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TelemetrySample"
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getThermalHistory"
+      }
+    },
+    "/versions": {
+      "get": {
+        "summary": "Framework versions (parsed)",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionsParsed"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getVersions"
+      }
+    },
+    "/config": {
+      "get": {
+        "summary": "Get config",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/Config"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getConfig"
+      },
+      "post": {
+        "summary": "Set config (partial)",
+        "requestBody": {
+          "content": {
+            "application/json; charset=utf-8": {
+              "schema": {
+                "$ref": "#/components/schemas/PartialConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "setConfig"
+      }
+    },
+    "/system": {
+      "get": {
+        "summary": "System info",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfo"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getSystemInfo"
+      }
+    },
+    "/shortcuts/status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShortcutsStatus"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getShortcutsStatus"
+      }
+    },
+    "/shortcuts/create": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "createShortcuts"
+      }
+    },
+    "/logs": {
+      "get": {
+        "summary": "Logs: retrieve recent service logs",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/plain; charset=utf-8": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json; charset=utf-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getLogs"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BatteryConfig": {
+        "type": "object",
+        "title": "BatteryConfig",
+        "properties": {
+          "charge_limit_max_pct": {
+            "description": "EC charge limit maximum percent (25-100)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingU8"
+              },
+              {
+                "description": "EC charge limit maximum percent (25-100)"
+              }
+            ]
+          },
+          "charge_rate_c": {
+            "description": "Charge rate in C (0.05 - 1.0). When disabled, use 1.0C to approximate no limit.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingF32"
+              },
+              {
+                "description": "Charge rate in C (0.05 - 1.0). When disabled, use 1.0C to approximate no limit."
+              }
+            ]
+          },
+          "charge_rate_soc_threshold_pct": {
+            "type": "integer",
+            "format": "uint8",
+            "description": "Optional SoC threshold (%) for rate limiting"
+          }
+        }
+      },
+      "BatteryInfo": {
+        "type": "object",
+        "title": "BatteryInfo",
+        "properties": {
+          "ac_present": {
+            "type": "boolean"
+          },
+          "battery_present": {
+            "type": "boolean"
+          },
+          "last_full_charge_capacity_mah": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "remaining_capacity_mah": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "percentage": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "soc_pct": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "present_voltage_mv": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "present_rate_ma": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "charger_voltage_mv": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "charger_current_ma": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "charge_input_current_ma": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "design_capacity_mah": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "design_voltage_mv": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "cycle_count": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "charging": {
+            "type": "boolean"
+          },
+          "discharging": {
+            "type": "boolean"
+          },
+          "charge_limit_min_pct": {
+            "type": "integer",
+            "format": "uint8"
+          },
+          "charge_limit_max_pct": {
+            "type": "integer",
+            "format": "uint8"
+          }
+        }
+      },
+      "Config": {
+        "type": "object",
+        "title": "Config",
+        "required": [
+          "fan",
+          "power",
+          "battery",
+          "updates",
+          "telemetry",
+          "ui"
+        ],
+        "properties": {
+          "fan": {
+            "$ref": "#/components/schemas/FanControlConfig"
+          },
+          "power": {
+            "$ref": "#/components/schemas/PowerConfig"
+          },
+          "battery": {
+            "$ref": "#/components/schemas/BatteryConfig"
+          },
+          "updates": {
+            "$ref": "#/components/schemas/UpdatesConfig"
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetryConfig"
+          },
+          "ui": {
+            "$ref": "#/components/schemas/UiConfig"
+          }
+        }
+      },
+      "CurveConfig": {
+        "type": "object",
+        "title": "CurveConfig",
+        "required": [
+          "sensors",
+          "points",
+          "poll_ms",
+          "hysteresis_c",
+          "rate_limit_pct_per_step"
+        ],
+        "properties": {
+          "sensors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "uint32"
+              },
+              "maxLength": 2,
+              "minLength": 2
+            }
+          },
+          "poll_ms": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "hysteresis_c": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "rate_limit_pct_per_step": {
+            "type": "integer",
+            "format": "uint32"
+          }
+        }
+      },
+      "Empty": {
+        "type": "object",
+        "title": "Empty"
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "title": "ErrorEnvelope",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "FanCalibration": {
+        "type": "object",
+        "title": "FanCalibration",
+        "required": [
+          "points",
+          "updated_at"
+        ],
+        "properties": {
+          "points": {
+            "type": "array",
+            "description": "Calibration data points: [duty_pct, rpm]",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "uint32"
+              },
+              "maxLength": 2,
+              "minLength": 2
+            }
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp (seconds)"
+          }
+        }
+      },
+      "FanControlConfig": {
+        "type": "object",
+        "title": "FanControlConfig",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/FanControlMode"
+          },
+          "manual": {
+            "$ref": "#/components/schemas/ManualConfig"
+          },
+          "curve": {
+            "$ref": "#/components/schemas/CurveConfig"
+          },
+          "calibration": {
+            "$ref": "#/components/schemas/FanCalibration"
+          }
+        }
+      },
+      "FanControlMode": {
+        "type": "string",
+        "enum": [
+          "disabled",
+          "manual",
+          "curve"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "title": "Health",
+        "required": [
+          "cli_present",
+          "service_version"
+        ],
+        "properties": {
+          "cli_present": {
+            "type": "boolean"
+          },
+          "service_version": {
+            "type": "string"
+          }
+        }
+      },
+      "ManualConfig": {
+        "type": "object",
+        "title": "ManualConfig",
+        "required": [
+          "duty_pct"
+        ],
+        "properties": {
+          "duty_pct": {
+            "type": "integer",
+            "format": "uint32"
+          }
+        }
+      },
+      "PartialConfig": {
+        "type": "object",
+        "title": "PartialConfig",
+        "properties": {
+          "fan": {
+            "$ref": "#/components/schemas/FanControlConfig"
+          },
+          "power": {
+            "$ref": "#/components/schemas/PowerConfig"
+          },
+          "battery": {
+            "$ref": "#/components/schemas/BatteryConfig"
+          },
+          "updates": {
+            "$ref": "#/components/schemas/UpdatesConfig"
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetryConfig"
+          },
+          "ui": {
+            "$ref": "#/components/schemas/UiConfig"
+          }
+        }
+      },
+      "PowerCapabilities": {
+        "type": "object",
+        "title": "PowerCapabilities",
+        "required": [
+          "supports_tdp",
+          "supports_thermal",
+          "supports_epp",
+          "supports_governor",
+          "supports_frequency_limits"
+        ],
+        "properties": {
+          "supports_tdp": {
+            "type": "boolean"
+          },
+          "supports_thermal": {
+            "type": "boolean"
+          },
+          "supports_epp": {
+            "type": "boolean"
+          },
+          "supports_governor": {
+            "type": "boolean"
+          },
+          "supports_frequency_limits": {
+            "type": "boolean"
+          },
+          "available_epp_preferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "available_governors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "frequency_min_mhz": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "frequency_max_mhz": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "tdp_min_watts": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "tdp_max_watts": {
+            "type": "integer",
+            "format": "uint32"
+          }
+        }
+      },
+      "PowerConfig": {
+        "type": "object",
+        "title": "PowerConfig",
+        "properties": {
+          "ac": {
+            "description": "Profile used when AC power is present (plugged in / charging)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PowerProfile"
+              },
+              {
+                "description": "Profile used when AC power is present (plugged in / charging)"
+              }
+            ]
+          },
+          "battery": {
+            "description": "Profile used when running on battery (not charging)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PowerProfile"
+              },
+              {
+                "description": "Profile used when running on battery (not charging)"
+              }
+            ]
+          }
+        }
+      },
+      "PowerControlInfo": {
+        "type": "object",
+        "title": "PowerControlInfo",
+        "required": [
+          "capabilities",
+          "current_state"
+        ],
+        "properties": {
+          "capabilities": {
+            "description": "What capabilities are available",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PowerCapabilities"
+              },
+              {
+                "description": "What capabilities are available"
+              }
+            ]
+          },
+          "current_state": {
+            "description": "Current state (what's actually applied right now)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PowerState"
+              },
+              {
+                "description": "Current state (what's actually applied right now)"
+              }
+            ]
+          }
+        }
+      },
+      "PowerProfile": {
+        "type": "object",
+        "title": "PowerProfile",
+        "properties": {
+          "tdp_watts": {
+            "$ref": "#/components/schemas/SettingU32"
+          },
+          "thermal_limit_c": {
+            "$ref": "#/components/schemas/SettingU32"
+          },
+          "epp_preference": {
+            "$ref": "#/components/schemas/SettingString"
+          },
+          "governor": {
+            "$ref": "#/components/schemas/SettingString"
+          },
+          "min_freq_mhz": {
+            "$ref": "#/components/schemas/SettingU32"
+          },
+          "max_freq_mhz": {
+            "$ref": "#/components/schemas/SettingU32"
+          }
+        }
+      },
+      "PowerResponse": {
+        "type": "object",
+        "title": "PowerResponse",
+        "required": [
+          "power_control"
+        ],
+        "properties": {
+          "battery": {
+            "description": "Battery info (framework_tool --power) + charge limits (charge-limit CLI)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BatteryInfo"
+              },
+              {
+                "description": "Battery info (framework_tool --power) + charge limits (charge-limit CLI)"
+              }
+            ]
+          },
+          "power_control": {
+            "description": "Power control information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PowerControlInfo"
+              },
+              {
+                "description": "Power control information"
+              }
+            ]
+          }
+        }
+      },
+      "PowerState": {
+        "type": "object",
+        "title": "PowerState",
+        "properties": {
+          "tdp_limit_watts": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "thermal_limit_c": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "epp_preference": {
+            "type": "string"
+          },
+          "governor": {
+            "type": "string"
+          },
+          "min_freq_mhz": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "max_freq_mhz": {
+            "type": "integer",
+            "format": "uint32"
+          }
+        }
+      },
+      "SettingF32": {
+        "type": "object",
+        "title": "SettingF32",
+        "required": [
+          "enabled",
+          "value"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this setting should be applied"
+          },
+          "value": {
+            "type": "number",
+            "format": "float",
+            "description": "The last chosen value (kept even when disabled)"
+          }
+        }
+      },
+      "SettingString": {
+        "type": "object",
+        "title": "SettingString",
+        "required": [
+          "enabled",
+          "value"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this setting should be applied"
+          },
+          "value": {
+            "type": "string",
+            "description": "The last chosen value (kept even when disabled)"
+          }
+        }
+      },
+      "SettingU32": {
+        "type": "object",
+        "title": "SettingU32",
+        "required": [
+          "enabled",
+          "value"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this setting should be applied"
+          },
+          "value": {
+            "type": "integer",
+            "format": "uint32",
+            "description": "The last chosen value (kept even when disabled)"
+          }
+        }
+      },
+      "SettingU8": {
+        "type": "object",
+        "title": "SettingU8",
+        "required": [
+          "enabled",
+          "value"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this setting should be applied"
+          },
+          "value": {
+            "type": "integer",
+            "format": "uint8",
+            "description": "The last chosen value (kept even when disabled)"
+          }
+        }
+      },
+      "ShortcutsStatus": {
+        "type": "object",
+        "title": "ShortcutsStatus",
+        "required": [
+          "installed"
+        ],
+        "properties": {
+          "installed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SystemInfo": {
+        "type": "object",
+        "title": "SystemInfo",
+        "required": [
+          "cpu",
+          "memory_total_mb",
+          "os"
+        ],
+        "properties": {
+          "cpu": {
+            "type": "string"
+          },
+          "memory_total_mb": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "os": {
+            "type": "string"
+          },
+          "dgpu": {
+            "type": "string"
+          }
+        }
+      },
+      "TelemetryConfig": {
+        "type": "object",
+        "title": "TelemetryConfig",
+        "required": [
+          "poll_ms",
+          "retain_seconds"
+        ],
+        "properties": {
+          "poll_ms": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "retain_seconds": {
+            "type": "integer",
+            "format": "uint64"
+          }
+        }
+      },
+      "TelemetrySample": {
+        "type": "object",
+        "title": "TelemetrySample",
+        "required": [
+          "ts_ms",
+          "temps",
+          "rpms"
+        ],
+        "properties": {
+          "ts_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "temps": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "rpms": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "uint32"
+            }
+          }
+        }
+      },
+      "ThermalParsed": {
+        "type": "object",
+        "title": "ThermalParsed",
+        "required": [
+          "temps",
+          "rpms"
+        ],
+        "properties": {
+          "temps": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "rpms": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "uint32"
+            }
+          }
+        }
+      },
+      "UiConfig": {
+        "type": "object",
+        "title": "UiConfig",
+        "properties": {
+          "theme": {
+            "type": "string",
+            "description": "Preferred UI theme (matches DaisyUI theme names)"
+          }
+        }
+      },
+      "UpdateCheck": {
+        "type": "object",
+        "title": "UpdateCheck",
+        "required": [
+          "current_version",
+          "latest_version"
+        ],
+        "properties": {
+          "current_version": {
+            "type": "string"
+          },
+          "latest_version": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdatesConfig": {
+        "type": "object",
+        "title": "UpdatesConfig",
+        "required": [
+          "auto_install"
+        ],
+        "properties": {
+          "auto_install": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VersionsParsed": {
+        "type": "object",
+        "title": "VersionsParsed",
+        "properties": {
+          "mainboard_type": {
+            "type": "string"
+          },
+          "mainboard_revision": {
+            "type": "string"
+          },
+          "uefi_version": {
+            "type": "string"
+          },
+          "uefi_release_date": {
+            "type": "string"
+          },
+          "ec_build_version": {
+            "type": "string"
+          },
+          "ec_current_image": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

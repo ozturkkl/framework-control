@@ -1,5 +1,10 @@
 # Unreleased
 
+## 0.5.2 - 2026-07-15
+
+- **Nix support**: Added `flake.nix`, `nix/package.nix`, and `nix/module.nix` for building and running as a NixOS service. Enables `services.framework-control.enable = true` in NixOS configurations. Work in progress toward a nixpkgs submission.
+- **Removed bearer token auth**: Write endpoints no longer require a bearer token. Security relies on CORS + loopback-only binding (`127.0.0.1`), which covers the actual threat model. Simplifies setup across all platforms — no token configuration needed.
+
 ## 0.5.1 - 2026-02-28
 
 - **Linux Power Management**: Native kernel interface support (AMD P-State EPP, cpufreq) replaces RyzenAdj on Linux. Exposes energy preference (EPP), governor selection, and frequency limit controls where available.

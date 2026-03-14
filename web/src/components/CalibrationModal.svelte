@@ -5,7 +5,6 @@
   import { tweened } from "svelte/motion";
   import { get } from "svelte/store";
 
-  export let token: string;
   const dispatch = createEventDispatcher();
 
   let progress = 0; // 0..100
@@ -34,7 +33,7 @@
   async function setMode(mode: "manual" | "curve" | "disabled") {
     const patch: PartialConfig = { fan: { mode } };
     try {
-      await DefaultService.setConfig(token, patch);
+      await DefaultService.setConfig(patch);
     } catch {}
   }
 
@@ -45,7 +44,7 @@
         manual: { duty_pct: Math.max(0, Math.min(100, Math.round(duty))) },
       },
     };
-    await DefaultService.setConfig(token, patch);
+    await DefaultService.setConfig(patch);
   }
 
   async function readStableRpm(): Promise<number> {
@@ -129,7 +128,7 @@
     info = "Saving";
     // Save calibration at root; include mode to satisfy backend schema
     try {
-      await DefaultService.setConfig(token, {
+      await DefaultService.setConfig({
         fan: {
           calibration: {
             points: out,

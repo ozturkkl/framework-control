@@ -211,7 +211,7 @@ All prerequisites (`curl`, `tar`, `systemd`) are available in the base system or
 ## Security Notes
 
 - The service binds to `127.0.0.1` only - it's not accessible from the network
-- Write operations require bearer token authentication (baked into the binary during build)
+- CORS restricts browser-based cross-origin requests
 - The service runs as root because `framework_tool` requires elevated permissions for EC access
 
 ## Support

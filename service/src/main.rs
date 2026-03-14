@@ -83,7 +83,7 @@ async fn main() {
         .iter()
         .fold(Cors::new(), |c, origin| c.allow_origin(origin.as_str()))
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers(["content-type", "authorization"]) // allow bearer token
+        .allow_headers(["content-type"])
         .max_age(600);
 
     // Boot background tasks (fan curve if enabled)

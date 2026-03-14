@@ -25,11 +25,7 @@
         creatingShortcuts = true;
         error = "";
         try {
-            // Reuse the OpenAPI.TOKEN if present
-            const auth = OpenAPI.TOKEN;
-            const result = await DefaultService.createShortcuts(
-                auth ? `Bearer ${auth}` : "",
-            );
+            const result = await DefaultService.createShortcuts();
             shortcutsCreated = true;
         } catch (e) {
             error = isLinux()
