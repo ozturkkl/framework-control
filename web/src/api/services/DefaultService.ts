@@ -30,36 +30,24 @@ export class DefaultService {
     }
     /**
      * RyzenAdj: install on demand (Windows only)
-     * @param authorization
      * @returns Empty
      * @throws ApiError
      */
-    public static installRyzenadj(
-        authorization: string,
-    ): CancelablePromise<Empty> {
+    public static installRyzenadj(): CancelablePromise<Empty> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/ryzenadj/install',
-            headers: {
-                'Authorization': authorization,
-            },
         });
     }
     /**
      * RyzenAdj: uninstall and remove any downloaded artifacts (Windows only)
-     * @param authorization
      * @returns Empty
      * @throws ApiError
      */
-    public static uninstallRyzenadj(
-        authorization: string,
-    ): CancelablePromise<Empty> {
+    public static uninstallRyzenadj(): CancelablePromise<Empty> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/ryzenadj/uninstall',
-            headers: {
-                'Authorization': authorization,
-            },
         });
     }
     /**
@@ -85,23 +73,13 @@ export class DefaultService {
     }
     /**
      * Update: apply latest by downloading MSI and invoking msiexec (Windows only)
-     * @param authorization
-     * @param requestBody
      * @returns Empty
      * @throws ApiError
      */
-    public static applyUpdate(
-        authorization: string,
-        requestBody: any,
-    ): CancelablePromise<Empty> {
+    public static applyUpdate(): CancelablePromise<Empty> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/update/apply',
-            headers: {
-                'Authorization': authorization,
-            },
-            body: requestBody,
-            mediaType: 'application/json; charset=utf-8',
         });
     }
     /**
@@ -150,21 +128,16 @@ export class DefaultService {
     }
     /**
      * Set config (partial)
-     * @param authorization
      * @param requestBody
      * @returns Empty
      * @throws ApiError
      */
     public static setConfig(
-        authorization: string,
         requestBody: PartialConfig,
     ): CancelablePromise<Empty> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/config',
-            headers: {
-                'Authorization': authorization,
-            },
             body: requestBody,
             mediaType: 'application/json; charset=utf-8',
         });
@@ -191,36 +164,24 @@ export class DefaultService {
         });
     }
     /**
-     * @param authorization
      * @returns Empty
      * @throws ApiError
      */
-    public static createShortcuts(
-        authorization: string,
-    ): CancelablePromise<Empty> {
+    public static createShortcuts(): CancelablePromise<Empty> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/shortcuts/create',
-            headers: {
-                'Authorization': authorization,
-            },
         });
     }
     /**
      * Logs: retrieve recent service logs
-     * @param authorization
      * @returns string
      * @throws ApiError
      */
-    public static getLogs(
-        authorization: string,
-    ): CancelablePromise<string> {
+    public static getLogs(): CancelablePromise<string> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/logs',
-            headers: {
-                'Authorization': authorization,
-            },
         });
     }
 }

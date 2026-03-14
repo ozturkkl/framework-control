@@ -11,12 +11,12 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Backend service: Rust (Tokio + Poem + poem-openapi) in `framework-control/service`
 - Frontend web UI: Svelte + Vite in `framework-control/web`
 - Packaging: WiX MSI for Windows (service registration, assets), automated install script + tarball for Linux
-- Security: loopback-only API; write operations require bearer token
+- Security: loopback-only API; CORS restricts browser-based cross-origin requests
 
 ### Backend Service (Rust)
 
 - Entry: `service/src/main.rs` (@main.rs)
-  - Loads config and environment (`FRAMEWORK_CONTROL_PORT`, `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`, `FRAMEWORK_CONTROL_TOKEN`)
+  - Loads config and environment (`FRAMEWORK_CONTROL_PORT`, `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`)
   - Serves static UI, builds OpenAPI, mounts routes, initializes optional CLI integration
 - Routes: `service/src/routes.rs` (@routes.rs)
   - Endpoints (under `/api`):
@@ -26,7 +26,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
     - `GET /thermal/history`: recent telemetry samples collected by the service (trimmed by configured retention)
     - `GET /versions`: parsed versions (mainboard_type, uefi_version, etc.)
     - `GET /config`: return persisted config
-    - `POST /config`: update config (requires `Authorization: Bearer <token>`)
+    - `POST /config`: update config
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Desktop/application menu shortcut existence
     - `POST /shortcuts/create`: create desktop shortcuts with browser detection (auth required, Windows + Linux)
@@ -38,7 +38,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Other key files (condensed):
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
   - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme, `telemetry` config, and `TelemetrySample`
-  - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), config, token, in‑memory `telemetry_samples`
+  - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), config, in‑memory `telemetry_samples`
 - Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `battery`, `auto_update`, `telemetry`
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only — reads/writes sysfs for AMD P-State EPP, cpufreq governor, and frequency limits)
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, `reconciler` (generic drift-aware reconciler with quiet-window + cooldown logic), etc.
@@ -60,13 +60,11 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Always use the generated API client (`DefaultService`, `OpenAPI`) for all requests.
 - Do NOT call `fetch` directly to backend endpoints in UI code.
 - Prefer typed responses from OpenAPI models NEVER EVER use fetch() when interacting with the backend service.
-- For authenticated calls, pass `Bearer ${OpenAPI.TOKEN}`.
 - To reflect backend changes, rebuild the service to refresh `openapi.json`, then run `npm run gen:api` in `web/`.
 - Hosted vs Embedded: when hosted and an update is available, `VersionMismatchModal.svelte` blocks with actions to open the local app or view releases. Embedded mode (127.0.0.1) continues normally.
 
 - Env: `web/.env.local`
   - `VITE_API_BASE` (optional; defaults to current origin + `/api` for embedded mode)
-  - `VITE_CONTROL_TOKEN` (bearer token for write ops)
 - Build/dev:
   - `npm i && npm run dev` (dev)
   - `npm run build` (generates `web/dist` used by service/static)
@@ -74,7 +72,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 
 ### Installation & Packaging
 
-- Windows: MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`). MSI injects env values into the service (allowed origins, token, port, update repo). Updates via `msiexec`.
+- Windows: MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`). MSI injects env values into the service (allowed origins, port, update repo). Updates via `msiexec`.
 - Linux: 
   - Automated install script (`install-linux.sh` in repo root) downloads latest release tarball from GitHub
   - Installs binary to `/usr/local/bin/framework-control` and systemd service to `/etc/systemd/system/`
@@ -96,8 +94,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Telemetry: `telemetry.poll_ms`, `telemetry.retain_seconds` (history for `/api/thermal/history`)
 - Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting)
 - UI: `ui.theme` (DaisyUI theme name, shared across clients)
-- Writes require `FRAMEWORK_CONTROL_TOKEN` (Bearer)
-- Updates: `FRAMEWORK_CONTROL_UPDATE_REPO` used by update endpoints; MSI build reads tokens from env/CLI
+- Updates: `FRAMEWORK_CONTROL_UPDATE_REPO` used by update endpoints
 
 ### Developer Quick Start
 
@@ -105,12 +102,11 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
   - `cd framework-control/service`
   - Set `.env` with:
     - `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`
-    - `FRAMEWORK_CONTROL_TOKEN`
     - `FRAMEWORK_CONTROL_PORT`
   - `cargo run`
 - Frontend (dev):
   - `cd framework-control/web`
-  - `.env.local` with `VITE_API_BASE`, `VITE_CONTROL_TOKEN`
+  - `.env.local` with `VITE_API_BASE`
   - `npm i && npm run dev`
 
 ### Notable Cross-Repo Context

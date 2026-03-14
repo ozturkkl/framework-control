@@ -123,9 +123,6 @@ Service `.env` file (`framework-control/service/.env`):
 # Allow your dev UI origin(s)
 FRAMEWORK_CONTROL_ALLOWED_ORIGINS=http://127.0.0.1:5174,http://localhost:5174
 
-# Token required for write operations from the UI
-FRAMEWORK_CONTROL_TOKEN=<long-random-token>
-
 # Required: port for the service
 FRAMEWORK_CONTROL_PORT=8090
 
@@ -139,9 +136,6 @@ Web UI `.env.local` file (`framework-control/web/.env.local`):
 # Local service URL (optional; auto-detects from current origin if omitted)
 # Set this to match your FRAMEWORK_CONTROL_PORT in the service
 VITE_API_BASE=http://127.0.0.1:8090
-
-# Same token as the service
-VITE_CONTROL_TOKEN=<long-random-token>
 ```
 
 ## Updates & Caching
@@ -183,5 +177,5 @@ Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.
 ## Security Notes
 
 - API binds to loopback only (127.0.0.1) - no remote exposure
-- Write operations require bearer token authentication
+- CORS restricts browser-based cross-origin requests
 - Service logs diagnostics via the Windows service wrapper (rolling logs in the install directory)

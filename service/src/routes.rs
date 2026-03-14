@@ -4,8 +4,7 @@ use crate::state::AppState;
 use crate::types::{Empty, Health, PartialConfig, ShortcutsStatus, SystemInfo, UpdateCheck};
 use crate::update::{check_and_apply_now, get_current_and_latest};
 use poem::web::Data;
-use poem_openapi::{param::Header, payload::Json, ApiResponse, OpenApi};
-use serde_json::Value;
+use poem_openapi::{payload::Json, ApiResponse, OpenApi};
 use sysinfo::System;
 use tracing::{error, info};
 
@@ -73,18 +72,6 @@ fn map_cli_err(e: String) -> ApiErrorResponse {
     bad_gateway("cli_failed", e)
 }
 
-fn bearer_from_header(auth: &Header<String>) -> &str {
-    auth.0.as_str().strip_prefix("Bearer ").unwrap_or("").trim()
-}
-
-fn require_auth(state: &AppState, auth: &Header<String>) -> Result<(), ApiErrorResponse> {
-    let provided = bearer_from_header(auth);
-    if state.is_valid_token(Some(provided)) {
-        Ok(())
-    } else {
-        Err(bad_gateway("unauthorized", "invalid token".into()))
-    }
-}
 
 pub struct Api;
 
@@ -105,10 +92,7 @@ impl Api {
     #[oai(path = "/ryzenadj/install", method = "post", operation_id = "installRyzenadj")]
     async fn install_ryzenadj(
         &self,
-        state: Data<&AppState>,
-        #[oai(name = "Authorization")] auth: Header<String>,
     ) -> ApiResult<Empty> {
-        require_auth(&state, &auth)?;
         #[cfg(target_os = "windows")]
         {
             match crate::cli::ryzen_adj::attempt_install_via_direct_download().await {
@@ -139,9 +123,7 @@ impl Api {
     async fn uninstall_ryzenadj(
         &self,
         state: Data<&AppState>,
-        #[oai(name = "Authorization")] auth: Header<String>,
     ) -> ApiResult<Empty> {
-        require_auth(&state, &auth)?;
         #[cfg(target_os = "windows")]
         {
             match crate::cli::ryzen_adj::remove_installed_files().await {
@@ -254,11 +236,7 @@ impl Api {
     #[oai(path = "/update/apply", method = "post", operation_id = "applyUpdate")]
     async fn apply_update(
         &self,
-        state: Data<&AppState>,
-        #[oai(name = "Authorization")] auth: Header<String>,
-        _req: Json<Value>,
     ) -> ApiResult<Empty> {
-        require_auth(&state, &auth)?;
         match check_and_apply_now().await {
             Ok(_applied) => Ok(Json(Empty {})),
             Err(e) => {
@@ -309,10 +287,8 @@ impl Api {
     async fn set_config(
         &self,
         state: Data<&AppState>,
-        #[oai(name = "Authorization")] auth: Header<String>,
         req: Json<PartialConfig>,
     ) -> ApiResult<Empty> {
-        require_auth(&state, &auth)?;
         let req = req.0;
         let mut merged = state.config.read().await.clone();
         if let Some(fan) = req.fan {
@@ -448,12 +424,7 @@ impl Api {
     #[oai(path = "/shortcuts/create", method = "post", operation_id = "createShortcuts")]
     async fn create_shortcuts(
         &self,
-        state: Data<&AppState>,
-        #[oai(name = "Authorization")] auth: Header<String>,
     ) -> ApiResult<Empty> {
-        // Check auth
-        require_auth(&state, &auth)?;
-
         // Get port from environment (required at startup)
         let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
             .ok()
@@ -478,10 +449,7 @@ impl Api {
     #[oai(path = "/logs", method = "get", operation_id = "getLogs")]
     async fn get_logs(
         &self,
-        state: Data<&AppState>,
-        #[oai(name = "Authorization")] auth: Header<String>,
     ) -> Result<poem_openapi::payload::PlainText<String>, ApiErrorResponse> {
-        require_auth(&state, &auth)?;
 
         match get_service_logs().await {
             Ok(logs) => Ok(poem_openapi::payload::PlainText(logs)),

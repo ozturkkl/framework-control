@@ -5,8 +5,6 @@ import { DefaultService } from './api';
 
 // Derive API base from current origin unless explicitly overridden
 OpenAPI.BASE = (import.meta.env?.VITE_API_BASE as string | undefined) || `${window.location.origin}/api`;
-const rawToken = (import.meta.env?.VITE_CONTROL_TOKEN ?? '').toString().trim();
-OpenAPI.TOKEN = rawToken.length > 0 ? rawToken : undefined;
 
 // Apply saved theme early so initial render uses it
 try {

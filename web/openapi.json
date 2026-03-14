@@ -52,18 +52,6 @@
     "/ryzenadj/install": {
       "post": {
         "summary": "RyzenAdj: install on demand (Windows only)",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "required": true,
-            "deprecated": false,
-            "explode": true
-          }
-        ],
         "responses": {
           "200": {
             "description": "",
@@ -102,18 +90,6 @@
     "/ryzenadj/uninstall": {
       "post": {
         "summary": "RyzenAdj: uninstall and remove any downloaded artifacts (Windows only)",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "required": true,
-            "deprecated": false,
-            "explode": true
-          }
-        ],
         "responses": {
           "200": {
             "description": "",
@@ -227,26 +203,6 @@
     "/update/apply": {
       "post": {
         "summary": "Update: apply latest by downloading MSI and invoking msiexec (Windows only)",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "required": true,
-            "deprecated": false,
-            "explode": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json; charset=utf-8": {
-              "schema": {}
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "",
@@ -438,18 +394,6 @@
       },
       "post": {
         "summary": "Set config (partial)",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "required": true,
-            "deprecated": false,
-            "explode": true
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json; charset=utf-8": {
@@ -572,18 +516,6 @@
     },
     "/shortcuts/create": {
       "post": {
-        "parameters": [
-          {
-            "name": "Authorization",
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "required": true,
-            "deprecated": false,
-            "explode": true
-          }
-        ],
         "responses": {
           "200": {
             "description": "",
@@ -622,18 +554,6 @@
     "/logs": {
       "get": {
         "summary": "Logs: retrieve recent service logs",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "schema": {
-              "type": "string"
-            },
-            "in": "header",
-            "required": true,
-            "deprecated": false,
-            "explode": true
-          }
-        ],
         "responses": {
           "200": {
             "description": "",

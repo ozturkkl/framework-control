@@ -1,10 +1,6 @@
 # Builds framework-control in two phases within a single derivation:
 #   1. npm/Vite produces the static web UI (web/dist/)
 #   2. cargo embeds that dist via rust-embed and produces the binary
-#
-# A random bearer token is generated once at build time and baked into both
-# the embedded web UI bundle (VITE_CONTROL_TOKEN) and the service binary
-# (option_env!) so they always agree without any manual configuration.
 {
   lib,
   rustPlatform,
@@ -60,9 +56,6 @@ rustPlatform.buildRustPackage {
   nativeBuildInputs = [ nodejs ];
 
   preBuild = ''
-    # Generate a random bearer token shared by the web UI and the service.
-    TOKEN=$(cat /proc/sys/kernel/random/uuid)
-
     pushd web
 
     # Suppress postinstall so npm ci doesn't trigger gen:api
@@ -82,12 +75,9 @@ rustPlatform.buildRustPackage {
 
     # Call vite via node explicitly — the node_modules/.bin/vite shebang uses
     # /usr/bin/env which doesn't exist in the Nix sandbox.
-    VITE_CONTROL_TOKEN="$TOKEN" node node_modules/vite/bin/vite.js build
+    node node_modules/vite/bin/vite.js build
 
     popd
-
-    # Export so option_env!() picks it up when cargo compiles the service.
-    export FRAMEWORK_CONTROL_TOKEN="$TOKEN"
   '';
 
   buildFeatures = [ "embed-ui" ];

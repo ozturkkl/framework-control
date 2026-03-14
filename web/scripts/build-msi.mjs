@@ -41,7 +41,6 @@ const isValidPort = (v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Numb
 const replaceTokens = (xml, t) =>
 	xml
 		.replaceAll('@FRAMEWORK_CONTROL_ALLOWED_ORIGINS@', t.ALLOWED_ORIGINS)
-		.replaceAll('@FRAMEWORK_CONTROL_TOKEN@', t.CONTROL_TOKEN)
 		.replaceAll('@FRAMEWORK_CONTROL_PORT@', t.CONTROL_PORT)
 		.replaceAll('@FRAMEWORK_CONTROL_UPDATE_REPO@', t.UPDATE_REPO);
 
@@ -78,7 +77,6 @@ async function main() {
 
 	const config = {
 		port: env.FRAMEWORK_CONTROL_PORT ?? dot.FRAMEWORK_CONTROL_PORT,
-		token: env.FRAMEWORK_CONTROL_TOKEN ?? dot.FRAMEWORK_CONTROL_TOKEN,
 		allowedOrigins: env.FRAMEWORK_CONTROL_ALLOWED_ORIGINS ?? dot.FRAMEWORK_CONTROL_ALLOWED_ORIGINS,
 		updateRepo: env.FRAMEWORK_CONTROL_UPDATE_REPO ?? dot.FRAMEWORK_CONTROL_UPDATE_REPO,
 	};
@@ -90,9 +88,7 @@ async function main() {
 	if (!isValidPort(config.port)) {
 		throw new Error(`Invalid port: ${config.port}`);
 	}
-	if (config.token === undefined) {
-		throw new Error('FRAMEWORK_CONTROL_TOKEN is required (via env var or service/.env)');
-	}
+
 	if (config.allowedOrigins === undefined) {
 		throw new Error('FRAMEWORK_CONTROL_ALLOWED_ORIGINS is required (via env var or service/.env)');
 	}
@@ -102,7 +98,7 @@ async function main() {
 
 	console.log('[build-msi] Configuration:');
 	console.log(`  Port: ${config.port}`);
-	console.log(`  Token: ${config.token ? '***' : '(not set)'}`);
+
 	console.log(`  Allowed Origins: ${config.allowedOrigins || '(none)'}`);
 	console.log(`  Update Repo: ${config.updateRepo || '(none)'}`);
 	console.log();
@@ -116,7 +112,6 @@ async function main() {
 			GITHUB_PAGES: env.GITHUB_PAGES,
 			VITE_BASE: env.VITE_BASE,
 			VITE_API_BASE: env.VITE_API_BASE,
-			VITE_CONTROL_TOKEN: env.VITE_CONTROL_TOKEN,
 		},
 	});
 
@@ -127,7 +122,6 @@ async function main() {
 	// Prepare tokens for WiX XML
 	const tokens = {
 		ALLOWED_ORIGINS: config.allowedOrigins,
-		CONTROL_TOKEN: config.token,
 		CONTROL_PORT: config.port,
 		UPDATE_REPO: config.updateRepo,
 	};

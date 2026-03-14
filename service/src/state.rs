@@ -14,7 +14,6 @@ use crate::cli::LinuxPower;
 pub struct AppState {
     pub framework_tool: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
     pub config: Arc<tokio::sync::RwLock<Config>>,
-    pub token: Option<String>,
     pub telemetry_samples: Arc<tokio::sync::RwLock<std::collections::VecDeque<crate::types::TelemetrySample>>>,
 
     #[cfg(target_os = "windows")]
@@ -27,9 +26,6 @@ pub struct AppState {
 impl AppState {
     pub async fn initialize() -> Self {
         let config = Arc::new(tokio::sync::RwLock::new(crate::config::load()));
-        let token = std::env::var("FRAMEWORK_CONTROL_TOKEN")
-            .ok()
-            .or_else(|| option_env!("FRAMEWORK_CONTROL_TOKEN").map(String::from));
 
         // Wrap framework_tool in a lock and spawn a passive resolver (no auto-install here)
         let framework_tool = Arc::new(tokio::sync::RwLock::new(None));
@@ -54,7 +50,6 @@ impl AppState {
         Self {
             framework_tool,
             config,
-            token,
             telemetry_samples: Arc::new(tokio::sync::RwLock::new(Default::default())),
             #[cfg(target_os = "windows")]
             ryzenadj,
@@ -63,16 +58,6 @@ impl AppState {
         }
     }
 
-    pub fn is_valid_token(&self, auth_header: Option<&str>) -> bool {
-        let Some(expected) = self.token.as_deref() else {
-            return false;
-        };
-        let Some(provided) = auth_header else {
-            return false;
-        };
-        let provided = provided.strip_prefix("Bearer ").unwrap_or(provided);
-        provided == expected
-    }
 
     #[cfg(target_os = "windows")]
     fn spawn_ryzenadj_resolver(ryz_lock: Arc<tokio::sync::RwLock<Option<RyzenAdj>>>) {

@@ -112,7 +112,6 @@
         value: number | string,
     ) {
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
             const patch: PartialConfig = {
                 power: {
                     [profile]: {
@@ -120,7 +119,7 @@
                     },
                 },
             };
-            await DefaultService.setConfig(auth, patch);
+            await DefaultService.setConfig(patch);
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
@@ -200,8 +199,7 @@
         installingRyzenAdj = true;
         errorMessage = null;
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
-            await DefaultService.installRyzenadj(auth);
+            await DefaultService.installRyzenadj();
             for (let i = 0; i < 5; i++) {
                 await pollPower();
                 if (hasAnyPowerCapability) break;
@@ -218,8 +216,7 @@
         uninstallingRyzenAdj = true;
         errorMessage = null;
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
-            await DefaultService.uninstallRyzenadj(auth);
+            await DefaultService.uninstallRyzenadj();
             await pollPower();
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
@@ -243,7 +240,6 @@
         maxEnabled: boolean,
     ) {
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
             const patch: PartialConfig = {
                 power: {
                     [profile]: {
@@ -252,7 +248,7 @@
                     },
                 },
             };
-            await DefaultService.setConfig(auth, patch);
+            await DefaultService.setConfig(patch);
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
