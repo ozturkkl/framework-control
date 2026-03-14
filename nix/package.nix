@@ -24,7 +24,7 @@ let
         in
         base != "node_modules" && base != "dist" && base != ".vite";
     };
-    hash = "sha256-gfoiTBKHKRQcOy/b37RFjhTgwUvt9nQUPXuD3Gs0ZmQ=";
+    hash = "sha256-ZTvYT5x+7X3+PfBxaR6YzRlTKH1DBvwlxC281Srq2Og=";
   };
 
 in
