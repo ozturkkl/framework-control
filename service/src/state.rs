@@ -58,7 +58,6 @@ impl AppState {
         }
     }
 
-
     #[cfg(target_os = "windows")]
     fn spawn_ryzenadj_resolver(ryz_lock: Arc<tokio::sync::RwLock<Option<RyzenAdj>>>) {
         tokio::spawn(async move {

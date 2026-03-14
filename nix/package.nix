@@ -9,7 +9,7 @@
 }:
 
 let
-  version = "0.5.1";
+  version = "0.5.2";
 
   # Pre-fetch npm dependencies for the offline build.
   # Update the hash by running: nix build 2>&1 | grep "got:"
