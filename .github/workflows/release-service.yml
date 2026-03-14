@@ -258,7 +258,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
+          VERSION: ${{ needs.read-version.outputs.version }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
