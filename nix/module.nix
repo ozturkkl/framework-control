@@ -28,11 +28,6 @@ in
         RestartSec = "5s";
         User = "root";
         Group = "root";
-        StateDirectory = "framework-control";
-      };
-
-      environment = {
-        FRAMEWORK_CONTROL_CONFIG = "/var/lib/framework-control/config.json";
       };
     };
   };
