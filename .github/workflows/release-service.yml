@@ -9,62 +9,30 @@ permissions:
   contents: write
 
 jobs:
-  check-version:
+  read-version:
     runs-on: ubuntu-latest
     outputs:
-      should_release: ${{ steps.version_check.outputs.should_release }}
-      version: ${{ steps.version_check.outputs.version }}
-      is_prerelease: ${{ steps.version_check.outputs.is_prerelease }}
+      version: ${{ steps.read_version.outputs.version }}
+      is_prerelease: ${{ steps.read_version.outputs.is_prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: Determine version change
-        id: version_check
+      - name: Read version
+        id: read_version
         shell: bash
         run: |
           set -euo pipefail
-          sha="${GITHUB_SHA}"
-          parentSha=$(git rev-parse "$sha^" 2>/dev/null || echo "")
-          if [ -z "$parentSha" ]; then
-            echo "No parent commit; skipping release."
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          diff=$(git diff -U0 "$parentSha" "$sha" -- service/Cargo.toml)
-          if [ -z "$diff" ]; then
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "service/Cargo.toml not changed; skipping release."
-            exit 0
-          fi
-          previous=$(echo "$diff" | grep -m1 '^-version\s*=' | sed -E 's/^-version\s*=\s*"([^"]+)".*/\1/')
-          current=$(echo "$diff" | grep -m1 '^\+version\s*=' | sed -E 's/^\+version\s*=\s*"([^"]+)".*/\1/')
-          if [ -n "$previous" ] && [ -n "$current" ] && [ "$current" != "$previous" ]; then
-            shouldRelease=true
-          else
-            shouldRelease=false
-          fi
+          current=$(grep -m1 '^version\s*=' service/Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
           isPrerelease=false
-          if echo "$current" | grep -q '-'; then
-            isPrerelease=true
-          fi
-          # Dev branch builds are always pre-releases regardless of version string
           if [ "${GITHUB_REF_NAME}" = "dev" ]; then
             isPrerelease=true
           fi
           echo "version=$current" >> "$GITHUB_OUTPUT"
-          echo "should_release=$shouldRelease" >> "$GITHUB_OUTPUT"
           echo "is_prerelease=$isPrerelease" >> "$GITHUB_OUTPUT"
-          echo "Current version: $current"
-          echo "Previous version: $previous"
-          echo "Should release: $shouldRelease"
-          echo "Is pre-release: $isPrerelease"
 
   create-release:
-    needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: read-version
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -74,8 +42,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
-          IS_PRERELEASE: ${{ needs.check-version.outputs.is_prerelease }}
+          VERSION: ${{ needs.read-version.outputs.version }}
+          IS_PRERELEASE: ${{ needs.read-version.outputs.is_prerelease }}
         run: |
           set -euo pipefail
           tag="$VERSION"
@@ -107,8 +75,7 @@ jobs:
           fi
 
   build-msi:
-    needs: [check-version, create-release]
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: [read-version, create-release]
     runs-on: windows-latest
     defaults:
       run:
@@ -183,7 +150,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
+          VERSION: ${{ needs.read-version.outputs.version }}
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "$env:VERSION"
@@ -191,8 +158,7 @@ jobs:
           gh release upload $tag "$env:MSI_SHA_PATH" --clobber
 
   build-linux:
-    needs: [check-version, create-release]
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: [read-version, create-release]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -243,7 +209,7 @@ jobs:
       - name: Locate tarball
         shell: bash
         env:
-          VERSION: ${{ needs.check-version.outputs.version }}
+          VERSION: ${{ needs.read-version.outputs.version }}
         run: |
           set -euo pipefail
           tarballName="framework-control-${VERSION}-linux-x86_64.tar.gz"
@@ -277,7 +243,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
+          VERSION: ${{ needs.read-version.outputs.version }}
         run: |
           set -euo pipefail
           tag="$VERSION"
@@ -285,8 +251,7 @@ jobs:
           gh release upload "$tag" "$TARBALL_SHA_PATH" --clobber
 
   create-sha256sums:
-    needs: [check-version, build-msi, build-linux]
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: [read-version, build-msi, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Download individual SHA files and create SHA256SUMS
