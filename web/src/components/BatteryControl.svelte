@@ -168,7 +168,6 @@
 
     async function applyChargeLimitConfig() {
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
             const patch: PartialConfig = {
                 battery: {
                     charge_limit_max_pct: {
@@ -177,7 +176,7 @@
                     },
                 },
             };
-            await DefaultService.setConfig(auth, patch);
+            await DefaultService.setConfig(patch);
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
@@ -185,7 +184,6 @@
 
     async function applyRateLimitConfig() {
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
             const value = rateEnabled
                 ? Math.max(0.05, Math.min(1.0, Math.round(rateC * 20) / 20))
                 : 1.0;
@@ -198,7 +196,7 @@
                     charge_rate_soc_threshold_pct: socThresholdPct,
                 },
             };
-            await DefaultService.setConfig(auth, patch);
+            await DefaultService.setConfig(patch);
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }

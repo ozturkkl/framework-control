@@ -14,7 +14,6 @@
     let error: string | null = null;
     let success: boolean | null = null;
     let successTimeout: ReturnType<typeof setTimeout> | null = null;
-    let token = import.meta.env.VITE_CONTROL_TOKEN;
 
     // Live telemetry polling for current temperature and fan RPM
     const LIVE_POLL_MS = 1000;
@@ -359,7 +358,7 @@
             const patch: PartialConfig = { fan: fanPatch };
             try {
                 console.log("Saving Fan Control:", patch);
-                await DefaultService.setConfig(token, patch);
+                await DefaultService.setConfig(patch);
                 if (successTimeout) {
                     clearTimeout(successTimeout);
                     successTimeout = null;
@@ -1020,7 +1019,6 @@
 
 {#if showCalibration}
     <CalibrationModal
-        {token}
         on:done={(e) => handleCalibrationDone(e.detail)}
         on:cancel={closeCalibration}
     />

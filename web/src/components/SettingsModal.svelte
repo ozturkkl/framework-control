@@ -37,11 +37,10 @@
         document.documentElement.setAttribute("data-theme", theme);
         // Persist to backend for cross-client consistency
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
             const body: PartialConfig = {
                 ui: { theme },
             };
-            DefaultService.setConfig(auth, body);
+            DefaultService.setConfig(body);
         } catch {
             // non-fatal; leave localStorage applied
         }
@@ -70,8 +69,7 @@
         applying = true;
         let success = false;
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
-            await DefaultService.applyUpdate(auth, {});
+            await DefaultService.applyUpdate();
             await new Promise((resolve) => setTimeout(resolve, 5000));
             errorMessage = null;
             success = true;
@@ -105,11 +103,10 @@
         const nextValue = target?.checked ?? autoInstall;
         const previousValue = !nextValue;
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
             const body: PartialConfig = {
                 updates: { auto_install: nextValue },
             } as PartialConfig;
-            await DefaultService.setConfig(auth, body);
+            await DefaultService.setConfig(body);
             errorMessage = null;
             // If enabling auto-install, reuse existing applyUpdate() and then re-check
             if (nextValue && newVersionAvailable) {
@@ -132,11 +129,10 @@
         if (autoInstall) {
             autoInstall = false;
             try {
-                const auth = `Bearer ${OpenAPI.TOKEN}`;
                 const body: PartialConfig = {
                     updates: { auto_install: false },
                 } as PartialConfig;
-                await DefaultService.setConfig(auth, body);
+                await DefaultService.setConfig(body);
                 errorMessage = null;
             } catch {
                 autoInstall = true;

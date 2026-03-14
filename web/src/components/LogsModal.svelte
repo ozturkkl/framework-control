@@ -117,8 +117,7 @@
         errorMessage = null;
 
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
-            logs = await DefaultService.getLogs(auth);
+            logs = await DefaultService.getLogs();
         } catch (e: unknown) {
             const apiError = e as { body?: { message?: string } };
             errorMessage = apiError?.body?.message || "Failed to fetch logs";

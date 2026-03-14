@@ -236,13 +236,12 @@
 
     async function saveTelemetryConfig() {
         try {
-            const auth = `Bearer ${OpenAPI.TOKEN}`;
             const patch: TelemetryConfig = {
                 poll_ms: telemetryPollMs,
                 // For now, hardcode the retain seconds to 1800 to test.
                 retain_seconds: 1800,
             };
-            await DefaultService.setConfig(auth, {
+            await DefaultService.setConfig({
                 telemetry: patch,
             });
 
