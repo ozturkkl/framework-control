@@ -26,9 +26,9 @@ jobs:
         run: |
           set -euo pipefail
           current=$(grep -m1 '^version\s*=' service/Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
-          isPrerelease=false
-          if [ "${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}" != "main" ]; then
-            isPrerelease=true
+          isPrerelease=true
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "main" ]; then
+            isPrerelease=false
           fi
           echo "version=$current" >> "$GITHUB_OUTPUT"
           echo "is_prerelease=$isPrerelease" >> "$GITHUB_OUTPUT"
@@ -65,7 +65,7 @@ jobs:
           if [ "$IS_PRERELEASE" = "true" ]; then
             prereleaseFlag="--prerelease"
           else
-            prereleaseFlag="--latest"
+            prereleaseFlag="--prerelease=false --latest"
           fi
 
           if ! gh release view "$tag" 2>/dev/null; then
