@@ -16,4 +16,13 @@
           services.framework-control.package = lib.mkDefault self.packages.${pkgs.system}.default;
         };
     };
+
+  # TODO: Once https://github.com/NixOS/nixpkgs/pull/499988 is merged, replace everything above outputs with:
+  # inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  #
+  # outputs =
+  #   { nixpkgs, ... }:
+  #   {
+  #     packages.x86_64-linux.default = nixpkgs.legacyPackages.x86_64-linux.framework-control;
+  #   };
 }
