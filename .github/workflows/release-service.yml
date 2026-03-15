@@ -36,11 +36,14 @@ jobs:
   create-release:
     needs: read-version
     runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.manage_release.outputs.should_release }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Create GitHub release
+        id: manage_release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -61,27 +64,30 @@ jobs:
             fi
           fi
 
-          prereleaseFlag=""
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            prereleaseFlag="--prerelease"
-          else
-            prereleaseFlag="--prerelease=false --latest"
+          prereleaseFlag="--prerelease"
+          [ "$IS_PRERELEASE" = "false" ] && prereleaseFlag="--prerelease=false --latest"
+
+          existingIsPrerelease=$(gh release view "$tag" --json isPrerelease -q '.isPrerelease' 2>/dev/null || echo "notfound")
+
+          if [ "$IS_PRERELEASE" = "true" ] && [ "$existingIsPrerelease" = "false" ]; then
+            echo "Release $tag is already live, skipping pre-release run"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          if ! gh release view "$tag" 2>/dev/null; then
+          if [ "$existingIsPrerelease" = "notfound" ]; then
             gh release create "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
             echo "Created release $tag"
           else
-            editFlag=""
-            if [ "$IS_PRERELEASE" = "false" ]; then
-              editFlag="$prereleaseFlag"
-            fi
-            gh release edit "$tag" -t "Framework Control v$VERSION" -n "$body" $editFlag
+            gh release edit "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
             echo "Updated existing release $tag"
           fi
 
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
   build-msi:
     needs: [read-version, create-release]
+    if: needs.create-release.outputs.should_release == 'true'
     runs-on: windows-latest
     defaults:
       run:
@@ -165,6 +171,7 @@ jobs:
 
   build-linux:
     needs: [read-version, create-release]
+    if: needs.create-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -258,6 +265,7 @@ jobs:
 
   create-sha256sums:
     needs: [read-version, build-msi, build-linux]
+    if: needs.build-msi.result == 'success' && needs.build-linux.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Download individual SHA files and create SHA256SUMS
