@@ -4,6 +4,7 @@
   "version": "0.5.2",
   "type": "module",
   "scripts": {
+    "bump-version": "node scripts/bump-version.mjs",
     "gen:api": "node scripts/gen-api.mjs",
     "gen:icons": "node scripts/gen-icons.mjs",
     "build:msi": "node scripts/build-msi.mjs",
