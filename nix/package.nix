@@ -24,7 +24,7 @@ let
         in
         base != "node_modules" && base != "dist" && base != ".vite";
     };
-    hash = "sha256-ZTvYT5x+7X3+PfBxaR6YzRlTKH1DBvwlxC281Srq2Og=";
+    hash = "sha256-j1xcy7ku3N+K54KEwRjcnH0qW22HaQEXq0t2U8EH99Y=";
   };
 
 in
@@ -70,7 +70,8 @@ rustPlatform.buildRustPackage {
     # Install npm deps from the pre-fetched offline cache.
     npm_config_cache="${npmDeps}" npm ci --prefer-offline
 
-    # Generate icons (src/api/ is committed so no codegen step needed).
+    # Generate OpenAPI spec + TypeScript client
+    node scripts/gen-api.mjs
     node scripts/gen-icons.mjs
 
     # Call vite via node explicitly — the node_modules/.bin/vite shebang uses

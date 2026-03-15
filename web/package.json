@@ -4,6 +4,7 @@
   "version": "0.5.2",
   "type": "module",
   "scripts": {
+    "bump-version": "node scripts/bump-version.mjs",
     "gen:api": "node scripts/gen-api.mjs",
     "gen:icons": "node scripts/gen-icons.mjs",
     "build:msi": "node scripts/build-msi.mjs",
@@ -15,7 +16,6 @@
     "preview": "vite preview",
     "lint": "eslint --ext .ts,.svelte src && prettier --check . && cd ../service && cargo fmt --all -- --check",
     "format": "prettier --write . && cd ../service && cargo fmt --all",
-    "postinstall": "npm run gen:icons && npm run gen:api",
     "clean": "rimraf dist .vite .svelte-kit openapi.json src/api"
   },
   "devDependencies": {

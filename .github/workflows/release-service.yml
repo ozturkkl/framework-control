@@ -72,7 +72,11 @@ jobs:
             gh release create "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
             echo "Created release $tag"
           else
-            gh release edit "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
+            editFlag=""
+            if [ "$IS_PRERELEASE" = "false" ]; then
+              editFlag="$prereleaseFlag"
+            fi
+            gh release edit "$tag" -t "Framework Control v$VERSION" -n "$body" $editFlag
             echo "Updated existing release $tag"
           fi
 
