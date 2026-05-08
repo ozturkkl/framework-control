@@ -1,5 +1,6 @@
 use super::framework_tool_parser::{
-    parse_power, parse_thermal, parse_versions, PowerBatteryInfo, ThermalParsed, VersionsParsed,
+    parse_pd_ports, parse_power, parse_thermal, parse_versions, PdPortState, PowerBatteryInfo, ThermalParsed,
+    VersionsParsed,
 };
 use crate::utils::{download as dl, github as gh, global_cache};
 use std::time::Duration;
@@ -55,6 +56,15 @@ impl FrameworkTool {
     pub async fn versions(&self) -> Result<VersionsParsed, String> {
         let out = self.run(&["--versions"]).await?;
         Ok(parse_versions(&out))
+    }
+
+    pub async fn pd_ports(&self) -> Result<Vec<PdPortState>, String> {
+        const TTL: Duration = Duration::from_millis(2000);
+        global_cache::cache_get_or_update("framework_tool.pd_ports", TTL, true, || async {
+            let out = self.run(&["--pdports"]).await?;
+            Ok(parse_pd_ports(&out))
+        })
+        .await
     }
 
     pub async fn set_fan_duty(&self, percent: u32, fan_index: Option<u32>) -> Result<(), String> {

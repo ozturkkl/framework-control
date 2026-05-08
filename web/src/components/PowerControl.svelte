@@ -9,6 +9,7 @@
         type BatteryInfo,
         type PowerCapabilities,
         type PowerState,
+        type PdPortState,
     } from "../api";
     import Icon from "@iconify/svelte";
     import { deepMerge } from "../lib/utils";
@@ -65,6 +66,8 @@
     let batteryPct: number | undefined;
     let chargerWatts: number | undefined;
     let chargerRequestedWatts: number | undefined;
+    let pdPorts: PdPortState[] = [];
+    const PD_PORT_DISPLAY_ORDER = [3, 0, 2, 1];
 
     // Unlock high TDP on AC
     let removeBtn: HTMLButtonElement;
@@ -86,6 +89,13 @@
             capabilities.supports_frequency_limits);
 
     $: showControls = hasCheckedStatus && hasAnyPowerCapability;
+    $: orderedPdPorts = [...pdPorts].sort((a, b) => {
+        const ia = PD_PORT_DISPLAY_ORDER.indexOf(a.port_index);
+        const ib = PD_PORT_DISPLAY_ORDER.indexOf(b.port_index);
+        const ra = ia === -1 ? Number.MAX_SAFE_INTEGER : ia;
+        const rb = ib === -1 ? Number.MAX_SAFE_INTEGER : ib;
+        return ra - rb || a.port_index - b.port_index;
+    });
 
     $: hasFreqLimitsMismatchWarning = (() => {
         if (!capabilities?.supports_frequency_limits) return false;
@@ -144,6 +154,53 @@
         }
     }
 
+    function fmtPowerVoltage(port: PdPortState): string {
+        const v = port.negotiated_voltage_mv;
+        const w = port.negotiated_power_mw;
+        if (v == null && w == null) return "—";
+        const ww = w != null ? `${Math.round(w / 1000)}W` : "—W";
+        const vv = v != null ? `${Math.round(v / 1000)}V` : "—V";
+        return `${ww} (${vv})`;
+    }
+
+    function hasNegotiatedPower(port: PdPortState): boolean {
+        return (port.negotiated_power_mw ?? 0) > 0;
+    }
+
+    function fmtYesNo(v: boolean | undefined): string {
+        if (v == null) return "—";
+        return v ? "Yes" : "No";
+    }
+
+    function statusBadgeClass(v: boolean | undefined): string {
+        if (v == null) return "badge-ghost";
+        return v ? "badge-success" : "badge-neutral";
+    }
+
+    function powerRoleBadgeClass(role: string | undefined): string {
+        const r = role?.toLowerCase();
+        if (r === "sink") return "badge-success";
+        if (r === "source") return "badge-error";
+        return "badge-ghost";
+    }
+
+    function displayPowerRole(port: PdPortState): string {
+        if (!hasNegotiatedPower(port)) return "-";
+        return port.power_role ?? "-";
+    }
+
+    function isDpActive(port: PdPortState): boolean {
+        const mode = port.dp_alt_mode?.toLowerCase();
+        if (!mode) return false;
+        return mode.includes("connected");
+    }
+
+    function isEprActive(port: PdPortState): boolean {
+        const epr = port.epr?.toLowerCase();
+        if (!epr) return false;
+        return epr.includes("active") && !epr.includes("inactive");
+    }
+
     async function pollPower() {
         try {
             const resp = await DefaultService.getPower();
@@ -156,10 +213,12 @@
             acPresent = bat?.ac_present;
             batteryPct = bat?.percentage;
             updateChargerWattage(bat);
+            pdPorts = resp.pd_ports ?? [];
 
         } catch (_) {
             capabilities = null;
             currentState = null;
+            pdPorts = [];
         } finally {
             hasCheckedStatus = true;
         }
@@ -777,6 +836,48 @@
                     />
                 </div>
             {/if}
+        </div>
+    {/if}
+
+    {#if orderedPdPorts.length > 0}
+        <div class="bg-base-200 rounded-xl mt-3 p-3 text-xs">
+            <div class="font-medium mb-2 inline-flex items-center gap-1.5">
+                <Icon icon="mdi:usb-port" class="w-4 h-4 text-primary" />
+                <span>USB-C Ports</span>
+            </div>
+            <div class="grid gap-2 md:grid-cols-2">
+                {#each orderedPdPorts as port (port.port_index)}
+                    <div class="rounded-lg border border-base-300 bg-base-100 px-3 py-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="font-semibold">USB-C Port {port.port_index}</div>
+                            <span class={`badge badge-xs ${powerRoleBadgeClass(hasNegotiatedPower(port) ? port.power_role : undefined)}`}>
+                                {displayPowerRole(port)}
+                            </span>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="opacity-70">Power (Voltage)</span>
+                                <span class="font-medium tabular-nums">{fmtPowerVoltage(port)}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="opacity-70">Charging from this port</span>
+                                <span class={`badge badge-sm ${statusBadgeClass(port.sink_active)}`}>{fmtYesNo(port.sink_active)}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="opacity-70">Display output active</span>
+                                <span class={`badge badge-sm ${statusBadgeClass(isDpActive(port))}`}>{fmtYesNo(isDpActive(port))}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="opacity-70">EPR high-power mode</span>
+                                <span class={`badge badge-sm ${statusBadgeClass(isEprActive(port))}`}>{fmtYesNo(isEprActive(port))}</span>
+                            </div>
+                        </div>
+                    </div>
+                {/each}
+            </div>
+            <div class="mt-2 text-[11px] opacity-70">
+                Note: USB ports without PD support won't be shown here
+            </div>
         </div>
     {/if}
 

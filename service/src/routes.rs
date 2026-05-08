@@ -159,6 +159,8 @@ impl Api {
             power_info: p.clone(),
             limits,
         });
+        // Include PD port state when available; keep API resilient on older framework_tool versions
+        let pd_ports = cli.pd_ports().await.unwrap_or_default();
 
         // Get power control info based on platform
         let power_control = {
@@ -207,6 +209,7 @@ impl Api {
 
         Ok(Json(crate::types::PowerResponse {
             battery: battery_api,
+            pd_ports,
             power_control,
         }))
     }

@@ -281,6 +281,9 @@ pub struct PowerResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub battery: Option<BatteryInfo>,
 
+    /// USB-C PD port states (framework_tool --pdports)
+    pub pd_ports: Vec<crate::cli::framework_tool_parser::PdPortState>,
+
     /// Power control information
     pub power_control: PowerControlInfo,
 }

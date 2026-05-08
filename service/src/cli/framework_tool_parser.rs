@@ -25,6 +25,35 @@ pub struct PowerBatteryInfo {
     pub charging: Option<bool>,
     pub discharging: Option<bool>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct PdPortState {
+    pub port_index: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pd_contract: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub power_role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data_role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vconn: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub negotiated_voltage_mv: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub negotiated_current_ma: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub negotiated_power_mw: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc_polarity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port_partner: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epr: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sink_active: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dp_alt_mode: Option<String>,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct BatteryChargeLimitInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -270,6 +299,90 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
     }
 }
 
+fn parse_bool_value(s: &str) -> Option<bool> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "yes" | "on" | "true" | "connected" | "active" => Some(true),
+        "no" | "off" | "false" | "inactive" | "not connected" => Some(false),
+        _ => None,
+    }
+}
+
+fn parse_decimal_number(s: &str) -> Option<f32> {
+    s.trim().parse::<f32>().ok()
+}
+
+fn parse_port_header(line: &str) -> Option<u8> {
+    let trimmed = line.trim();
+    if !trimmed.starts_with("USB-C Port ") || !trimmed.ends_with(':') {
+        return None;
+    }
+    let num = trimmed.trim_start_matches("USB-C Port ").trim_end_matches(':').trim();
+    num.parse::<u8>().ok()
+}
+
+pub fn parse_pd_ports(stdout: &str) -> Vec<PdPortState> {
+    let mut ports: Vec<PdPortState> = Vec::new();
+    let mut current: Option<PdPortState> = None;
+
+    for line in stdout.lines() {
+        if let Some(port_index) = parse_port_header(line) {
+            if let Some(p) = current.take() {
+                ports.push(p);
+            }
+            current = Some(PdPortState {
+                port_index,
+                ..Default::default()
+            });
+            continue;
+        }
+
+        let Some((key_raw, value_raw)) = line.trim().split_once(':') else {
+            continue;
+        };
+        let key = key_raw.trim();
+        let value = value_raw.trim();
+        let Some(port) = current.as_mut() else {
+            continue;
+        };
+
+        match key {
+            "PD Contract" => port.pd_contract = parse_bool_value(value),
+            "Power Role" => port.power_role = Some(value.to_string()),
+            "Data Role" => port.data_role = Some(value.to_string()),
+            "VCONN" => port.vconn = parse_bool_value(value),
+            "CC Polarity" => port.cc_polarity = Some(value.to_string()),
+            "Port Partner" => port.port_partner = Some(value.to_string()),
+            "EPR" => port.epr = Some(value.to_string()),
+            "Sink Active" => port.sink_active = parse_bool_value(value),
+            "DP Alt Mode" => port.dp_alt_mode = Some(value.to_string()),
+            "Negotiated" => {
+                let parts: Vec<&str> = value.split(',').map(|p| p.trim()).collect();
+                if let Some(v) = parts.first() {
+                    if let Some(num) = v.strip_suffix(" V").and_then(parse_decimal_number) {
+                        port.negotiated_voltage_mv = Some((num * 1000.0).round() as u32);
+                    }
+                }
+                if let Some(i) = parts.get(1) {
+                    if let Some(num) = i.strip_suffix(" mA").and_then(parse_decimal_number) {
+                        port.negotiated_current_ma = Some(num.round() as u32);
+                    }
+                }
+                if let Some(w) = parts.get(2) {
+                    if let Some(num) = w.strip_suffix(" W").and_then(parse_decimal_number) {
+                        port.negotiated_power_mw = Some((num * 1000.0).round() as u32);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(p) = current {
+        ports.push(p);
+    }
+    ports
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct VersionsParsed {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -385,5 +498,60 @@ Battery Status
         assert_eq!(p.design_voltage_mv, Some(15480));
         assert_eq!(p.cycle_count, Some(58));
         assert_eq!(p.charging, Some(true));
+    }
+
+    #[test]
+    fn parse_pd_ports_sample() {
+        let s = r#"
+USB-C Port 0:
+  PD Contract:   Yes
+  Power Role:    Source
+  Data Role:     Dfp
+  VCONN:         Off
+  Negotiated:    5.000 V, 0 mA, 0.0 W
+  CC Polarity:   CC1
+  Port Partner:  Sink
+  EPR:           Inactive
+USB-C Port 1:
+  PD Contract:   Yes
+  Power Role:    Sink
+  Data Role:     Dfp
+  VCONN:         Off
+  Negotiated:    36.000 V, 5000 mA, 180.0 W
+  CC Polarity:   CC1
+  Port Partner:  Source
+  EPR:           Active (Supported)
+  Sink Active:   Yes
+USB-C Port 3:
+  PD Contract:   Yes
+  Power Role:    Sink
+  Data Role:     Dfp
+  VCONN:         On
+  Negotiated:    20.000 V, 4500 mA, 90.0 W
+  CC Polarity:   CC2
+  Port Partner:  Source
+  EPR:           Inactive
+  Sink Active:   No
+  DP Alt Mode:   UFP_D Connected, HPD High (0x82)
+"#;
+        let ports = parse_pd_ports(s);
+        assert_eq!(ports.len(), 3);
+        assert_eq!(ports[0].port_index, 0);
+        assert_eq!(ports[0].pd_contract, Some(true));
+        assert_eq!(ports[0].vconn, Some(false));
+        assert_eq!(ports[0].negotiated_voltage_mv, Some(5000));
+        assert_eq!(ports[0].negotiated_current_ma, Some(0));
+        assert_eq!(ports[0].negotiated_power_mw, Some(0));
+        assert_eq!(ports[1].port_index, 1);
+        assert_eq!(ports[1].negotiated_voltage_mv, Some(36000));
+        assert_eq!(ports[1].negotiated_current_ma, Some(5000));
+        assert_eq!(ports[1].negotiated_power_mw, Some(180000));
+        assert_eq!(ports[1].sink_active, Some(true));
+        assert_eq!(ports[2].port_index, 3);
+        assert_eq!(ports[2].vconn, Some(true));
+        assert_eq!(
+            ports[2].dp_alt_mode.as_deref(),
+            Some("UFP_D Connected, HPD High (0x82)")
+        );
     }
 }
