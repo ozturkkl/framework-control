@@ -21,7 +21,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Routes: `service/src/routes.rs` (@routes.rs)
   - Endpoints (under `/api`):
     - `GET /health`: health + version + `cli_present`
-  - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`
+  - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info, `pd_ports` (parsed from `framework_tool --pdports`), and `power_control` object with platform `capabilities` and `current_state`
     - `GET /thermal`: parsed thermal report (temps map + fan RPMs)
     - `GET /thermal/history`: recent telemetry samples collected by the service (trimmed by configured retention)
     - `GET /versions`: parsed versions (mainboard_type, uefi_version, etc.)
@@ -48,13 +48,19 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 ### Frontend Web UI (Svelte)
 
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector).
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux; includes PD card section from `/api/power.pd_ports`), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector).
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
 - Shared controls: `web/src/components/UiControlCard.svelte` — composite card supporting both range sliders and select dropdowns (replaces former `UiSlider`); used by Power and Battery panels.
 - Device header: static images (no crossfade/width/pulse).
 - API client: generated (`web/src/api/*`). Use `DefaultService` and `OpenAPI` for all requests.
+  - Power panel PD UX details:
+    - Fixed card ordering for displayed PD-controller ports: 3, 0, 2, 1
+    - Shows concise fields: `Power (Voltage)`, role, charging-from-port, DP active, EPR active
+    - Role chip colors: Sink = green, Source = red
+    - Shows `-` for role when no negotiated power exists
+    - Includes note that some ports are not shown because they lack PD controllers
 
 ### Things to Pay Attention To
 - Always use the generated API client (`DefaultService`, `OpenAPI`) for all requests.
