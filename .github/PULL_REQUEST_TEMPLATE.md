@@ -1,19 +1,25 @@
-## Summary
+> [!IMPORTANT]
+> **This project is not accepting outside contributions.**
+> Pull requests from non-collaborators are closed automatically. Please [open an issue](https://github.com/ozturkkl/framework-control/issues) instead. See [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
 
-Describe the change and its impact.
+---
 
-## Checklist
+## What & why
 
-- [ ] Updated `framework-control/PROJECT_SUMMARY.md` to reflect new/changed:
-  - Endpoints in `service/src/routes.rs` (@routes.rs)
-  - App wiring or startup in `service/src/main.rs` (@main.rs)
-  - UI components/panels in `web/src` (e.g., @App.svelte)
-  - Config/env or background tasks
-- [ ] Built backend (`cargo build`) and frontend (`npm run build`) where applicable
-- [ ] Tested locally (UI + API)
+<!-- A sentence or two is fine. What changed, and why? -->
+
+**Type:** feature / fix / refactor / chore / docs
+
+## Quick checks
+
+<!-- Tick what's relevant — skip what isn't. -->
+
+- [ ] Builds: `cargo build` (service) / `npm run build` (web)
+- [ ] Regenerated the API client if routes or models changed (`npm run gen:api` after building the service — see README)
+- [ ] Updated `PROJECT_SUMMARY.md` if endpoints, panels, config, or background tasks changed
+- [ ] Bumped the version / noted it for release, if user-facing
+- [ ] Smoke-tested on real hardware where it matters (EC, power, fans)
 
 ## Notes
 
-Add migration notes, screenshots, or follow-ups.
-
-
+<!-- Screenshots, follow-ups, things to revisit, anything worth remembering later. -->

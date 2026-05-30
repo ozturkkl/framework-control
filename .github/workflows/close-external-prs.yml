@@ -1,0 +1,49 @@
+name: Close external pull requests
+
+# Uses pull_request_target so the token has write access to comment on and close
+# PRs from forks. We never check out the PR's code, so running in the base repo
+# context is safe.
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  close:
+    # Only act on PRs from people who aren't the owner or invited collaborators.
+    if: ${{ !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment and close
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              `Thanks for the PR, @${context.payload.pull_request.user.login}!`,
+              ``,
+              `This project isn't currently accepting outside contributions, so I'm`,
+              `closing this automatically. It's nothing about your work — it's just the`,
+              `contribution model I've chosen for this project. See`,
+              `[CONTRIBUTING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CONTRIBUTING.md)`,
+              `for details.`,
+              ``,
+              `If you've found a bug or have an idea, please`,
+              `[open an issue](https://github.com/${context.repo.owner}/${context.repo.repo}/issues)`,
+              `instead — those are very welcome. Thanks for your understanding!`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              state: 'closed',
+            });

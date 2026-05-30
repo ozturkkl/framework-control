@@ -73,6 +73,10 @@ This software is provided "as is," without warranty of any kind, express or impl
 
 Early iterations used the Rust `framework_lib` directly. On Windows that required build‑time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux.
 
+## Contributing
+
+This project is **not currently accepting outside contributions** and is maintained solely by the author. Pull requests from non-collaborators are closed automatically — please [open an issue](https://github.com/ozturkkl/framework-control/issues) instead. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
 ## Developer Setup
 
 **Prerequisites**:
