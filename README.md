@@ -15,6 +15,14 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
 3. Launch via Start Menu/Desktop shortcuts or visit the local service URL in your browser (check installer output or service logs for the configured port)
 
+### Uninstall
+
+- **Windows**: Uninstall "Framework Laptop Control Service" from Settings → Apps (or Add/Remove Programs). This removes the service, install folder, and the Start Menu/Desktop shortcuts.
+- **Linux**: Run the uninstall script (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD#uninstallation)):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uninstall-linux.sh | sudo bash
+  ```
+
 ## Disclaimer
 
 This software is provided "as is," without warranty of any kind, express or implied. By using it, you acknowledge that you are responsible for any configuration changes you make to your system and accept all risks associated with its use. The authors and contributors are not liable for any damage, data loss, hardware wear, unintended behavior, or other harm that may result from use or misuse of this application.

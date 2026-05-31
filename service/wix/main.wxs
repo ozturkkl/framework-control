@@ -86,6 +86,15 @@
         <Property Id='DiskPrompt' Value='framework-control-service Installation'/>
 
         <Directory Id='TARGETDIR' Name='SourceDir'>
+            <!-- Standard system folders, declared so uninstall can remove runtime-created shortcuts, icon, and config -->
+            <Directory Id='ProgramMenuFolder' />
+            <Directory Id='CommonDesktopFolder' />
+            <Directory Id='CommonAppDataFolder'>
+                <Directory Id='ProgramDataFrameworkControlDir' Name='FrameworkControl'>
+                    <Directory Id='ProgramDataAssetsDir' Name='assets' />
+                </Directory>
+            </Directory>
+
             <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
                 <Directory Id='APPLICATIONFOLDER' Name='FrameworkControl'>
                     <Component Id='UninstallShortcut' Guid='E28F0B3D-AF40-46B5-9A0C-D366F8657B34'>
@@ -165,10 +174,43 @@
                         <RemoveFolder Id='RemoveRyzenAdjFolder' Directory='RyzenAdjDir' On='uninstall'/>
                     </Component>
 
+                    <!--
+                      Remove everything the service creates at runtime, but ONLY on a genuine
+                      uninstall: Start Menu/Desktop shortcuts (.lnk app-mode + .url fallback), the
+                      extracted icon, the rolling WinSW logs, and the saved config. None of these
+                      are tracked as MSI component files, so they'd otherwise be left behind.
+                      (see scripts/create_shortcuts.ps1, src/shortcuts.rs, config.rs)
+
+                      `NOT UPGRADINGPRODUCTCODE` restricts this to a real uninstall. In-app updates
+                      run `msiexec /i ... ADDLOCAL=Binaries` (see src/update.rs); MajorUpgrade
+                      removes the old product first, and this guard prevents that pass from wiping
+                      the user's shortcuts, settings, and logs on every update.
+                    -->
+                    <Component Id='RuntimeDataCleanup' Guid='B6F3C2A1-8D45-4E9C-A3B7-1F0E5D2C7A84'>
+                        <Condition>NOT UPGRADINGPRODUCTCODE</Condition>
+                        <!-- Directory key path (avoids registry ICEs), same approach as UninstallShortcut -->
+                        <CreateFolder/>
+
+                        <!-- Shortcuts (both app-mode .lnk and default-browser .url variants) -->
+                        <RemoveFile Id='RemoveStartMenuLnk' Name='Framework Control.lnk' On='uninstall' Directory='ProgramMenuFolder'/>
+                        <RemoveFile Id='RemoveStartMenuUrl' Name='Framework Control.url' On='uninstall' Directory='ProgramMenuFolder'/>
+                        <RemoveFile Id='RemoveDesktopLnk' Name='Framework Control.lnk' On='uninstall' Directory='CommonDesktopFolder'/>
+                        <RemoveFile Id='RemoveDesktopUrl' Name='Framework Control.url' On='uninstall' Directory='CommonDesktopFolder'/>
+
+                        <!-- WinSW rolling logs written into the install folder at runtime -->
+                        <RemoveFile Id='RemoveServiceLogs' Name='*.log' On='uninstall' Directory='APPLICATIONFOLDER'/>
+
+                        <!-- Icon + config under %PROGRAMDATA%\FrameworkControl, then the now-empty dirs -->
+                        <RemoveFile Id='RemoveIcon' Name='framework-control.ico' On='uninstall' Directory='ProgramDataAssetsDir'/>
+                        <RemoveFile Id='RemoveConfig' Name='config.json' On='uninstall' Directory='ProgramDataFrameworkControlDir'/>
+                        <RemoveFolder Id='RemoveProgramDataAssetsDir' Directory='ProgramDataAssetsDir' On='uninstall'/>
+                        <RemoveFolder Id='RemoveProgramDataFrameworkControlDir' Directory='ProgramDataFrameworkControlDir' On='uninstall'/>
+                    </Component>
+
                     <!-- Define the nested helper directory under install folder -->
                     <Directory Id='RyzenAdjDir' Name='ryzenadj'>
                     </Directory>
-                    
+
                     <!-- Marker file for shortcut creation -->
                     <Component Id='ShortcutMarker' Guid='*'>
                         <File
@@ -179,7 +221,7 @@
                             KeyPath='yes'/>
                     </Component>
 
-                    
+
                 </Directory>
             </Directory>
         </Directory>
@@ -193,7 +235,7 @@
             AllowAdvertise='no'
             Display='expand'
             Absent='disallow'>
-            
+
             <!--
               Uncomment the following `ComponentRef` tag to add the license
               sidecar file to the installer.
@@ -204,8 +246,9 @@
             <ComponentRef Id='WinSwComponent'/>
             <ComponentRef Id='WinSwConfigComponent'/>
             <ComponentRef Id='UninstallShortcut'/>
+            <ComponentRef Id='RuntimeDataCleanup'/>
         </Feature>
-        
+
         <Feature
             Id='Shortcuts'
             Title='Desktop Shortcuts'
@@ -217,7 +260,7 @@
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
 
-        
+
         <!--
           Uncomment the following `Icon` and `Property` tags to change the product icon.
 
@@ -227,7 +270,7 @@
         <!--<Icon Id='ProductICO' SourceFile='wix\Product.ico'/>-->
         <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
 
-        
+
         <!-- Improve Add/Remove Programs (Apps & Features) metadata -->
         <Property Id='ARPHELPLINK' Value='https://github.com/ozturkkl/framework-control' />
         <Property Id='ARPURLINFOABOUT' Value='https://github.com/ozturkkl/framework-control/blob/main/README.md' />
@@ -237,16 +280,16 @@
 
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>
-            
+
             <!-- Skip license dialog -->
             <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>
             <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>
 
         </UI>
 
-        
 
-        
+
+
         <!--
           Enabling the EULA dialog in the installer requires uncommenting
           the following `WixUILicenseRTF` tag and changing the `Value`
@@ -254,7 +297,7 @@
         -->
         <!-- <WixVariable Id='WixUILicenseRtf' Value='Relative\Path\to\Eula.rtf'/> -->
 
-        
+
         <!--
           Uncomment the next `WixVariable` tag to customize the installer's
           Graphical User Interface (GUI) and add a custom banner image across
@@ -265,7 +308,7 @@
         -->
         <!--<WixVariable Id='WixUIBannerBmp' Value='wix\Banner.bmp'/>-->
 
-        
+
         <!--
           Uncomment the next `WixVariable` tag to customize the installer's
           Graphical User Interface (GUI) and add a custom image to the first
