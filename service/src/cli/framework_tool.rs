@@ -2,7 +2,16 @@ use super::framework_tool_parser::{
     parse_power, parse_thermal, parse_versions, PowerBatteryInfo, ThermalParsed, VersionsParsed,
 };
 use crate::utils::{download as dl, github as gh, global_cache};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+
+/// True after a framework_tool process fails (spawn/exit/timeout), cleared on
+/// success, so the resolver re-validates only when a real call hit trouble.
+static TOOL_SUSPECT: AtomicBool = AtomicBool::new(false);
+
+pub fn tool_suspect() -> bool {
+    TOOL_SUSPECT.load(Ordering::Relaxed)
+}
 
 #[cfg(target_os = "windows")]
 use crate::utils::wget as wg;
@@ -114,25 +123,30 @@ impl FrameworkTool {
 
     async fn run(&self, args: &[&str]) -> Result<String, String> {
         use tokio::time::{timeout, Duration};
-        let child = Command::new(&self.path)
-            .args(args)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("spawn failed: {e}"))?;
-        let output = timeout(Duration::from_secs(60), child.wait_with_output())
-            .await
-            .map_err(|_| "framework_tool timed out".to_string())
-            .and_then(|res| res.map_err(|e| format!("wait failed: {e}")))?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        } else {
-            Err(format!(
-                "exit {}: {}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr)
-            ))
+        let result = async {
+            let child = Command::new(&self.path)
+                .args(args)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+                .map_err(|e| format!("spawn failed: {e}"))?;
+            let output = timeout(Duration::from_secs(60), child.wait_with_output())
+                .await
+                .map_err(|_| "framework_tool timed out".to_string())
+                .and_then(|res| res.map_err(|e| format!("wait failed: {e}")))?;
+            if output.status.success() {
+                Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            } else {
+                Err(format!(
+                    "exit {}: {}",
+                    output.status,
+                    String::from_utf8_lossy(&output.stderr)
+                ))
+            }
         }
+        .await;
+        TOOL_SUSPECT.store(result.is_err(), Ordering::Relaxed);
+        result
     }
 }
 
