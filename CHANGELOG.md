@@ -1,5 +1,8 @@
 # Unreleased
 
+- Service: Removed the periodic `framework_tool --versions` liveness check that spawned a process every 5 seconds even when no UI was connected (#34). Tool health is now validated on demand — a failing `framework_tool` call flags it and the background resolver confirms once with `--versions` before clearing it — so no health-check processes are spawned while the tool is working.
+- Service: The background resolver now uses exponential backoff (5s up to a 5min cap) when `framework_tool` is missing, instead of retrying installation every 5 seconds indefinitely.
+
 ## 0.5.2 - 2026-07-15
 
 - **Nix support**: Added `flake.nix`, `nix/package.nix`, and `nix/module.nix` for building and running as a NixOS service. Enables `services.framework-control.enable = true` in NixOS configurations. Work in progress toward a nixpkgs submission.
