@@ -1,183 +1,127 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::time::{sleep, Duration};
 use tracing::{debug, info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::{Config, FanControlMode};
+use crate::types::{Config, CurveConfig, FanControlMode};
 
 /// Main fan control task that runs continuously based on config
 pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: Arc<tokio::sync::RwLock<Config>>) {
     info!("Fan control task started");
 
-    let mut last_duty: Option<u32> = None;
+    let mut global = CurveStepper::new();
+    let mut per_fan_curve_steppers: HashMap<u32, CurveStepper> = HashMap::new();
+    let mut last_manual_duty: HashMap<Option<u32>, u32> = HashMap::new();
+
     let mut last_mode: Option<FanControlMode> = None;
-    let mut active_target: Option<u32> = None;
-    let mut transition_start_temp: i32 = 0; // Used for hysteresis band
+    let mut last_per_fan_active = false;
+    let mut fan_count: Option<u32> = None;
 
     loop {
         let loop_started = std::time::Instant::now();
         let config = cfg.read().await.fan.clone();
-        // Loop cadence: use curve.poll_ms while in Curve mode with a curve present; otherwise a small fixed cadence
         let mode = config.mode.unwrap_or(FanControlMode::Disabled);
-        let poll_interval = match (&mode, &config.curve) {
-            (FanControlMode::Curve, Some(c)) => Duration::from_millis(c.poll_ms),
-            _ => Duration::from_millis(500),
-        };
 
-        // Obtain current FrameworkTool from shared state; if missing, wait for next cadence and retry
+        let overrides = config.overrides.clone().unwrap_or_default();
+        let per_fan_active = !overrides.is_empty();
+
+        let poll_interval = Duration::from_millis(match mode {
+            FanControlMode::Curve => config.curve.as_ref().map(|c| c.poll_ms).unwrap_or(500),
+            _ => 500,
+        });
+
+        // Obtain current FrameworkTool from shared state; if missing, reset and retry.
         let maybe_cli = { cli_lock.read().await.clone() };
         let cli = match maybe_cli {
             Some(c) => c,
             None => {
-                // CLI missing: clear last duty and active target so we reapply on return
-                last_duty = None;
-                active_target = None;
+                global.reset();
+                per_fan_curve_steppers.clear();
+                last_manual_duty.clear();
+                fan_count = None;
                 sleep(poll_interval).await;
                 continue;
             }
         };
 
-        // Handle based on current mode
+        // Reset transient control state when the mode or the global/per-fan
+        // topology changes so we re-anchor cleanly.
+        if last_mode != Some(mode.clone()) || last_per_fan_active != per_fan_active {
+            debug!(
+                "Fan state change: mode {:?} -> {:?}, per_fan {} -> {}",
+                last_mode, mode, last_per_fan_active, per_fan_active
+            );
+            global.reset();
+            per_fan_curve_steppers.clear();
+            last_manual_duty.clear();
+        }
+
         match &mode {
-            // Disabled: let firmware handle it
             FanControlMode::Disabled => {
                 if last_mode != Some(FanControlMode::Disabled) {
-                    debug!("Mode change: {:?} -> Disabled", last_mode);
                     let _ = cli.autofanctrl().await;
-                    last_duty = None;
                 }
-                last_mode = Some(FanControlMode::Disabled);
             }
 
-            // Manual mode: set fixed duty
             FanControlMode::Manual => {
-                if last_mode != Some(FanControlMode::Manual) {
-                    debug!("Mode change: {:?} -> Manual", last_mode);
-                }
-                let target = if let Some(m) = &config.manual {
-                    Some(m.duty_pct.min(100))
-                } else {
-                    None
-                };
-                if let Some(duty) = target {
-                    let duty = duty.min(100);
-                    if last_duty != Some(duty) {
-                        debug!("Setting manual fan duty to {}%", duty);
-                        if let Err(e) = cli.set_fan_duty(duty, None).await {
-                            warn!("Failed to set fan duty: {}", e);
-                        } else {
-                            last_duty = Some(duty);
-                            debug!("Manual: Set {}%", duty);
+                let global_duty = config.manual.as_ref().map(|m| m.duty_pct.min(100));
+                if per_fan_active {
+                    let Some(count) = ensure_fan_count(&cli, &mut fan_count).await else {
+                        sleep(poll_interval).await;
+                        continue;
+                    };
+                    for i in 0..count {
+                        let duty = overrides
+                            .iter()
+                            .find(|o| o.index == i)
+                            .and_then(|o| o.manual.as_ref())
+                            .map(|m| m.duty_pct.min(100))
+                            .or(global_duty);
+                        if let Some(duty) = duty {
+                            apply_manual(&cli, &mut last_manual_duty, Some(i), duty).await;
                         }
                     }
+                } else if let Some(duty) = global_duty {
+                    apply_manual(&cli, &mut last_manual_duty, None, duty).await;
                 } else {
-                    // No manual duty set, fall back to auto
-                    debug!("Manual: No duty set, switching to auto fan control");
+                    // No manual duty configured: fall back to firmware auto.
                     let _ = cli.autofanctrl().await;
-                    last_duty = None;
                 }
-                last_mode = Some(FanControlMode::Manual);
             }
 
-            // Curve mode: dynamic control based on temperature
             FanControlMode::Curve => {
-                if last_mode != Some(FanControlMode::Curve) {
-                    debug!("Mode change: {:?} -> Curve", last_mode);
-                }
-                let Some(curve_cfg) = &config.curve else {
-                    warn!("Curve mode without curve config; falling back to platform auto");
-                    let _ = cli.autofanctrl().await;
-                    last_duty = None;
-                    sleep(poll_interval).await;
-                    continue;
-                };
-                // 1. Read temperatures and select based on sensors (max across selection)
-                let temp = get_max_sensor_temperature(&cli, &curve_cfg.sensors).await;
-                let Some(temp) = temp else {
-                    warn!("Failed to select temperature, continuing...");
-                    sleep(poll_interval).await;
-                    continue;
-                };
-                // If we just entered Curve mode, anchor hysteresis and clear target to avoid stale state
-                if last_mode != Some(FanControlMode::Curve) {
-                    debug!("Anchoring hysteresis at temp={}°C on entering Curve", temp);
-                    transition_start_temp = temp;
-                    active_target = None;
-                }
-
-                // 2. Compute instantaneous curve duty
-                let curve_target = calculate_duty_from_curve(temp, &curve_cfg.points);
-
-                // 3. Decide whether to accept this as the new active target
-                match active_target {
-                    None => {
-                        active_target = Some(curve_target);
-                        transition_start_temp = temp;
-                    }
-                    Some(current_target) if curve_target != current_target => {
-                        if curve_target > current_target {
-                            // Increasing – accept immediately
-                            active_target = Some(curve_target);
-                            transition_start_temp = temp;
-                        } else {
-                            // Decreasing – apply hysteresis with special handling:
-                            // - If hysteresis is disabled, accept immediately
-                            // - If temperature has increased since the transition anchor, accept immediately and re-anchor
-                            // - Otherwise require temp to drop by hysteresis band
-                            if curve_cfg.hysteresis_c == 0
-                                || temp >= transition_start_temp
-                                || temp <= transition_start_temp - curve_cfg.hysteresis_c as i32
-                            {
-                                active_target = Some(curve_target);
-                                transition_start_temp = temp;
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-
-                // 4. Step towards active_target every loop (rate-limited)
-                if let Some(tgt) = active_target {
-                    let mut decision = "hold";
-                    let mut reason = "last==next";
-
-                    let next = match last_duty {
-                        Some(prev) if curve_cfg.rate_limit_pct_per_step < 100 => {
-                            apply_rate_limit(prev, tgt, curve_cfg.rate_limit_pct_per_step)
-                        }
-                        _ => tgt,
+                if per_fan_active {
+                    let Some(count) = ensure_fan_count(&cli, &mut fan_count).await else {
+                        sleep(poll_interval).await;
+                        continue;
                     };
-                    if last_duty != Some(next) {
-                        decision = "set";
-                        reason = "advance";
-
-                        if let Err(e) = cli.set_fan_duty(next, None).await {
-                            warn!("Failed to set fan duty: {}", e);
-                        } else {
-                            last_duty = Some(next);
-                        }
+                    for i in 0..count {
+                        let curve = overrides
+                            .iter()
+                            .find(|o| o.index == i)
+                            .and_then(|o| o.curve.clone())
+                            .or_else(|| config.curve.clone());
+                        let Some(curve) = curve else { continue };
+                        let stepper = per_fan_curve_steppers.entry(i).or_insert_with(CurveStepper::new);
+                        apply_curve(&cli, stepper, &curve, Some(i)).await;
                     }
-
-                    if decision != "hold" {
-                        debug!(
-                        "CurveLoop: temp={}°C, inst_target={}%, active_target={}%, anchor={}°C, hys={}°C, last_duty={:?}%, next={}%, step_limit={}%, decision={}, reason={}",
-                        temp,
-                        curve_target,
-                        tgt,
-                        transition_start_temp,
-                        curve_cfg.hysteresis_c,
-                        last_duty,
-                        next,
-                        curve_cfg.rate_limit_pct_per_step,
-                            decision,
-                            reason
-                        );
-                    }
+                } else {
+                    let Some(curve) = &config.curve else {
+                        warn!("Curve mode without curve config; falling back to platform auto");
+                        let _ = cli.autofanctrl().await;
+                        sleep(poll_interval).await;
+                        continue;
+                    };
+                    apply_curve(&cli, &mut global, curve, None).await;
                 }
-                last_mode = Some(FanControlMode::Curve);
             }
         }
+
+        last_mode = Some(mode);
+        last_per_fan_active = per_fan_active;
+
         let elapsed = loop_started.elapsed();
         if elapsed < poll_interval {
             sleep(poll_interval - elapsed).await;
@@ -185,10 +129,147 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
     }
 }
 
+/// Encapsulates the hysteresis + rate-limit state machine for a single fan.
+struct CurveStepper {
+    last_duty: Option<u32>,
+    active_target: Option<u32>,
+    transition_start_temp: i32,
+    anchored: bool,
+}
+
+impl CurveStepper {
+    fn new() -> Self {
+        Self {
+            last_duty: None,
+            active_target: None,
+            transition_start_temp: 0,
+            anchored: false,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.last_duty = None;
+        self.active_target = None;
+        self.anchored = false;
+    }
+
+    fn note_applied(&mut self, duty: u32) {
+        self.last_duty = Some(duty);
+    }
+
+    /// Advance the state machine for the given temperature and return the duty to apply, or `None` when the current duty should be held.
+    fn next(&mut self, temp: i32, curve: &CurveConfig) -> Option<u32> {
+        // Anchor hysteresis on first evaluation after a reset.
+        if !self.anchored {
+            self.transition_start_temp = temp;
+            self.active_target = None;
+            self.anchored = true;
+        }
+
+        let curve_target = calculate_duty_from_curve(temp, &curve.points);
+
+        match self.active_target {
+            None => {
+                self.active_target = Some(curve_target);
+                self.transition_start_temp = temp;
+            }
+            Some(current) if curve_target != current => {
+                if curve_target > current {
+                    // Increasing – accept immediately.
+                    self.active_target = Some(curve_target);
+                    self.transition_start_temp = temp;
+                } else if curve.hysteresis_c == 0
+                    || temp >= self.transition_start_temp
+                    || temp <= self.transition_start_temp - curve.hysteresis_c as i32
+                {
+                    // Decreasing – accept once outside the hysteresis band (or
+                    // immediately if hysteresis is disabled / temp has risen).
+                    self.active_target = Some(curve_target);
+                    self.transition_start_temp = temp;
+                }
+            }
+            _ => {}
+        }
+
+        let tgt = self.active_target?;
+        let next = match self.last_duty {
+            Some(prev) => {
+                // Spin-up uses rate_limit_pct_per_step; spin-down uses the
+                // optional down rate, falling back to the up rate when unset.
+                let rate = if tgt >= prev {
+                    curve.rate_limit_pct_per_step
+                } else {
+                    curve
+                        .rate_limit_down_pct_per_step
+                        .unwrap_or(curve.rate_limit_pct_per_step)
+                };
+                apply_rate_limit(prev, tgt, rate)
+            }
+            None => tgt,
+        };
+
+        if self.last_duty != Some(next) {
+            Some(next)
+        } else {
+            None
+        }
+    }
+}
+
+/// Evaluate a curve for one fan and apply the resulting duty (if it changed).
+async fn apply_curve(cli: &FrameworkTool, stepper: &mut CurveStepper, curve: &CurveConfig, fan_index: Option<u32>) {
+    let Some(temp) = get_max_sensor_temperature(cli, &curve.sensors).await else {
+        warn!("Failed to select temperature for fan {:?}, continuing...", fan_index);
+        return;
+    };
+    if let Some(next) = stepper.next(temp, curve) {
+        match cli.set_fan_duty(next, fan_index).await {
+            Ok(()) => {
+                stepper.note_applied(next);
+                debug!("Curve: fan {:?} -> {}% at {}°C", fan_index, next, temp);
+            }
+            Err(e) => warn!("Failed to set fan {:?} duty: {}", fan_index, e),
+        }
+    }
+}
+
+/// Apply a manual duty for one fan, skipping redundant CLI calls.
+async fn apply_manual(
+    cli: &FrameworkTool,
+    last_manual_duty: &mut HashMap<Option<u32>, u32>,
+    fan_index: Option<u32>,
+    duty: u32,
+) {
+    if last_manual_duty.get(&fan_index) == Some(&duty) {
+        return;
+    }
+    match cli.set_fan_duty(duty, fan_index).await {
+        Ok(()) => {
+            last_manual_duty.insert(fan_index, duty);
+            debug!("Manual: fan {:?} -> {}%", fan_index, duty);
+        }
+        Err(e) => warn!("Failed to set fan {:?} duty: {}", fan_index, e),
+    }
+}
+
+/// Cached fan-count lookup: detect once, then reuse until the caller resets it.
+async fn ensure_fan_count(cli: &FrameworkTool, cached: &mut Option<u32>) -> Option<u32> {
+    if let Some(c) = *cached {
+        return Some(c);
+    }
+    let count = cli.thermal().await.ok()?.fans.len() as u32;
+    // Don't cache a zero reading (thermal not ready yet); retry next tick.
+    if count == 0 {
+        return None;
+    }
+    *cached = Some(count);
+    Some(count)
+}
+
 /// Read thermal and return the maximum temperature across the provided sensors.
 async fn get_max_sensor_temperature(cli: &FrameworkTool, sensors: &[String]) -> Option<i32> {
     let output = cli.thermal().await.ok()?;
-    let temps = &output.temps; // BTreeMap<String, i32>
+    let temps = &output.temps;
     let mut best: Option<i32> = None;
     for name in sensors {
         if let Some(&v) = temps.get(name) {
@@ -214,11 +295,10 @@ async fn get_max_sensor_temperature(cli: &FrameworkTool, sensors: &[String]) -> 
 fn calculate_duty_from_curve(temp: i32, points: &[[u32; 2]]) -> u32 {
     let temp = temp as f64;
 
-    // Build the full curve with anchor points, matching frontend behavior
     let mut full_curve = Vec::with_capacity(points.len() + 2);
-    full_curve.push([0, 0]); // Start anchor
+    full_curve.push([0, 0]);
     full_curve.extend_from_slice(points);
-    full_curve.push([100, 100]); // End anchor
+    full_curve.push([100, 100]);
 
     // Find the two points to interpolate between
     for window in full_curve.windows(2) {
@@ -301,5 +381,62 @@ mod tests {
 
         // Test no limit (100%)
         assert_eq!(apply_rate_limit(30, 80, 100), 80);
+    }
+
+    fn curve(points: Vec<[u32; 2]>, hysteresis_c: u32, rate_limit_pct_per_step: u32) -> CurveConfig {
+        CurveConfig {
+            sensors: vec![],
+            points,
+            poll_ms: 2000,
+            hysteresis_c,
+            rate_limit_pct_per_step,
+            rate_limit_down_pct_per_step: None,
+        }
+    }
+
+    #[test]
+    fn stepper_anchors_then_holds() {
+        let c = curve(vec![[40, 20], [60, 40]], 0, 100);
+        let mut s = CurveStepper::new();
+        // First evaluation applies the computed duty.
+        let first = s.next(50, &c);
+        assert_eq!(first, Some(30));
+        s.note_applied(30);
+        // Same temperature holds (no redundant apply).
+        assert_eq!(s.next(50, &c), None);
+    }
+
+    #[test]
+    fn stepper_hysteresis_blocks_small_drops() {
+        let c = curve(vec![[40, 20], [60, 40]], 5, 100);
+        let mut s = CurveStepper::new();
+        s.note_applied(40);
+        // Anchor at 60 -> target 40, already applied so holds.
+        assert_eq!(s.next(60, &c), None);
+        // Drop of 2°C is inside the 5°C band -> still holds at 40.
+        assert_eq!(s.next(58, &c), None);
+        // Drop beyond the band -> accept the lower target.
+        let dropped = s.next(54, &c);
+        assert_eq!(dropped, Some(34));
+    }
+
+    #[test]
+    fn stepper_rate_limit_steps_toward_target() {
+        let c = curve(vec![[40, 20], [60, 80]], 0, 10);
+        let mut s = CurveStepper::new();
+        s.note_applied(20);
+        // Target at 60°C is 80, but rate limit caps the step at +10.
+        assert_eq!(s.next(60, &c), Some(30));
+    }
+
+    #[test]
+    fn stepper_separate_down_rate_limit() {
+        // Fast spin-up (100 = instant), slow spin-down (5% per step).
+        let mut c = curve(vec![[40, 20], [60, 80]], 0, 100);
+        c.rate_limit_down_pct_per_step = Some(5);
+        let mut s = CurveStepper::new();
+        s.note_applied(80);
+        // Target at 40°C is 20; the down rate caps the drop at -5 -> 75.
+        assert_eq!(s.next(40, &c), Some(75));
     }
 }

@@ -53,6 +53,19 @@ pub struct FanControlConfig {
     pub curve: Option<CurveConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration: Option<FanCalibration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overrides: Option<Vec<FanOverride>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct FanOverride {
+    pub index: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual: Option<ManualConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub curve: Option<CurveConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calibration: Option<FanCalibration>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
@@ -72,6 +85,8 @@ pub struct CurveConfig {
     pub hysteresis_c: u32,
     #[serde(default = "default_rate_limit_pct_per_step")]
     pub rate_limit_pct_per_step: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_down_pct_per_step: Option<u32>,
 }
 
 fn default_points() -> Vec<[u32; 2]> {

@@ -294,6 +294,10 @@ impl Api {
             if let Some(cal) = fan.calibration {
                 new_fan.calibration = Some(cal);
             }
+            // Overrides are replaced wholesale when provided. An empty array clears them entirely.
+            if let Some(ov) = fan.overrides {
+                new_fan.overrides = if ov.is_empty() { None } else { Some(ov) };
+            }
             merged.fan = new_fan;
         }
         if let Some(pow) = req.power {

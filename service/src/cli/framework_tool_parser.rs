@@ -4,8 +4,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct ThermalParsed {
     pub temps: std::collections::BTreeMap<String, i32>,
-    pub rpms: Vec<u32>,
+    pub fans: Vec<FanReading>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct FanReading {
+    pub name: String,
+    pub rpm: u32,
+}
+
+// EC fan-speed sentinels: 0xFFFE = stalled (printed as a bogus 65534), 0xFFFF =
+const EC_FAN_SENTINEL_MIN: u32 = 0xFFFE;
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct PowerBatteryInfo {
     pub ac_present: Option<bool>,
@@ -34,7 +43,7 @@ pub struct BatteryChargeLimitInfo {
 }
 pub fn parse_thermal(stdout: &str) -> ThermalParsed {
     let mut temps: std::collections::BTreeMap<String, i32> = Default::default();
-    let mut rpms: Vec<u32> = vec![];
+    let mut fans: Vec<FanReading> = vec![];
     for line in stdout.lines() {
         let l = line.trim();
         if let Some((k, r)) = l.split_once(':') {
@@ -49,18 +58,32 @@ pub fn parse_thermal(stdout: &str) -> ThermalParsed {
                 }
             }
         }
-        if let Some(pos) = l.find("Fan Speed:") {
-            let rest = &l[pos + "Fan Speed:".len()..];
-            if let Some(tok) = rest.split_whitespace().find(|t| t.chars().all(|c| c.is_ascii_digit())) {
-                if let Ok(v) = tok.parse::<u32>() {
-                    if v > 0 {
-                        rpms.push(v);
-                    }
-                }
-            }
+        if let Some(reading) = parse_fan_line(l, fans.len()) {
+            fans.push(reading);
         }
     }
-    ThermalParsed { temps, rpms }
+    ThermalParsed { temps, fans }
+}
+
+fn parse_fan_line(line: &str, position: usize) -> Option<FanReading> {
+    let rpm_pos = line.find("RPM")?;
+    let before = &line[..rpm_pos];
+    let raw: u32 = before.split_whitespace().last()?.parse().ok()?;
+
+    let rpm = if raw >= EC_FAN_SENTINEL_MIN || line.contains("Stalled") {
+        0
+    } else {
+        raw
+    };
+
+    let name = line
+        .split_once(':')
+        .map(|(n, _)| n.trim())
+        .filter(|n| !n.is_empty())
+        .map(|n| n.to_string())
+        .unwrap_or_else(|| format!("Fan {}", position + 1));
+
+    Some(FanReading { name, rpm })
 }
 
 /// Parse output of `framework_tool --charge-limit` which prints: "Minimum X%, Maximum Y%"
@@ -335,13 +358,89 @@ pub fn parse_versions(text: &str) -> VersionsParsed {
 mod tests {
     use super::*;
 
+    fn rpms(t: &ThermalParsed) -> Vec<u32> {
+        t.fans.iter().map(|f| f.rpm).collect()
+    }
+
     #[test]
     fn parse_thermal_basic() {
-        let s = "  F75303_Local:   45 C\n  F75303_CPU:     55 C\n  APU:          62 C\n  Fan Speed:  3171 RPM\n";
+        let s = r#"
+  F75303_Local:   45 C
+  F75303_CPU:     55 C
+  APU:            62 C
+  Fan Speed:    3171 RPM
+"#;
         let t = parse_thermal(s);
         assert_eq!(t.temps.get("APU").copied(), Some(62));
         assert_eq!(t.temps.get("F75303_CPU").copied(), Some(55));
-        assert_eq!(t.rpms, vec![3171]);
+        assert_eq!(rpms(&t), vec![3171]);
+    }
+    #[test]
+    fn parse_thermal_framework16_sample() {
+        // Real Framework 16 output: both fans labelled "Fan Speed", and a
+        // "NotPowered" dGPU sensor that has no numeric reading.
+        let s = r#"
+  F75303_Local: 40 C
+  F75303_CPU:   38 C
+  F75303_DDR:   38 C
+  APU:          39 C
+  dGPU VR:      0 C
+  dGPU VRAM:    0 C
+  dGPU AMB:     0 C
+  dGPU temp:    NotPowered
+  Fan Speed:  2165 RPM
+  Fan Speed:  2035 RPM
+"#;
+        let t = parse_thermal(s);
+        assert_eq!(t.temps.get("APU").copied(), Some(39));
+        assert_eq!(t.temps.get("dGPU VR").copied(), Some(0));
+        assert_eq!(t.temps.get("dGPU temp"), None);
+        assert_eq!(rpms(&t), vec![2165, 2035]);
+        let names: Vec<&str> = t.fans.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["Fan Speed", "Fan Speed"]);
+    }
+    #[test]
+    fn parse_thermal_multi_fan_keeps_position() {
+        let s = r#"
+  APU:          50 C
+  Fan Speed:     0 RPM
+  Fan Speed:  2917 RPM
+"#;
+        let t = parse_thermal(s);
+        assert_eq!(rpms(&t), vec![0, 2917]);
+    }
+    #[test]
+    fn parse_thermal_named_fans() {
+        let s = r#"
+  APU:          50 C
+  Left Fan:   1200 RPM
+  Right Fan:  1300 RPM
+"#;
+        let t = parse_thermal(s);
+        assert_eq!(rpms(&t), vec![1200, 1300]);
+        let names: Vec<&str> = t.fans.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["Left Fan", "Right Fan"]);
+    }
+    #[test]
+    fn parse_thermal_stalled_fan_is_zero_not_sentinel() {
+        // Stalled fan (0xFFFE/65534) reads as 0 but keeps its slot.
+        let s = r#"
+  Left Fan:  65534 RPM (Stalled)
+  Right Fan:  1300 RPM
+"#;
+        let t = parse_thermal(s);
+        assert_eq!(rpms(&t), vec![0, 1300]);
+        assert_eq!(t.fans[0].name, "Left Fan");
+    }
+    #[test]
+    fn parse_thermal_ignores_non_fan_rpm_lines() {
+        // A line mentioning RPM without a numeric reading before it is not a fan.
+        let s = r#"
+  Note: fans report in RPM
+  Left Fan:  1200 RPM
+"#;
+        let t = parse_thermal(s);
+        assert_eq!(rpms(&t), vec![1200]);
     }
     #[test]
     fn parse_power_verbose_sample() {
