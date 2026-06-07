@@ -1,7 +1,10 @@
 # Unreleased
 
-- Service: Removed the periodic `framework_tool --versions` liveness check that spawned a process every 5 seconds even when no UI was connected (#34). Tool health is now validated on demand — a failing `framework_tool` call flags it and the background resolver confirms once with `--versions` before clearing it — so no health-check processes are spawned while the tool is working.
-- Service: The background resolver now uses exponential backoff (5s up to a 5min cap) when `framework_tool` is missing, instead of retrying installation every 5 seconds indefinitely.
+## 0.5.3 - 2026-06-07
+
+- **Multi-fan control**: Per-fan manual/curve overrides for multi-fan laptops — shared global defaults with optional per-fan tabs, separate spin-down rate limits, and live per-fan RPM overlays on the curve editor.
+- **Uninstall**: Windows MSI now removes runtime-created shortcuts, config, icons, and logs on uninstall without wiping them during in-app updates; Linux adds `uninstall-linux.sh` for one-command removal of the service, binary, config, and desktop assets.
+- **Service**: Removed the periodic `framework_tool --versions` liveness check that spawned a process every 5 seconds even when no UI was connected (#34). Tool health is now validated on demand — a failing call flags it and the background resolver confirms once with `--versions` before clearing it — and uses exponential backoff (5s up to a 5min cap) when the tool is missing instead of retrying installation every 5 seconds (#62).
 
 ## 0.5.2 - 2026-07-15
 
