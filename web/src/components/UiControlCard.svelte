@@ -13,6 +13,7 @@
     export let value: number | string;
     export let hasEnabled: boolean = false;
     export let enabled: boolean = true;
+    export let disabled: boolean = false;
     export let variant: "range" | "select" = "range";
     export let options: string[] = [];
     // Highlight and clamp above this cap when provided
@@ -111,6 +112,7 @@
                 <Icon {icon} class="w-4 h-4 text-primary/80" />
             {/if}
             <h3 class="card-title text-sm">{label}</h3>
+            <slot name="label-trailing" />
         </div>
         <div class="flex items-center gap-2 text-xs">
             <!-- Optional trailing content area for chips/menus placed by parent -->
@@ -143,7 +145,7 @@
     </div>
     <div
         class="flex items-center gap-3"
-        class:opacity-60={hasEnabled && !enabled}
+        class:opacity-60={(hasEnabled && !enabled) || disabled}
     >
         {#if variant === "select"}
             <div class="flex-1 flex items-center">
@@ -184,8 +186,10 @@
                     {min}
                     {max}
                     {step}
+                    {disabled}
                     bind:value
                     class="range range-sm w-full relative z-20"
+                    class:pointer-events-none={disabled}
                     on:input={handleInput}
                     on:change={handleChange}
                 />

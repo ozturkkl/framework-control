@@ -36,7 +36,7 @@ pub async fn run(
                 let sample = TelemetrySample {
                     ts_ms: now_ms,
                     temps: parsed.temps,
-                    rpms: parsed.rpms,
+                    rpms: parsed.fans.iter().map(|f| f.rpm).collect(),
                 };
                 {
                     let mut w = samples_lock.write().await;
