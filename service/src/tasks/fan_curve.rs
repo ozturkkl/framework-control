@@ -102,19 +102,19 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
                             .iter()
                             .find(|o| o.index == i)
                             .and_then(|o| o.curve.clone())
-                            .or_else(|| config.curve.clone());
+                            .or_else(|| config.curve.as_ref().map(|c| c.curve.clone()));
                         let Some(curve) = curve else { continue };
                         let stepper = per_fan_curve_steppers.entry(i).or_insert_with(CurveStepper::new);
                         apply_curve(&cli, stepper, &curve, Some(i)).await;
                     }
                 } else {
-                    let Some(curve) = &config.curve else {
+                    let Some(curve) = config.curve.as_ref().map(|c| c.curve.clone()) else {
                         warn!("Curve mode without curve config; falling back to platform auto");
                         let _ = cli.autofanctrl().await;
                         sleep(poll_interval).await;
                         continue;
                     };
-                    apply_curve(&cli, &mut global, curve, None).await;
+                    apply_curve(&cli, &mut global, &curve, None).await;
                 }
             }
         }
@@ -387,7 +387,6 @@ mod tests {
         CurveConfig {
             sensors: vec![],
             points,
-            poll_ms: 2000,
             hysteresis_c,
             rate_limit_pct_per_step,
             rate_limit_down_pct_per_step: None,

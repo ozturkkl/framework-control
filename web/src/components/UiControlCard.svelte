@@ -112,6 +112,7 @@
                 <Icon {icon} class="w-4 h-4 text-primary/80" />
             {/if}
             <h3 class="card-title text-sm">{label}</h3>
+            <slot name="label-trailing" />
         </div>
         <div class="flex items-center gap-2 text-xs">
             <!-- Optional trailing content area for chips/menus placed by parent -->
