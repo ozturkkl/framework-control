@@ -30,6 +30,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 ## Current Features
 
 - **Fan Controls**: Auto, Manual duty, and Curve editor with hysteresis and rate‑limit
+  - Per-fan overrides on multi-fan laptops (optional custom manual duty or curve per fan)
   - Live RPM overlay with crosshair showing current temperature and estimated duty% on the curve editor
   - One‑time calibration wizard for accurate RPM-to-duty mapping
 - **Telemetry & Sensors**: Live temperature and fan RPM graphs with history
@@ -177,7 +178,8 @@ Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.
 - Visual curve editing with drag-and-drop points
 - Live RPM overlay with real-time crosshair showing current temperature and fan duty
 - Guided calibration wizard for accurate RPM-to-duty% mapping
-- Hysteresis and rate limiting controls to prevent oscillation
+- Hysteresis and rate limiting controls (including optional separate spin-down rate) to prevent oscillation
+- Per-fan curve tabs and RPM overlays when overrides are configured
 - Sensor selection (APU/CPU)
 
 ### Fan Modes

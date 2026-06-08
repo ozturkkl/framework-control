@@ -48,7 +48,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 ### Frontend Web UI (Svelte)
 
 - Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector).
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector; optional per-fan manual/curve overrides via fan tabs).
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
@@ -74,7 +74,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 
 - Windows: MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`). MSI injects env values into the service (allowed origins, port, update repo). Updates via `msiexec`.
 - Linux: 
-  - Automated install script (`install-linux.sh` in repo root) downloads latest release tarball from GitHub
+  - Automated install script (`install-linux.sh` in repo root) and uninstall script (`uninstall-linux.sh`) download latest release tarball from GitHub
   - Installs binary to `/usr/local/bin/framework-control` and systemd service to `/etc/systemd/system/`
   - Built via `web/scripts/build-linux.mjs` (static musl build in CI, creates tarball with binary + service file)
   - Config baked into binary at build time; runtime config stored at `/etc/framework-control/config.json`
@@ -90,7 +90,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Persisted at:
   - Windows: `C:\ProgramData\FrameworkControl\config.json`
   - Linux: `/etc/framework-control/config.json`
-- Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors)
+- Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors); optional `overrides[]` per fan index for custom manual duty or curve (falls back to global config)
 - Telemetry: `telemetry.poll_ms`, `telemetry.retain_seconds` (history for `/api/thermal/history`)
 - Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting)
 - UI: `ui.theme` (DaisyUI theme name, shared across clients)
