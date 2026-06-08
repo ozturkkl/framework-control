@@ -197,8 +197,17 @@
                         <RemoveFile Id='RemoveDesktopLnk' Name='Framework Control.lnk' On='uninstall' Directory='CommonDesktopFolder'/>
                         <RemoveFile Id='RemoveDesktopUrl' Name='Framework Control.url' On='uninstall' Directory='CommonDesktopFolder'/>
 
-                        <!-- WinSW rolling logs written into the install folder at runtime -->
+                        <!-- WinSW rolling logs written into the install folder at runtime
+                             (active *.log plus the rolled *.out.log.old / *.err.log.old) -->
                         <RemoveFile Id='RemoveServiceLogs' Name='*.log' On='uninstall' Directory='APPLICATIONFOLDER'/>
+                        <RemoveFile Id='RemoveServiceLogsOld' Name='*.log.old' On='uninstall' Directory='APPLICATIONFOLDER'/>
+
+                        <!-- framework_tool.exe auto-downloaded next to the service binary at runtime (see cli/framework_tool.rs) -->
+                        <RemoveFile Id='RemoveFrameworkTool' Name='framework_tool.exe' On='uninstall' Directory='APPLICATIONFOLDER'/>
+
+                        <!-- Archive-peek temp dir. -->
+                        <RemoveFile Id='RemoveZipPeekFiles' Name='*' On='uninstall' Directory='ZipPeekDir'/>
+                        <RemoveFolder Id='RemoveZipPeekDir' Directory='ZipPeekDir' On='uninstall'/>
 
                         <!-- Icon + config under %PROGRAMDATA%\FrameworkControl, then the now-empty dirs -->
                         <RemoveFile Id='RemoveIcon' Name='framework-control.ico' On='uninstall' Directory='ProgramDataAssetsDir'/>
@@ -209,6 +218,10 @@
 
                     <!-- Define the nested helper directory under install folder -->
                     <Directory Id='RyzenAdjDir' Name='ryzenadj'>
+                    </Directory>
+
+                    <!-- Archive-peek temp dir -->
+                    <Directory Id='ZipPeekDir' Name='fc_zip_peek'>
                     </Directory>
 
                     <!-- Marker file for shortcut creation -->

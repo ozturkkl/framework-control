@@ -24,6 +24,13 @@ const run = (cmd, args, opts = {}) =>
 		p.on('error', reject);
 	});
 
+const commandExists = (cmd, args = ['--version']) =>
+	new Promise((resolve) => {
+		const p = spawn(cmd, args, { stdio: 'ignore', shell: true });
+		p.on('exit', (code) => resolve(code === 0));
+		p.on('error', () => resolve(false));
+	});
+
 const readDotEnv = (p) => {
 	if (!fs.existsSync(p)) return {};
 	return Object.fromEntries(
@@ -56,6 +63,27 @@ async function main() {
 		console.log('[build-msi] cargo-wix not found, installing...');
 		await run('cargo.exe', ['install', 'cargo-wix'], { cwd: serviceDir });
 		console.log('[build-msi] cargo-wix installed successfully\n');
+	}
+
+	console.log('[build-msi] Checking for WiX Toolset (candle)...');
+	const wixEnv = process.env.WIX;
+	const candleInWixEnv = !!wixEnv && fs.existsSync(path.join(wixEnv, 'bin', 'candle.exe'));
+	const candleOnPath = await commandExists('where', ['candle']);
+	if (candleInWixEnv || candleOnPath) {
+		console.log('[build-msi] WiX Toolset found\n');
+	} else {
+		throw new Error(
+			[
+				'WiX Toolset v3 not found: candle.exe is not on your PATH.',
+				'cargo-wix needs it to compile the installer.',
+				'',
+				'Install it with Chocolatey:',
+				'  choco install wixtoolset',
+				'',
+				'Then RESTART your shell (and editor) so the updated PATH is picked up,',
+				'and re-run: npm run build:msi',
+			].join('\n'),
+		);
 	}
 
 	// Install web dependencies
