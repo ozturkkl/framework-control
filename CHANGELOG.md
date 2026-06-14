@@ -1,10 +1,15 @@
 # Unreleased
 
-## 0.5.3 - 2026-06-07
+## 0.5.3 - 2026-06-14
 
-- **Multi-fan control**: Per-fan manual/curve overrides for multi-fan laptops — shared global defaults with optional per-fan tabs, separate spin-down rate limits, and live per-fan RPM overlays on the curve editor.
-- **Uninstall**: Windows MSI now removes runtime-created shortcuts, config, icons, and logs on uninstall without wiping them during in-app updates; Linux adds `uninstall-linux.sh` for one-command removal of the service, binary, config, and desktop assets.
+- **Multi-fan control**: Per-fan manual/curve overrides for multi-fan laptops — shared global defaults with optional per-fan tabs, separate spin-down rate limits, and live per-fan RPM overlays on the curve editor. Backend fansetduty calls accept an optional fan index; config adds `fan.overrides[]` with per-index manual or curve settings that fall back to the global config when unset.
+- **Fan curve**: Optional `rate_limit_down_pct_per_step` for slower spin-down than spin-up. `poll_ms` now lives on the global curve config (`GlobalCurveConfig`) rather than per-fan curve overrides, which share a single control-loop cadence.
+- **Thermal API**: `/api/thermal` now returns `fans: [{ name, rpm }]` instead of a flat `rpms` array — fixes multi-fan ordering/naming on Framework 16 and treats stalled EC readings (65534 / "Stalled") as 0 RPM while preserving fan slot index.
+- **Uninstall**: Windows MSI now removes runtime-created shortcuts, config, icons, logs, and auto-downloaded `framework_tool.exe` on uninstall without wiping them during in-app updates (`NOT UPGRADINGPRODUCTCODE` guard). Linux adds `uninstall-linux.sh` for one-command removal of the service, binary, config, desktop entry, and icon assets.
 - **Service**: Removed the periodic `framework_tool --versions` liveness check that spawned a process every 5 seconds even when no UI was connected (#34). Tool health is now validated on demand — a failing call flags it and the background resolver confirms once with `--versions` before clearing it — and uses exponential backoff (5s up to a 5min cap) when the tool is missing instead of retrying installation every 5 seconds (#62).
+- **Nix**: Removed the repo-root `flake.nix` redirect now that the package lives in nixpkgs (see 0.5.2).
+- **Project**: Added `CONTRIBUTING.md` (outside contributions not accepted), a workflow to auto-close external PRs, and a streamlined PR template. Documented uninstall flows in `README.md` / `LINUX_INSTALL.MD` and expanded `service/.example.env`.
+- **Dev**: Archive-peek temp dirs are always cleaned up after update checks; `build-msi.mjs` validates WiX Toolset (`candle.exe`) before building.
 
 ## 0.5.2 - 2026-07-15
 

@@ -520,10 +520,7 @@
                 else if (mode === "Curve") delete next.curve;
                 return next;
             })
-            .filter(
-                (o) =>
-                    o.manual != null || o.curve != null || o.calibration != null,
-            );
+            .filter((o) => o.manual != null || o.curve != null);
         selectFan("all");
         save();
     }

@@ -64,8 +64,6 @@ pub struct FanOverride {
     pub manual: Option<ManualConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub curve: Option<CurveConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub calibration: Option<FanCalibration>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
