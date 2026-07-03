@@ -20,6 +20,10 @@
 //   Hello tooltip
 // </div>
 //
+// Cursor-following tooltip:
+// <div use:tooltip={{ visible: tipVisible, followMouse: true }}
+//      class="...">Follows the cursor while visible</div>
+//
 // Notes:
 // - If no anchor is provided, it defaults to viewport center.
 // - Positioning is viewport-aware; it prefers above and flips below when needed, clamping to edges.
@@ -30,6 +34,8 @@ export type TooltipParams = {
 	// Anchor element or a function returning an Element
 	anchor?: Element | (() => Element | null);
 	visible?: boolean; // initial visibility
+	// When true, tooltip tracks the cursor while visible instead of anchoring to an element
+	followMouse?: boolean;
 	// When false, do not attach global dismiss (outside click or Escape)
 	attachGlobalDismiss?: boolean;
 	// Optional callback invoked when the tooltip hides (outside click, Escape, or programmatic)
@@ -54,6 +60,8 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
 	let mutationObserver: MutationObserver | null = null;
 	let onDocPointerDown: ((ev: PointerEvent) => void) | null = null;
 	let onDocKeydown: ((ev: KeyboardEvent) => void) | null = null;
+	let followMousePos: { x: number; y: number } | null = null;
+	let onFollowMouseMove: ((ev: MouseEvent) => void) | null = null;
 
 	// Ensure node is under body for clipping-free rendering
 	function ensureAttached() {
@@ -66,7 +74,25 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
 		}
 	}
 
+	function cursorAnchorRect(): DOMRect {
+		const { x, y } = followMousePos!;
+		const w = 1;
+		const h = 1;
+		return {
+			x,
+			y,
+			width: w,
+			height: h,
+			left: x,
+			top: y,
+			right: x + w,
+			bottom: y + h,
+			toJSON: () => ({}),
+		} as DOMRect;
+	}
+
 	function getAnchorRect(): DOMRect {
+		if (params.followMouse && followMousePos) return cursorAnchorRect();
 		const el = resolveAnchorElement();
 		if (el) return el.getBoundingClientRect();
 		const vw = window.innerWidth;
@@ -191,6 +217,23 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
 		}
 	}
 
+	function attachFollowMouse() {
+		if (!params.followMouse || onFollowMouseMove) return;
+		onFollowMouseMove = (ev: MouseEvent) => {
+			followMousePos = { x: ev.clientX, y: ev.clientY };
+			if (isShown) positionNow();
+		};
+		document.addEventListener('mousemove', onFollowMouseMove, true);
+	}
+
+	function detachFollowMouse() {
+		if (onFollowMouseMove) {
+			document.removeEventListener('mousemove', onFollowMouseMove, true);
+			onFollowMouseMove = null;
+		}
+		followMousePos = null;
+	}
+
 	function positionNow() {
 		if (!attached) return;
 		const vw = window.innerWidth;
@@ -227,13 +270,16 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
 		isShown = true;
 		node.style.display = 'block';
 		node.style.opacity = '1';
-		attachAnchorObserver();
+		if (params.followMouse) attachFollowMouse();
+		else attachAnchorObserver();
 		positionNow();
 		if (params.attachGlobalDismiss !== false) attachGlobalDismiss();
 	}
 	function hide() {
 		isShown = false;
 		node.style.display = 'none';
+		detachFollowMouse();
+		detachAnchorObserver();
 		detachGlobalDismiss();
 		params.onDismiss?.();
 	}
@@ -272,17 +318,30 @@ export function tooltip(node: HTMLElement, initial?: TooltipParams) {
 				} else if (!nextVisible && wasShown) {
 					hide();
 				} else if (nextVisible && wasShown) {
-					attachAnchorObserver();
+					if (params.followMouse) {
+						detachAnchorObserver();
+						attachFollowMouse();
+					} else {
+						detachFollowMouse();
+						attachAnchorObserver();
+					}
 					positionNow();
 				}
 			} else if (wasShown) {
-				attachAnchorObserver();
+				if (params.followMouse) {
+					detachAnchorObserver();
+					attachFollowMouse();
+				} else {
+					detachFollowMouse();
+					attachAnchorObserver();
+				}
 				positionNow();
 			}
 		},
 		destroy() {
 			window.removeEventListener('resize', onResize);
 			window.removeEventListener('scroll', onScroll, true);
+			detachFollowMouse();
 			detachAnchorObserver();
 			detachGlobalDismiss();
 			// Restore original placement if possible

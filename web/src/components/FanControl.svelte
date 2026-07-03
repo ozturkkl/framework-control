@@ -1,7 +1,13 @@
 <script lang="ts">
     import { onMount, onDestroy, tick } from "svelte";
     import { DefaultService } from "../api";
-    import type { Config, PartialConfig, FanControlConfig } from "../api";
+    import type {
+        PartialConfig,
+        FanControlConfig,
+        FanOverride,
+        CurveConfig,
+        GlobalCurveConfig,
+    } from "../api";
     import { throttleDebounce } from "../lib/utils";
     import { cubicSplineInterpolate } from "../lib/spline";
     import CalibrationModal from "./CalibrationModal.svelte";
@@ -12,16 +18,17 @@
     import { tooltip } from "../lib/tooltip";
 
     let error: string | null = null;
-    let success: boolean | null = null;
-    let successTimeout: ReturnType<typeof setTimeout> | null = null;
+    let showSavedCheckmark: boolean | null = null;
+    let showSavedCheckmarkTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Live telemetry polling for current temperature and fan RPM
     const LIVE_POLL_MS = 1000;
     let liveTemp: number | null = null;
-    let liveRpm: number | null = null;
+    let liveRpms: number[] = [];
     let calibrationPoints: [number, number][] | null = null;
 
     // Centralized defaults for the fan control config (backend schema)
+    type Point = [number, number];
     const DEFAULTS = {
         curve: {
             points: [
@@ -33,9 +40,15 @@
             poll_ms: 400,
             hysteresis_c: 1,
             rate_limit_pct_per_step: 1,
+            rate_limit_down_pct_per_step: 1,
         },
         manual: { duty_pct: 50 },
     };
+
+    function curveConfigFromGlobal(g: GlobalCurveConfig): CurveConfig {
+        const { poll_ms: _, ...curve } = g;
+        return curve;
+    }
 
     export let mode: "Auto" | "Manual" | "Curve" = "Auto";
     let onMountComplete = false;
@@ -43,15 +56,52 @@
     let manualDutyPct = DEFAULTS.manual.duty_pct;
 
     // Curve editor state
-    type Point = [number, number];
     let points: Point[] = DEFAULTS.curve.points;
     let pollMs = DEFAULTS.curve.poll_ms;
     let hysteresisC = DEFAULTS.curve.hysteresis_c;
     let rateLimitPctPerStep = DEFAULTS.curve.rate_limit_pct_per_step;
+    let rateLimitDownPctPerStep = DEFAULTS.curve.rate_limit_down_pct_per_step;
+    let rateLimitDownEnabled = false;
     let selectedSensors: string[] = [];
     let availableSensors: string[] = [];
     let latestTemps: Record<string, number> = {};
     let selectedMaxSensor: string | null = null;
+
+    let fanCount = 0;
+    let fanNames: string[] = [];
+    let activeFan: "all" | number = "all";
+    let overrides: FanOverride[] = [];
+    let loadingProfile = false;
+    $: fanLabels = Array.from({ length: fanCount }, (_, i) => {
+        const name = fanNames[i];
+        const unique =
+            !!name && fanNames.filter((n) => n === name).length === 1;
+        return unique ? name : `${name} ${i + 1}`;
+    });
+    $: fanTabsVisible = fanCount > 1 && mode !== "Auto";
+    $: modeOverrideFans = new Set(
+        overrides
+            .filter((o) =>
+                mode === "Manual"
+                    ? o.manual != null
+                    : mode === "Curve"
+                      ? o.curve != null
+                      : false,
+            )
+            .map((o) => o.index),
+    );
+    $: activeFanCustomized =
+        activeFan !== "all" && modeOverrideFans.has(activeFan);
+    let pollTipVisible = false;
+    $: if (activeFan === "all") pollTipVisible = false;
+    let downRateEnableBtn: HTMLButtonElement;
+    let downRateEnableTipVisible = false;
+    let downRateDisableBtn: HTMLButtonElement;
+    let downRateDisableTipVisible = false;
+
+    function probeColor(custom: boolean) {
+        return custom ? "oklch(var(--a))" : "oklch(var(--p))";
+    }
 
     const SHOW_LIVE_KEY = "framework:showLiveRpm";
     let showLive = (() => {
@@ -126,7 +176,7 @@
     async function handleCalibrationDone(pts: [number, number][]) {
         calibrationPoints = pts;
         await pollLiveOnce();
-        success = true;
+        showSavedCheckmark = true;
         closeCalibration();
     }
 
@@ -157,7 +207,8 @@
             latestTemps = res.temps;
             const t = pickTempForSelection(latestTemps, selectedSensors);
             if (t !== null) liveTemp = t;
-            liveRpm = Math.max(...res.rpms, 0);
+            liveRpms = (res.fans ?? []).map((f) => f.rpm);
+            fanNames = (res.fans ?? []).map((f) => f.name);
         } catch (_) {
             // Ignore transient errors
         }
@@ -172,11 +223,17 @@
     }
     function stopLivePolling() {
         if (liveTimer) {
-            console.log("Stopping live polling");
             clearInterval(liveTimer);
             liveTimer = null;
         }
     }
+
+    $: liveRpm =
+        liveRpms.length === 0
+            ? null
+            : activeFan === "all"
+              ? Math.max(0, ...liveRpms)
+              : (liveRpms[activeFan] ?? 0);
 
     function sortPointsInPlace() {
         points.sort((a, b) => a[0] - b[0]);
@@ -240,6 +297,39 @@
     $: liveX = liveTemp != null ? xToPx(liveTemp) : null;
     $: liveY = liveDutyPct != null ? yToPx(liveDutyPct) : null;
 
+    // In "All" mode with per-fan overrides, a single probe can't represent
+    // fans that follow different curves, so show one probe per fan instead.
+    $: liveProbes = (() => {
+        if (
+            mode !== "Curve" ||
+            !showLive ||
+            !calibrationPoints ||
+            activeFan !== "all" ||
+            !overrides.some((o) => o.curve != null)
+        ) {
+            return [];
+        }
+        const out = [];
+        for (let i = 0; i < fanCount; i++) {
+            const ov = overrides.find((o) => o.index === i);
+            const sensors = ov?.curve?.sensors?.length
+                ? ov.curve.sensors
+                : selectedSensors;
+            const t = pickTempForSelection(latestTemps, sensors);
+            if (t == null) continue;
+            const duty = rpmToPercent(liveRpms[i] ?? 0);
+            out.push({
+                i,
+                label: fanLabels[i],
+                x: xToPx(t),
+                y: yToPx(duty),
+                duty,
+                custom: !!ov?.curve,
+            });
+        }
+        return out;
+    })();
+
     function updatePointTooltipPosition(idx: number) {
         if (!svgEl) return;
         const rect = svgEl.getBoundingClientRect();
@@ -270,26 +360,8 @@
                         mode = "Auto";
                         break;
                 }
-                if (config.fan.curve) {
-                    const sensors = config.fan.curve.sensors;
-                    if (sensors.length > 0) {
-                        selectedSensors = sensors;
-                    }
-                    points = config.fan.curve.points.map((p) => [
-                        p[0],
-                        p[1],
-                    ]) as Point[];
-                    sortPointsInPlace();
-                    pollMs = config.fan.curve.poll_ms;
-                    hysteresisC = config.fan.curve.hysteresis_c;
-                    rateLimitPctPerStep = Math.max(
-                        1,
-                        config.fan.curve.rate_limit_pct_per_step,
-                    );
-                }
-                if (config.fan.manual) {
-                    manualDutyPct = config.fan.manual.duty_pct;
-                }
+                applyLoadedGlobalConfig(config.fan);
+                overrides = config.fan.overrides ?? [];
             }
         } catch (e: unknown) {
             error = e instanceof Error ? e.message : String(e);
@@ -299,6 +371,8 @@
             const t = await DefaultService.getThermal();
             availableSensors = Object.keys(t.temps);
             latestTemps = t.temps;
+            fanCount = t.fans?.length ?? 0;
+            fanNames = (t.fans ?? []).map((f) => f.name);
             // Best-effort: if user has no custom selection and list is empty, select all
             if (selectedSensors.length === 0 && availableSensors.length > 0) {
                 selectedSensors = availableSensors.slice();
@@ -324,62 +398,181 @@
         stopLivePolling();
     });
 
-    const save = throttleDebounce(
-        async () => {
-            error = null;
-            success = null;
-            // Build minimal patch for new backend API
-            const backendMode =
-                mode === "Manual"
-                    ? "manual"
-                    : mode === "Curve"
-                      ? "curve"
-                      : "disabled";
-            const fanPatch: FanControlConfig = { mode: backendMode };
+    function readEditorCurveConfig(): CurveConfig {
+        return {
+            sensors: selectedSensors.slice(),
+            points: points.map((p) => [p[0], p[1]]),
+            hysteresis_c: hysteresisC,
+            rate_limit_pct_per_step: rateLimitPctPerStep,
+            ...(rateLimitDownEnabled
+                ? { rate_limit_down_pct_per_step: rateLimitDownPctPerStep }
+                : {}),
+        };
+    }
+
+    function readEditorGlobalCurve() {
+        return { ...readEditorCurveConfig(), poll_ms: pollMs };
+    }
+
+    function applyCurveConfig(c: CurveConfig, applySensors = true) {
+        points = c.points.map((p) => [p[0], p[1]]) as Point[];
+        sortPointsInPlace();
+        hysteresisC = c.hysteresis_c;
+        rateLimitPctPerStep = Math.max(1, c.rate_limit_pct_per_step);
+        rateLimitDownEnabled = c.rate_limit_down_pct_per_step != null;
+        rateLimitDownPctPerStep = Math.max(
+            1,
+            c.rate_limit_down_pct_per_step ?? c.rate_limit_pct_per_step,
+        );
+        if (applySensors) selectedSensors = c.sensors.slice();
+    }
+
+    function applyGlobalCurveConfig(c: GlobalCurveConfig, applySensors = true) {
+        applyCurveConfig(c, applySensors);
+        pollMs = c.poll_ms;
+    }
+
+    function applyLoadedGlobalConfig(fan: FanControlConfig) {
+        if (fan.curve) {
+            applyGlobalCurveConfig(
+                fan.curve,
+                fan.curve.sensors.length > 0,
+            );
+        }
+        if (fan.manual) manualDutyPct = fan.manual.duty_pct;
+    }
+
+    function upsertOverride(
+        list: FanOverride[],
+        item: FanOverride,
+    ): FanOverride[] {
+        const out = list.filter((o) => o.index !== item.index);
+        out.push(item);
+        out.sort((a, b) => a.index - b.index);
+        return out;
+    }
+
+    // Write the active fan tab's editor values into overrides if we're on a fan tab.
+    function commitOverrideFromEditor() {
+        if (loadingProfile || activeFan === "all") return;
+        const idx = activeFan;
+        const existing = overrides.find((o) => o.index === idx);
+        const next: FanOverride = { ...(existing ?? {}), index: idx };
+        if (mode === "Manual") {
+            next.manual = { duty_pct: manualDutyPct };
+        } else if (mode === "Curve") {
+            next.curve = readEditorCurveConfig();
+        }
+        overrides = upsertOverride(overrides, next);
+    }
+
+    async function selectFan(target: "all" | number) {
+        if (target === activeFan) return;
+        loadingProfile = true;
+        try {
+            if (activeFan === "all") {
+                // Flush global config before switching tabs; silent so tab
+                // navigation doesn't show the saved checkmark when unchanged.
+                await doSave({ silent: true });
+            } else {
+                commitOverrideFromEditor();
+            }
+            activeFan = target;
+            selectedIdx = null;
+
+            const config = await DefaultService.getConfig();
+            const fan = config?.fan;
+            const globalCurve = fan?.curve;
+            const globalManual = fan?.manual;
+
+            if (target === "all") {
+                if (fan) applyLoadedGlobalConfig(fan);
+            } else {
+                const ov = overrides.find((o) => o.index === target);
+                if (ov?.curve) {
+                    applyCurveConfig(ov.curve);
+                } else if (globalCurve) {
+                    applyCurveConfig(curveConfigFromGlobal(globalCurve));
+                }
+                manualDutyPct =
+                    ov?.manual?.duty_pct ??
+                    globalManual?.duty_pct ??
+                    DEFAULTS.manual.duty_pct;
+                // Poll interval is a single control-loop cadence shared by all fans.
+                pollMs = globalCurve?.poll_ms ?? DEFAULTS.curve.poll_ms;
+            }
+            await tick();
+        } catch (e: unknown) {
+            error = e instanceof Error ? e.message : String(e);
+        } finally {
+            loadingProfile = false;
+        }
+    }
+
+    function clearActiveOverride() {
+        if (activeFan === "all") return;
+        const idx = activeFan;
+        overrides = overrides
+            .map((o) => {
+                if (o.index !== idx) return o;
+                const next = { ...o };
+                if (mode === "Manual") delete next.manual;
+                else if (mode === "Curve") delete next.curve;
+                return next;
+            })
+            .filter((o) => o.manual != null || o.curve != null);
+        selectFan("all");
+        save();
+    }
+
+    async function doSave(opts?: { silent?: boolean }) {
+        error = null;
+        showSavedCheckmark = null;
+        const backendMode =
+            mode === "Manual"
+                ? "manual"
+                : mode === "Curve"
+                  ? "curve"
+                  : "disabled";
+        const fanPatch: FanControlConfig = { mode: backendMode };
+        if (activeFan === "all") {
             if (backendMode === "manual") {
                 fanPatch.manual = {
                     duty_pct: clamp(manualDutyPct, 0, 100),
                 };
             } else if (backendMode === "curve") {
-                fanPatch.curve = {
-                    sensors: selectedSensors,
-                    points: points.map((p) => [
-                        Math.round(p[0]),
-                        Math.round(p[1]),
-                    ]),
-                    poll_ms: Math.max(200, Math.floor(pollMs)),
-                    hysteresis_c: Math.max(0, Math.floor(hysteresisC)),
-                    rate_limit_pct_per_step: Math.max(
-                        1,
-                        Math.floor(rateLimitPctPerStep),
-                    ),
-                };
+                fanPatch.curve = readEditorGlobalCurve();
             }
-            const patch: PartialConfig = { fan: fanPatch };
-            try {
-                console.log("Saving Fan Control:", patch);
-                await DefaultService.setConfig(patch);
-                if (successTimeout) {
-                    clearTimeout(successTimeout);
-                    successTimeout = null;
+        }
+        // Overrides replace wholesale when provided; always send the full list.
+        fanPatch.overrides = overrides;
+        const patch: PartialConfig = { fan: fanPatch };
+        try {
+            await DefaultService.setConfig(patch);
+            if (!opts?.silent) {
+                if (showSavedCheckmarkTimeout) {
+                    clearTimeout(showSavedCheckmarkTimeout);
+                    showSavedCheckmarkTimeout = null;
                 }
-                success = true;
-                successTimeout = setTimeout(() => {
-                    success = null;
-                    successTimeout = null;
+                showSavedCheckmark = true;
+                showSavedCheckmarkTimeout = setTimeout(() => {
+                    showSavedCheckmark = null;
+                    showSavedCheckmarkTimeout = null;
                 }, 750);
-            } catch (e: unknown) {
-                error = e instanceof Error ? e.message : String(e);
             }
-        },
-        200,
-        false,
-        true,
-    );
+        } catch (e: unknown) {
+            error = e instanceof Error ? e.message : String(e);
+        }
+    }
+
+    const save = throttleDebounce(doSave, 200, false, true);
 
     // Apply mode changes coming from parent binding
     $: if (onMountComplete && mode !== prevMode) {
         prevMode = mode;
+        if (mode === "Auto" && activeFan !== "all") {
+            selectFan("all");
+        }
         save();
     }
 
@@ -432,15 +625,13 @@
         points = points.slice();
         lastDragged = points[idx];
         updatePointTooltipPosition(idx);
+        commitOverrideFromEditor();
         save();
     }
 
     function endDrag(ev: PointerEvent) {
         if (!isDragging) return;
         isDragging = false;
-        if (!dragMoved) {
-            // simple click selects point without moving
-        }
         // Sort and keep selection on the moved point
         sortPointsInPlace();
         points = points.slice();
@@ -507,6 +698,7 @@
             const el = groups?.[found] as HTMLElement | undefined;
             el?.focus?.();
         }
+        commitOverrideFromEditor();
         save();
     }
 
@@ -540,6 +732,7 @@
             const el = groups?.[found] as HTMLElement | undefined;
             el?.focus?.();
         }
+        commitOverrideFromEditor();
         save();
     }
 
@@ -547,19 +740,33 @@
         points.splice(index, 1);
         points = points.slice();
         if (selectedIdx === index) selectedIdx = null;
+        commitOverrideFromEditor();
         save();
     }
 
     function resetCurvePointsToDefaults() {
+        if (activeFan !== "all") return clearActiveOverride();
         points = DEFAULTS.curve.points;
         sortPointsInPlace();
+        commitOverrideFromEditor();
         save();
     }
 
     function resetCurveSettingsToDefaults() {
+        if (activeFan !== "all") return clearActiveOverride();
         pollMs = DEFAULTS.curve.poll_ms;
         hysteresisC = DEFAULTS.curve.hysteresis_c;
         rateLimitPctPerStep = DEFAULTS.curve.rate_limit_pct_per_step;
+        rateLimitDownPctPerStep =
+            DEFAULTS.curve.rate_limit_down_pct_per_step;
+        rateLimitDownEnabled = false;
+        commitOverrideFromEditor();
+        save();
+    }
+
+    function toggleDownRate() {
+        rateLimitDownEnabled = !rateLimitDownEnabled;
+        commitOverrideFromEditor();
         save();
     }
 
@@ -598,6 +805,10 @@
     <Icon icon="mdi:backup-restore" />
     <Icon icon="mdi:arrow-left" />
     <Icon icon="mdi:cog-outline" />
+    <Icon icon="mdi:close" />
+    <Icon icon="mdi:plus" />
+    <Icon icon="mdi:call-split" />
+    <Icon icon="mdi:call-merge" />
 </div>
 
 <!-- Overlay mode toggle positioned into the parent panel header area -->
@@ -635,7 +846,7 @@
     </div>
     <span
         class="pointer-events-none select-none inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow transition duration-200 ease-out"
-        style="opacity: {success ? 1 : 0}; transform: scale({success
+        style="opacity: {showSavedCheckmark ? 1 : 0}; transform: scale({showSavedCheckmark
             ? 1
             : 0.9});"
         aria-hidden="true"
@@ -648,6 +859,49 @@
     {#if error}
         <div class="alert alert-error text-sm">
             <span>{error}</span>
+        </div>
+    {/if}
+
+    {#if fanTabsVisible}
+        <div class="flex items-center gap-2 px-3 pt-1 pb-2 text-sm flex-wrap">
+            <span class="opacity-60 text-xs">Fans:</span>
+            <div class="join border border-base-300">
+                <button
+                    class={`btn btn-xs join-item ${activeFan === "all" ? "btn-active" : ""}`}
+                    on:click={() => selectFan("all")}
+                >
+                    All
+                </button>
+                {#each Array(fanCount) as _, i}
+                    <button
+                        class={`btn btn-xs join-item ${activeFan === i ? "btn-active" : ""}`}
+                        on:click={() => selectFan(i)}
+                    >
+                        {fanLabels[i]}
+                        {#if modeOverrideFans.has(i)}
+                            <span
+                                class="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-primary"
+                                aria-label="custom"
+                            ></span>
+                        {/if}
+                    </button>
+                {/each}
+            </div>
+            {#if activeFan !== "all"}
+                {#if activeFanCustomized}
+                    <button
+                        class="btn btn-xs btn-ghost gap-1"
+                        on:click={clearActiveOverride}
+                    >
+                        <Icon icon="mdi:close" class="text-sm" />
+                        Follow all fans
+                    </button>
+                {:else}
+                    <span class="opacity-60 text-xs">
+                        Following all fans - edit to customize
+                    </span>
+                {/if}
+            {/if}
         </div>
     {/if}
 
@@ -667,22 +921,45 @@
             step={1}
             hasEnabled={false}
             bind:value={manualDutyPct}
-            on:input={save}
-            on:change={save}
+            on:input={() => {
+                commitOverrideFromEditor();
+                save();
+            }}
+            on:change={() => {
+                commitOverrideFromEditor();
+                save();
+            }}
         />
     {/if}
 
     {#if mode === "Curve"}
         <GraphPanel>
             <svelte:fragment slot="top" let:openSettings>
-                <div class="font-medium">
-                    <!-- Show current temp and live fan duty percentage -->
-                    <div class="flex items-center gap-2 ml-1">
-                        <span class="text-sm opacity-70">
-                            {latestTemps?.[selectedMaxSensor ?? ""]} °C • {rpmToPercent(
-                                liveRpm ?? 0,
-                            )}%
-                        </span>
+                <div class="font-medium min-w-0">
+                    <div class="flex items-center gap-2 ml-1 flex-wrap">
+                        {#if liveProbes.length > 0}
+                            <!-- One readout per fan; matches the graph probes -->
+                            {#each liveProbes as probe (probe.i)}
+                                <span
+                                    class="text-xs opacity-80 tabular-nums inline-flex items-center gap-1"
+                                >
+                                    <span
+                                        class="inline-block w-1.5 h-1.5 rounded-full"
+                                        style={`background:${probeColor(probe.custom)}`}
+                                    ></span>
+                                    {probe.label}
+                                    <span class="opacity-60">·</span>
+                                    {probe.duty}%
+                                </span>
+                            {/each}
+                        {:else}
+                            <!-- Single live temp + fan duty percentage -->
+                            <span class="text-sm opacity-70">
+                                {latestTemps?.[selectedMaxSensor ?? ""]} °C • {rpmToPercent(
+                                    liveRpm ?? 0,
+                                )}%
+                            </span>
+                        {/if}
                     </div>
                 </div>
                 <div class="flex gap-2">
@@ -864,7 +1141,7 @@
                         />
                     {/if}
 
-                    {#if mode === "Curve" && showLive && calibrationPoints && liveX != null && liveY != null}
+                    {#if mode === "Curve" && showLive && calibrationPoints && liveX != null && liveY != null && liveProbes.length === 0}
                         <!-- live crosshair -->
                         <g pointer-events="none">
                             <line
@@ -906,6 +1183,32 @@
                             />
                         </g>
                     {/if}
+
+                    {#if liveProbes.length > 0}
+                        <!-- One probe per fan: custom fans (accent) sit off the
+                             shared curve, fans following the global curve (primary)
+                             land on the line. -->
+                        <g pointer-events="none">
+                            {#each liveProbes as probe (probe.i)}
+                                <circle
+                                    cx={probe.x}
+                                    cy={probe.y}
+                                    r="5"
+                                    fill={probeColor(probe.custom)}
+                                    filter="url(#live-glow)"
+                                />
+                                <text
+                                    x={probe.x}
+                                    y={probe.y - 9}
+                                    text-anchor="middle"
+                                    class="fill-current text-[9px] font-medium"
+                                    opacity="0.8"
+                                >
+                                    {probe.i + 1}
+                                </text>
+                            {/each}
+                        </g>
+                    {/if}
                 </svg>
                 <!-- Minimal tooltip element rendered once; action portals and positions it -->
                 <div
@@ -932,7 +1235,10 @@
                         items={availableSensors}
                         bind:selected={selectedSensors}
                         label="Sensors"
-                        on:change={save}
+                        on:change={() => {
+                            commitOverrideFromEditor();
+                            save();
+                        }}
                     >
                         <svelte:fragment slot="itemRight" let:item>
                             {#if latestTemps?.[item] !== undefined}
@@ -964,16 +1270,39 @@
 
             <svelte:fragment slot="settings">
                 <div class="flex-1 flex flex-col justify-evenly space-y-2">
-                    <UiControlCard
-                        label="Poll interval"
-                        icon="mdi:timer-outline"
-                        unit="ms"
-                        min={200}
-                        max={5000}
-                        step={100}
-                        bind:value={pollMs}
-                        on:input={save}
-                    />
+                    <div
+                        role="presentation"
+                        on:mousemove={() => {
+                            if (activeFan !== "all") pollTipVisible = true;
+                        }}
+                        on:mouseleave={() => (pollTipVisible = false)}
+                    >
+                        <UiControlCard
+                            label="Poll interval"
+                            icon="mdi:timer-outline"
+                            unit="ms"
+                            min={200}
+                            max={5000}
+                            step={100}
+                            disabled={activeFan !== "all"}
+                            bind:value={pollMs}
+                            on:input={() => {
+                                commitOverrideFromEditor();
+                                save();
+                            }}
+                        />
+                    </div>
+                    <div
+                        use:tooltip={{
+                            visible: pollTipVisible,
+                            followMouse: true,
+                            attachGlobalDismiss: false,
+                        }}
+                        class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+                    >
+                        Poll interval can’t be set per fan — it’s shared by all
+                        fans.
+                    </div>
 
                     <UiControlCard
                         label="Hysteresis"
@@ -983,19 +1312,111 @@
                         max={10}
                         step={1}
                         bind:value={hysteresisC}
-                        on:input={save}
+                        on:input={() => {
+                            commitOverrideFromEditor();
+                            save();
+                        }}
                     />
 
                     <UiControlCard
-                        label="Rate limit per step"
+                        label={rateLimitDownEnabled
+                            ? "Rate limit (speed up)"
+                            : "Rate limit per step"}
                         icon="mdi:speedometer-slow"
                         unit="%"
                         min={1}
                         max={100}
                         step={1}
                         bind:value={rateLimitPctPerStep}
-                        on:input={save}
-                    />
+                        on:input={() => {
+                            commitOverrideFromEditor();
+                            save();
+                        }}
+                    >
+                        <div
+                            slot="label-trailing"
+                            class="relative"
+                            class:hidden={rateLimitDownEnabled}
+                        >
+                            <button
+                                class="btn btn-ghost btn-xs btn-square"
+                                aria-label="Set a separate spin-down rate"
+                                bind:this={downRateEnableBtn}
+                                on:mouseenter={() =>
+                                    (downRateEnableTipVisible = true)}
+                                on:mouseleave={() =>
+                                    (downRateEnableTipVisible = false)}
+                                on:focus={() =>
+                                    (downRateEnableTipVisible = true)}
+                                on:blur={() =>
+                                    (downRateEnableTipVisible = false)}
+                                on:click={toggleDownRate}
+                            >
+                                <Icon
+                                    icon="mdi:call-split"
+                                    class="w-4 h-4"
+                                />
+                            </button>
+                            <div
+                                use:tooltip={{
+                                    anchor: downRateEnableBtn,
+                                    visible: downRateEnableTipVisible,
+                                    attachGlobalDismiss: false,
+                                }}
+                                class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+                            >
+                                Separate spin-down rate
+                            </div>
+                        </div>
+                    </UiControlCard>
+
+                    {#if rateLimitDownEnabled}
+                        <UiControlCard
+                            label="Rate limit (speed down)"
+                            icon="mdi:speedometer-slow"
+                            unit="%"
+                            min={1}
+                            max={100}
+                            step={1}
+                            bind:value={rateLimitDownPctPerStep}
+                            on:input={() => {
+                                commitOverrideFromEditor();
+                                save();
+                            }}
+                        >
+                            <div slot="label-trailing" class="relative">
+                                <button
+                                    class="btn btn-ghost btn-xs btn-square"
+                                    aria-label="Use one rate for both directions"
+                                    bind:this={downRateDisableBtn}
+                                    on:mouseenter={() =>
+                                        (downRateDisableTipVisible = true)}
+                                    on:mouseleave={() =>
+                                        (downRateDisableTipVisible = false)}
+                                    on:focus={() =>
+                                        (downRateDisableTipVisible = true)}
+                                    on:blur={() =>
+                                        (downRateDisableTipVisible = false)}
+                                    on:click={toggleDownRate}
+                                >
+                                    <Icon
+                                        icon="mdi:call-merge"
+                                        class="w-4 h-4"
+                                    />
+                                </button>
+                                <div
+                                    use:tooltip={{
+                                        anchor: downRateDisableBtn,
+                                        visible: downRateDisableTipVisible,
+                                        attachGlobalDismiss: false,
+                                    }}
+                                    class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+                                >
+                                    One rate for both directions
+                                </div>
+                            </div>
+                        </UiControlCard>
+                    {/if}
 
                     <div
                         class="flex items-center justify-between gap-2 px-4 pb-3"

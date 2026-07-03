@@ -69,10 +69,26 @@ pub async fn archive_contains_any_suffix(url: &str, preferred_suffixes: &[&str])
     let _ = std::fs::remove_dir_all(&tmp_dir);
     let _ = std::fs::create_dir_all(&tmp_dir);
 
+    // Run the peek, then always clean up our temp artifacts regardless of outcome.
+    let result = peek_archive_for_suffixes(url, &tmp_dir, preferred_suffixes).await;
+
+    // Remove this peek's working dir, then best-effort remove the shared parent
+    // (`remove_dir` only succeeds when empty, so a concurrent peek is left untouched).
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+    let _ = std::fs::remove_dir(&tmp_root);
+
+    result
+}
+
+async fn peek_archive_for_suffixes(
+    url: &str,
+    tmp_dir: &std::path::Path,
+    preferred_suffixes: &[&str],
+) -> Result<bool, String> {
     let extract_dir_s = crate::utils::download::download_to_path(url, &tmp_dir.to_string_lossy().to_string()).await?;
     let extract_dir = std::path::Path::new(&extract_dir_s).to_path_buf();
     // walk and find preferred
-    let mut stack = vec![extract_dir.clone()];
+    let mut stack = vec![extract_dir];
     while let Some(dir) = stack.pop() {
         let entries = std::fs::read_dir(&dir).map_err(|e| e.to_string())?;
         for entry in entries {
@@ -86,12 +102,10 @@ pub async fn archive_contains_any_suffix(url: &str, preferred_suffixes: &[&str])
                     .iter()
                     .any(|s| name_lc.ends_with(&s.to_ascii_lowercase()))
                 {
-                    std::fs::remove_dir_all(&tmp_dir).map_err(|e| format!("remove temp dir failed: {e}"))?;
                     return Ok(true);
                 }
             }
         }
     }
-    std::fs::remove_dir_all(&tmp_dir).map_err(|e| format!("remove temp dir failed: {e}"))?;
     Ok(false)
 }

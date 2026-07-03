@@ -50,9 +50,20 @@ pub struct FanControlConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manual: Option<ManualConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub curve: Option<CurveConfig>,
+    pub curve: Option<GlobalCurveConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration: Option<FanCalibration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overrides: Option<Vec<FanOverride>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct FanOverride {
+    pub index: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual: Option<ManualConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub curve: Option<CurveConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
@@ -60,18 +71,28 @@ pub struct ManualConfig {
     pub duty_pct: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct CurveConfig {
     #[serde(default)]
     pub sensors: Vec<String>,
     #[serde(default = "default_points")]
     pub points: Vec<[u32; 2]>,
-    #[serde(default = "default_poll_ms")]
-    pub poll_ms: u64,
     #[serde(default = "default_hysteresis_c")]
     pub hysteresis_c: u32,
     #[serde(default = "default_rate_limit_pct_per_step")]
     pub rate_limit_pct_per_step: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_down_pct_per_step: Option<u32>,
+}
+
+/// Global fan curve: [`CurveConfig`] plus the shared control-loop poll interval.
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct GlobalCurveConfig {
+    #[serde(flatten)]
+    #[oai(flatten)]
+    pub curve: CurveConfig,
+    #[serde(default = "default_poll_ms")]
+    pub poll_ms: u64,
 }
 
 fn default_points() -> Vec<[u32; 2]> {

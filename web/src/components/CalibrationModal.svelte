@@ -61,7 +61,7 @@
       if (cancelled) return 0;
       try {
         const res = await DefaultService.getThermal();
-        const rpms = res.rpms ?? [];
+        const rpms = (res.fans ?? []).map((f) => f.rpm);
         const rpm = rpms.length ? Math.max(...rpms) : 0;
         if (rpm > 0) {
           buf.push(rpm);

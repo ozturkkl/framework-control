@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::cli::framework_tool::resolve_or_install;
+use crate::cli::framework_tool::{resolve_or_install, tool_suspect};
 use crate::cli::FrameworkTool;
 use crate::types::Config;
 
@@ -101,27 +101,41 @@ impl AppState {
     fn spawn_framework_tool_resolver(ft_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>) {
         tokio::spawn(async move {
             use tokio::time::{sleep, Duration};
+            // Steady cadence while present; exponential backoff while absent.
+            const BASE: Duration = Duration::from_secs(5);
+            const MAX_BACKOFF: Duration = Duration::from_secs(300);
+            let mut backoff = BASE;
+
             loop {
                 let current = { ft_lock.read().await.clone() };
-                match current {
+                let wait = match current {
+                    // Confirm before clearing so a transient failure doesn't drop a tool that still works.
                     Some(cli) => {
-                        // Validate liveness; if not runnable, clear state (no auto-install here)
-                        if cli.versions().await.is_err() {
+                        if tool_suspect() && cli.versions().await.is_err() {
                             let mut w = ft_lock.write().await;
                             *w = None;
-                            tracing::warn!("state: framework_tool became unavailable; clearing from state");
+                            tracing::warn!("state: framework_tool no longer responding; cleared from state");
                         }
+                        backoff = BASE;
+                        BASE
                     }
-                    None => {
-                        // Try resolving or installing if not present
-                        if let Ok(cli) = resolve_or_install().await {
+                    None => match resolve_or_install().await {
+                        Ok(cli) => {
                             let mut w = ft_lock.write().await;
                             *w = Some(cli);
                             tracing::info!("state: framework_tool is now available");
+                            backoff = BASE;
+                            BASE
                         }
-                    }
-                }
-                sleep(Duration::from_secs(5)).await;
+                        Err(_) => {
+                            let this_wait = backoff;
+                            backoff = (backoff * 2).min(MAX_BACKOFF);
+                            tracing::debug!("state: framework_tool unavailable; next attempt in {:?}", this_wait);
+                            this_wait
+                        }
+                    },
+                };
+                sleep(wait).await;
             }
         });
     }

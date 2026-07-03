@@ -140,7 +140,18 @@ You can also update manually by re-running the install script.
 
 ## Uninstallation
 
-To remove Framework Control:
+### Quick Uninstall (Recommended)
+
+Run the automated uninstaller as root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uninstall-linux.sh | sudo bash
+```
+
+This stops and disables the service, then removes the binary, systemd unit,
+config directory, desktop entry, and icon assets.
+
+### Manual Uninstall
 
 ```bash
 sudo systemctl stop framework-control.service
@@ -151,9 +162,10 @@ sudo rm -rf /etc/framework-control
 sudo systemctl daemon-reload
 ```
 
-Optionally remove the desktop entry:
+Optionally remove the desktop entry and icon assets:
 ```bash
 rm ~/.local/share/applications/framework-control.desktop
+rm -rf ~/.local/share/framework-control
 ```
 
 ## Troubleshooting

@@ -15,6 +15,14 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
 3. Launch via Start Menu/Desktop shortcuts or visit the local service URL in your browser (check installer output or service logs for the configured port)
 
+### Uninstall
+
+- **Windows**: Uninstall "Framework Laptop Control Service" from Settings → Apps (or Add/Remove Programs). This removes the service, install folder, and the Start Menu/Desktop shortcuts.
+- **Linux**: Run the uninstall script (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD#uninstallation)):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uninstall-linux.sh | sudo bash
+  ```
+
 ## Disclaimer
 
 This software is provided "as is," without warranty of any kind, express or implied. By using it, you acknowledge that you are responsible for any configuration changes you make to your system and accept all risks associated with its use. The authors and contributors are not liable for any damage, data loss, hardware wear, unintended behavior, or other harm that may result from use or misuse of this application.
@@ -22,6 +30,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 ## Current Features
 
 - **Fan Controls**: Auto, Manual duty, and Curve editor with hysteresis and rate‑limit
+  - Per-fan overrides on multi-fan laptops (optional custom manual duty or curve per fan)
   - Live RPM overlay with crosshair showing current temperature and estimated duty% on the curve editor
   - One‑time calibration wizard for accurate RPM-to-duty mapping
 - **Telemetry & Sensors**: Live temperature and fan RPM graphs with history
@@ -72,6 +81,10 @@ This software is provided "as is," without warranty of any kind, express or impl
 ## Why CLI‑only for EC?
 
 Early iterations used the Rust `framework_lib` directly. On Windows that required build‑time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux.
+
+## Contributing
+
+This project is **not currently accepting outside contributions** and is maintained solely by the author. Pull requests from non-collaborators are closed automatically — please [open an issue](https://github.com/ozturkkl/framework-control/issues) instead. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Developer Setup
 
@@ -165,7 +178,8 @@ Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.
 - Visual curve editing with drag-and-drop points
 - Live RPM overlay with real-time crosshair showing current temperature and fan duty
 - Guided calibration wizard for accurate RPM-to-duty% mapping
-- Hysteresis and rate limiting controls to prevent oscillation
+- Hysteresis and rate limiting controls (including optional separate spin-down rate) to prevent oscillation
+- Per-fan curve tabs and RPM overlays when overrides are configured
 - Sensor selection (APU/CPU)
 
 ### Fan Modes
