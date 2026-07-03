@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_release: ${{ steps.manage_release.outputs.should_release }}
+      promoted_stable: ${{ steps.manage_release.outputs.promoted_stable }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -72,11 +73,26 @@ jobs:
           if [ "$IS_PRERELEASE" = "true" ] && [ "$existingIsPrerelease" = "false" ]; then
             echo "Release $tag is already live, skipping pre-release run"
             echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "promoted_stable=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          promotedStable=false
+          if [ "$IS_PRERELEASE" = "false" ] && [ "$existingIsPrerelease" != "false" ]; then
+            promotedStable=true
+            # Pre-release runs create the tag before the version PR is merged;
+            # re-point it at the released commit or source tarballs ship stale code.
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --silent 2>/dev/null; then
+              gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$GITHUB_SHA" -F force=true
+              echo "Moved tag $tag to $GITHUB_SHA"
+            fi
+          fi
+
           if [ "$existingIsPrerelease" = "notfound" ]; then
-            gh release create "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
+            # Pin the tag to the triggering commit; default is branch HEAD at creation time
+            targetFlag=""
+            [ "$IS_PRERELEASE" = "false" ] && targetFlag="--target $GITHUB_SHA"
+            gh release create "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag $targetFlag
             echo "Created release $tag"
           else
             gh release edit "$tag" -t "Framework Control v$VERSION" -n "$body" $prereleaseFlag
@@ -84,6 +100,7 @@ jobs:
           fi
 
           echo "should_release=true" >> "$GITHUB_OUTPUT"
+          echo "promoted_stable=$promotedStable" >> "$GITHUB_OUTPUT"
 
   build-msi:
     needs: [read-version, create-release]
@@ -292,3 +309,59 @@ jobs:
           gh release delete-asset "$tag" tarball.sha256 --yes -R "$REPO" || true
 
           echo "Created SHA256SUMS with all hashes"
+
+  publish-aur:
+    needs: [read-version, create-release, build-linux]
+    if: needs.create-release.outputs.promoted_stable == 'true' && needs.build-linux.result == 'success'
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install tools
+        run: pacman -Syu --noconfirm --needed git openssh pacman-contrib
+
+      - name: Update PKGBUILD and generate .SRCINFO
+        shell: bash
+        env:
+          VERSION: ${{ needs.read-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd aur
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          # makepkg refuses to run as root; use a throwaway build user
+          useradd -m builder
+          chown -R builder .
+          runuser -u builder -- updpkgsums
+          runuser -u builder -- makepkg --printsrcinfo > .SRCINFO
+
+      - name: Push to AUR
+        shell: bash
+        env:
+          VERSION: ${{ needs.read-version.outputs.version }}
+          AUR_USERNAME: ${{ secrets.AUR_USERNAME }}
+          AUR_EMAIL: ${{ secrets.AUR_EMAIL }}
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$HOME/.ssh/aur_key"
+          chmod 600 "$HOME/.ssh/aur_key"
+          ssh-keyscan aur.archlinux.org >> "$HOME/.ssh/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur_key -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+
+          git clone ssh://aur@aur.archlinux.org/framework-control.git "$RUNNER_TEMP/aur"
+          cp aur/PKGBUILD aur/.SRCINFO aur/framework-control.install "$RUNNER_TEMP/aur/"
+
+          cd "$RUNNER_TEMP/aur"
+          git config user.name "$AUR_USERNAME"
+          git config user.email "$AUR_EMAIL"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "AUR package already up to date"
+            exit 0
+          fi
+          git commit -m "Update to $VERSION"
+          git push origin master
