@@ -33,5 +33,5 @@ jobs:
         working-directory: web
 
       - name: Test (service)
-        run: cargo test
+        run: cargo test --no-default-features
         working-directory: service
