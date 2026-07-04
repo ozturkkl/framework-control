@@ -1,7 +1,7 @@
 # Unreleased
 
 ## 0.5.4 - 2026-07-03
-
+- **framework_tool version selection** (#68): New Settings dropdown showing the active `framework_tool` version. Selecting a release tag is a one-off attempt to download, validate, and switch to that version.
 - **Service**: Reduced background CLI process spawning and Windows WinRing0 driver churn (#66) — longer cache TTLs (RyzenAdj 15s, `framework_tool` power/charge-limit 5s), power reconcile loop slowed to 15s, telemetry default poll raised to 2s, and UI poll-interval minimums aligned with backend floors.
 
 ## 0.5.3 - 2026-06-14

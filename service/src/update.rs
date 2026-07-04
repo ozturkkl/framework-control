@@ -160,7 +160,7 @@ pub async fn check_and_apply_now() -> Result<bool, String> {
     let preferred_exts: &[&str] = &[".msi"];
     #[cfg(target_os = "linux")]
     let preferred_exts: &[&str] = &[".tar.gz"];
-    let Some(installer_url) = gh::get_latest_release_url_ending_with(&owner, &name, preferred_exts)
+    let Some(installer_url) = gh::get_release(&owner, &name, None, preferred_exts)
         .await
         .map_err(|e| {
             error!("update: fetch assets failed: {}", e);

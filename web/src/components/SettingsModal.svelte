@@ -4,7 +4,12 @@
     import Icon from "@iconify/svelte";
     import ShortcutInstaller from "./ShortcutInstaller.svelte";
     import LogsModal from "./LogsModal.svelte";
-    import { DefaultService, OpenAPI, type PartialConfig } from "../api";
+    import {
+        DefaultService,
+        OpenAPI,
+        type PartialConfig,
+        type FrameworkToolVersions,
+    } from "../api";
     import { gtSemver } from "../lib/semver";
     import { listAvailableDaisyUIThemes } from "../lib/themes";
     import { isLinux } from "../lib/platform";
@@ -151,10 +156,67 @@
         await checkUpdate();
     }
 
+    // framework_tool version: the select mirrors the active version, changing it
+    // is a one-off install attempt ("" = the persisted "latest" path).
+    let toolVersions: FrameworkToolVersions | null = null;
+    let onLatest: boolean = false;
+    let toolSelection: string = "";
+    let toolBusy: boolean = false;
+    let toolError: string | null = null;
+    const TOOL_INSTALL_FAILED = "Install failed; check the service logs.";
+
+    async function loadToolVersions() {
+        try {
+            const [cfg, versions] = await Promise.all([
+                DefaultService.getConfig(),
+                DefaultService.getFrameworkToolVersions(),
+            ]);
+            onLatest = !!cfg?.framework_tool?.latest;
+            toolVersions = versions;
+            toolSelection =
+                !onLatest && versions.current_version
+                    ? `v${versions.current_version}`
+                    : "";
+            toolError = null;
+        } catch {
+            toolError = "Failed to load framework_tool versions!";
+        }
+    }
+
+    async function onToolVersionChange() {
+        toolBusy = true;
+        toolError = null;
+        try {
+            await DefaultService.switchFrameworkToolVersion({
+                version: toolSelection || undefined,
+            });
+            await loadToolVersions();
+        } catch {
+            toolError = TOOL_INSTALL_FAILED;
+        } finally {
+            toolBusy = false;
+        }
+    }
+
+    $: currentTag = toolVersions?.current_version
+        ? `v${toolVersions.current_version}`
+        : "";
+    $: latestTag = toolVersions?.latest_tag ?? "";
+    $: latestDesynced =
+        onLatest &&
+        !!currentTag &&
+        !!latestTag &&
+        currentTag !== latestTag;
+    $: toolTags =
+        currentTag && !(toolVersions?.available_tags ?? []).includes(currentTag)
+            ? [currentTag, ...(toolVersions?.available_tags ?? [])]
+            : (toolVersions?.available_tags ?? []);
+
     // auto-check on mount and load backend prefs
     onMount(() => {
         checkUpdate();
         loadBackendUpdatePrefs();
+        loadToolVersions();
     });
 
     $: newVersionAvailable =
@@ -315,6 +377,38 @@
                         {/each}
                     </select>
                 </div>
+            </section>
+            <div class="divider opacity-80"></div>
+            <section class="flex items-center justify-between gap-4">
+                <div>
+                    <h4 class="font-semibold">framework_tool Version</h4>
+                    <p class="text-xs opacity-70">
+                        Selecting a version installs and switches to it
+                    </p>
+                    {#if toolError}
+                        <p class="text-xs text-error">{toolError}</p>
+                    {:else if latestDesynced}
+                        <p class="text-xs text-warning">
+                            Latest is enabled but running {currentTag}
+                        </p>
+                    {/if}
+                </div>
+                <select
+                    class="select select-sm"
+                    bind:value={toolSelection}
+                    on:change={onToolVersionChange}
+                    disabled={!toolVersions || toolBusy}
+                    aria-label="Select framework_tool version"
+                >
+                    <option value=""
+                        >Latest{toolVersions?.latest_tag
+                            ? ` (${toolVersions.latest_tag})`
+                            : ""}</option
+                    >
+                    {#each toolTags as tag (tag)}
+                        <option value={tag}>{tag}</option>
+                    {/each}
+                </select>
             </section>
             <div class="divider opacity-80"></div>
             <section class="flex items-center justify-between gap-4">

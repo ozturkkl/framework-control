@@ -1,6 +1,7 @@
 use super::framework_tool_parser::{
     parse_power, parse_thermal, parse_versions, PowerBatteryInfo, ThermalParsed, VersionsParsed,
 };
+use crate::types::FrameworkToolConfig;
 use crate::utils::{download as dl, github as gh, global_cache};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -9,6 +10,12 @@ use std::time::Duration;
 /// success, so the resolver re-validates only when a real call hit trouble.
 static TOOL_SUSPECT: AtomicBool = AtomicBool::new(false);
 
+const TOOL_REPO: (&str, &str) = ("FrameworkComputer", "framework-system");
+const TOOL_ASSET: &str = if cfg!(windows) {
+    "framework_tool.exe"
+} else {
+    "framework_tool"
+};
 pub fn tool_suspect() -> bool {
     TOOL_SUSPECT.load(Ordering::Relaxed)
 }
@@ -23,8 +30,8 @@ use which::which;
 /// Resolves the binary path once and provides async helpers to run commands.
 ///
 /// Resolution strategy:
-/// - Prefer `framework_tool` found on `PATH`
-/// - Then fall back to a copy alongside the running service binary.
+/// - Prefer a copy alongside the running service binary (direct downloads)
+/// - Then fall back to `framework_tool` on `PATH`
 /// - Windows can optionally auto-install via winget;
 #[derive(Clone)]
 pub struct FrameworkTool {
@@ -32,8 +39,7 @@ pub struct FrameworkTool {
 }
 
 impl FrameworkTool {
-    pub async fn new() -> Result<Self, String> {
-        let path = resolve_framework_tool().await?;
+    pub async fn at_path(path: String) -> Result<Self, String> {
         info!("framework_tool resolved at: {}", path);
         let cli = Self { path };
         // Validate the binary is runnable with a lightweight call.
@@ -150,74 +156,156 @@ impl FrameworkTool {
     }
 }
 
-async fn resolve_framework_tool() -> Result<String, String> {
-    // Check PATH first (prefer user/system installation)
-    if let Ok(p) = which("framework_tool") {
-        return Ok(p.to_string_lossy().to_string());
-    }
-    if let Ok(p) = which("framework_tool.exe") {
-        return Ok(p.to_string_lossy().to_string());
-    }
-
-    // Fallback: alongside the running service binary (where we auto-install it)
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let candidate = if cfg!(windows) {
-                dir.join("framework_tool.exe")
-            } else {
-                dir.join("framework_tool")
-            };
-            if candidate.exists() {
-                if let Some(s) = candidate.to_str() {
-                    return Ok(s.to_string());
-                }
-            }
-        }
-    }
-
-    Err("framework_tool not found. Install it and ensure it is on PATH (Linux), or via winget on Windows: winget install FrameworkComputer.framework_tool".into())
+fn install_path() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    Some(dir.join(TOOL_ASSET))
 }
 
-/// Resolve framework_tool, attempting installation if not present.
-pub async fn resolve_or_install() -> Result<FrameworkTool, String> {
-    // 1) Try resolve immediately (PATH first, then current exe dir)
-    if let Ok(cli) = FrameworkTool::new().await {
-        return Ok(cli);
-    }
+const LATEST_INSTALL_FAILED_FLAG: &str = ".framework_tool_latest_install_failed";
 
-    // 2) Windows: try winget install once
+fn latest_install_failed_flag() -> Option<std::path::PathBuf> {
+    install_path()?.parent().map(|d| d.join(LATEST_INSTALL_FAILED_FLAG))
+}
+
+fn is_latest_install_failed() -> bool {
+    latest_install_failed_flag().is_some_and(|p| p.is_file())
+}
+
+fn set_latest_install_failed() {
+    if let Some(path) = latest_install_failed_flag() {
+        let _ = std::fs::write(path, b"");
+    }
+}
+
+pub fn clear_latest_install_failed() {
+    if let Some(path) = latest_install_failed_flag() {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+/// Recent framework_tool release tags with a downloadable binary for this
+/// platform, newest first (cached to spare GitHub rate limits)
+pub async fn list_available_versions() -> Result<Vec<String>, String> {
+    const TTL: Duration = Duration::from_secs(600);
+    global_cache::cache_get_or_update("framework_tool.release_tags", TTL, true, || async {
+        gh::list_release_tags(TOOL_REPO.0, TOOL_REPO.1, 10, TOOL_ASSET).await
+    })
+    .await
+}
+
+pub async fn latest_tag() -> Result<String, String> {
+    list_available_versions()
+        .await?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "no framework_tool releases found".to_string())
+}
+
+/// All places a framework_tool binary may already exist: install path first, then PATH.
+fn candidate_paths() -> Vec<String> {
+    let mut paths = Vec::new();
+    if let Some(m) = install_path() {
+        if m.exists() {
+            paths.push(m.to_string_lossy().to_string());
+        }
+    }
+    if let Ok(p) = which(TOOL_ASSET) {
+        let s = p.to_string_lossy().to_string();
+        if !paths.contains(&s) {
+            paths.push(s);
+        }
+    }
+    paths
+}
+
+/// Find any runnable copy (install path, then PATH; winget once on Windows).
+async fn resolve_existing() -> Result<FrameworkTool, String> {
+    for path in candidate_paths() {
+        if let Ok(cli) = FrameworkTool::at_path(path).await {
+            return Ok(cli);
+        }
+    }
     #[cfg(windows)]
     {
         if let Err(err) = wg::try_winget_install_package("FrameworkComputer.framework_tool", None).await {
             warn!("winget automatic install failed: {}", err);
         }
+        for path in candidate_paths() {
+            if let Ok(cli) = FrameworkTool::at_path(path).await {
+                return Ok(cli);
+            }
+        }
+    }
+    error!("framework_tool not found or not runnable after attempted installs");
+    Err("framework_tool not found or not runnable".into())
+}
 
-        // 3) Try resolve again
-        if let Ok(cli) = FrameworkTool::new().await {
-            return Ok(cli);
+/// Ensure the install-path copy matches `tag` (reuse if already there, else download).
+/// On failure the on-disk install copy is left unchanged.
+pub async fn install_version(tag: &str) -> Result<(), String> {
+    let want = tag.trim_start_matches('v');
+
+    if let Some(installed) = install_path() {
+        if installed.exists() {
+            let cli = FrameworkTool {
+                path: installed.to_string_lossy().to_string(),
+            };
+            if cli.versions().await.ok().and_then(|v| v.tool_version).as_deref() == Some(want) {
+                info!("framework_tool {} already at {}", tag, installed.display());
+                return Ok(());
+            }
         }
     }
 
-    // 4) Try direct download (both Windows and Linux)
-    if let Err(err) = attempt_install_via_direct_download().await {
-        warn!("direct download fallback failed: {}", err);
-    }
+    attempt_install_via_direct_download(tag)
+        .await
+        .map_err(|e| format!("framework_tool {} download failed: {}", tag, e))?;
 
-    // 5) Final resolve attempt (post direct-download)
-    match FrameworkTool::new().await {
-        Ok(cli) => Ok(cli),
+    let installed = install_path().ok_or_else(|| "could not resolve service directory".to_string())?;
+    match FrameworkTool::at_path(installed.to_string_lossy().to_string()).await {
+        Ok(_) => Ok(()),
         Err(e) => {
-            error!(
-                "framework_tool not found or not runnable after attempted installs: {}",
-                e
-            );
-            Err(e)
+            let _ = std::fs::remove_file(&installed);
+            Err(format!("downloaded framework_tool {} is not runnable here: {}", tag, e))
         }
     }
 }
 
-/// Fallback: cross-platform direct download of framework_tool from GitHub Releases
-pub async fn attempt_install_via_direct_download() -> Result<(), String> {
+/// Resolve framework_tool per config: keep it on the latest release when opted
+/// in, otherwise use any available copy (installing the latest release only
+/// when none exists at all).
+pub async fn resolve_or_install(cfg: &FrameworkToolConfig) -> Result<FrameworkTool, String> {
+    if !cfg.latest {
+        if let Ok(cli) = resolve_existing().await {
+            return Ok(cli);
+        }
+        // Nothing runnable anywhere — bootstrap from latest.
+        if let Ok(tag) = latest_tag().await {
+            let _ = install_version(&tag).await;
+        }
+        return resolve_existing().await;
+    }
+
+    if !is_latest_install_failed() {
+        match latest_tag().await {
+            Ok(tag) => {
+                if let Err(e) = install_version(&tag).await {
+                    warn!("framework_tool {} unavailable ({}); using any available copy", tag, e);
+                    set_latest_install_failed();
+                }
+            }
+            Err(e) => warn!(
+                "could not determine latest framework_tool version ({}); using any available copy",
+                e
+            ),
+        }
+    }
+    resolve_existing().await
+}
+
+/// Cross-platform direct download of framework_tool at the given release tag
+async fn attempt_install_via_direct_download(tag: &str) -> Result<(), String> {
     // Always download next to the service binary to avoid hardcoded system paths
     let base_dir = match std::env::current_exe()
         .ok()
@@ -226,15 +314,10 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
         Some(p) => p,
         None => return Err("could not resolve service directory for direct download".into()),
     };
-    #[cfg(target_os = "windows")]
-    let ext: &str = ".exe";
-    #[cfg(target_os = "linux")]
-    let ext: &str = "";
-    let filename = format!("framework_tool{}", ext);
-    let url = gh::get_latest_release_url_ending_with("FrameworkComputer", "framework-system", &[filename.as_str()])
+    let url = gh::get_release(TOOL_REPO.0, TOOL_REPO.1, Some(tag), &[TOOL_ASSET])
         .await
         .map_err(|e| format!("failed to resolve framework_tool asset: {e}"))?
-        .ok_or_else(|| "framework_tool asset not found in latest release".to_string())?;
+        .ok_or_else(|| "framework_tool asset not found in release".to_string())?;
     info!(
         "Attempting direct download of framework_tool into '{}' from '{}'",
         base_dir.to_string_lossy(),

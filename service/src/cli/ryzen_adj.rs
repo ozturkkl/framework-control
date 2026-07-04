@@ -190,7 +190,7 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     let filename = format!("ryzenadj{}", ext);
 
     // Try to find a direct .exe (Windows) or bare binary asset
-    let url = gh::get_latest_release_url_ending_with("FlyGoat", "RyzenAdj", &[filename.as_str()])
+    let url = gh::get_release("FlyGoat", "RyzenAdj", None, &[filename.as_str()])
         .await
         .map_err(|e| format!("failed to resolve ryzenadj asset: {e}"))?
         .ok_or_else(|| "ryzenadj asset not found in latest release".to_string())?;

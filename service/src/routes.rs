@@ -386,6 +386,76 @@ impl Api {
         Ok(Json(Empty {}))
     }
 
+    #[oai(
+        path = "/framework_tool/versions",
+        method = "get",
+        operation_id = "getFrameworkToolVersions"
+    )]
+    async fn get_framework_tool_versions(
+        &self,
+        state: Data<&AppState>,
+    ) -> ApiResult<crate::types::FrameworkToolVersions> {
+        use crate::cli::framework_tool::{latest_tag, list_available_versions};
+        let mut out = crate::types::FrameworkToolVersions::default();
+        if let Some(cli) = state.framework_tool.read().await.clone() {
+            out.current_version = cli.versions().await.ok().and_then(|v| v.tool_version);
+        }
+        out.available_tags = list_available_versions().await.unwrap_or_default();
+        out.latest_tag = latest_tag().await.ok();
+        Ok(Json(out))
+    }
+
+    async fn set_tool_latest(state: &AppState, latest: bool) -> Result<(), ApiErrorResponse> {
+        let mut cfg = { state.config.read().await.clone() };
+        if cfg.framework_tool.latest == latest {
+            return Ok(());
+        }
+        cfg.framework_tool.latest = latest;
+        if let Err(e) = config::save(&cfg) {
+            error!("config save error: {}", e);
+            return Err(bad_gateway("save_failed", e));
+        }
+        let mut w = state.config.write().await;
+        *w = cfg;
+        Ok(())
+    }
+
+    #[oai(
+        path = "/framework_tool/switch",
+        method = "post",
+        operation_id = "switchFrameworkToolVersion"
+    )]
+    async fn switch_framework_tool_version(
+        &self,
+        state: Data<&AppState>,
+        req: Json<crate::types::SwitchFrameworkToolRequest>,
+    ) -> ApiResult<Empty> {
+        use crate::cli::framework_tool::{clear_latest_install_failed, install_version, latest_tag};
+        clear_latest_install_failed();
+        match req.0.version {
+            Some(tag) => {
+                Self::set_tool_latest(&state, false).await?;
+                install_version(&tag).await.map_err(|e| {
+                    error!("framework_tool install failed: {}", e);
+                    bad_gateway("install_failed", "Install failed; check the service logs.".into())
+                })?;
+            }
+            None => {
+                Self::set_tool_latest(&state, true).await?;
+                let tag = latest_tag().await.map_err(|e| {
+                    error!("framework_tool latest tag lookup failed: {}", e);
+                    bad_gateway("install_failed", "Install failed; check the service logs.".into())
+                })?;
+                install_version(&tag).await.map_err(|e| {
+                    error!("framework_tool install failed: {}", e);
+                    bad_gateway("install_failed", "Install failed; check the service logs.".into())
+                })?;
+            }
+        }
+        *state.framework_tool.write().await = None;
+        Ok(Json(Empty {}))
+    }
+
     /// System info
     #[oai(path = "/system", method = "get", operation_id = "getSystemInfo")]
     async fn get_system_info(&self) -> ApiResult<SystemInfo> {
