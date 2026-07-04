@@ -10,8 +10,14 @@ Run the automated installer as root:
 curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash
 ```
 
+To install the latest beta (falls back to stable if no beta exists):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash -s -- --beta
+```
+
 This will:
-- Download the latest release from GitHub
+- Download the latest release from GitHub (stable by default, or beta with `--beta`)
 - Install the binary to `/usr/local/bin/framework-control`
 - Install and enable the systemd service
 - Start the service automatically

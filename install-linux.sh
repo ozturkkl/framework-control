@@ -2,9 +2,10 @@
 set -Eeuo pipefail
 
 # Framework Control - Linux Installation Script
-# Downloads and installs the latest release as a systemd service
+# Downloads and installs the latest stable or beta release as a systemd service
 
 REPO="ozturkkl/framework-control"
+INSTALL_BETA=false
 BINARY_NAME="framework-control"
 SERVICE_NAME="framework-control.service"
 INSTALL_DIR="/usr/local/bin"
@@ -63,13 +64,86 @@ check_framework_tool() {
     fi
 }
 
+usage() {
+    cat <<EOF >&2
+Usage: $0 [OPTIONS]
+
+Install Framework Control as a systemd service.
+
+Options:
+  --beta      Prefer latest beta; fall back to latest stable if none exists
+  -h, --help  Show this help message
+
+Examples:
+  curl -fsSL .../install-linux.sh | sudo bash
+  curl -fsSL .../install-linux.sh | sudo bash -s -- --beta
+EOF
+}
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --beta)
+                INSTALL_BETA=true
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                error "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
+get_latest_prerelease_tag() {
+    local releases tag
+    releases=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=30")
+
+    tag=$(awk '
+        /"tag_name"/ {
+            line = $0
+            sub(/.*"tag_name": "/, "", line)
+            sub(/".*/, "", line)
+            tag = line
+        }
+        /"prerelease": true/ {
+            if (tag != "") {
+                print tag
+                exit
+            }
+        }
+        /"prerelease": false/ {
+            tag = ""
+        }
+    ' <<< "$releases")
+
+    echo "$tag"
+}
+
 download_release() {
-    local tmpdir
+    local tmpdir download_url
     tmpdir=$(mktemp -d)
     trap 'rm -rf "$tmpdir"' EXIT
 
-    info "Downloading latest release from GitHub..."
-    local download_url="https://github.com/${REPO}/releases/latest/download/${TARBALL_NAME}"
+    if [ "$INSTALL_BETA" = true ]; then
+        local tag
+        tag=$(get_latest_prerelease_tag)
+        if [ -n "$tag" ]; then
+            info "Downloading latest beta release ($tag) from GitHub..."
+            download_url="https://github.com/${REPO}/releases/download/${tag}/${TARBALL_NAME}"
+        else
+            warn "No beta release found, using latest stable"
+            download_url="https://github.com/${REPO}/releases/latest/download/${TARBALL_NAME}"
+        fi
+    else
+        info "Downloading latest stable release from GitHub..."
+        download_url="https://github.com/${REPO}/releases/latest/download/${TARBALL_NAME}"
+    fi
 
     if ! curl -fsSL -o "$tmpdir/$TARBALL_NAME" "$download_url"; then
         error "Failed to download release tarball"
@@ -176,6 +250,8 @@ print_success() {
 }
 
 main() {
+    parse_args "$@"
+
     info "Framework Control - Linux Installer"
     echo ""
 
