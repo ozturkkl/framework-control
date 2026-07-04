@@ -48,7 +48,7 @@ impl RyzenAdj {
     /// Variant of `info` that allows callers to opt out of error caching.
     /// Useful for validation flows after install where we want fresh attempts
     async fn info_with_error_cache(&self, cache_errors: bool) -> Result<RyzenAdjInfo, String> {
-        const INFO_TTL: Duration = Duration::from_millis(2000);
+        const INFO_TTL: Duration = Duration::from_secs(15);
         global_cache::cache_get_or_update("ryzenadj.info", INFO_TTL, cache_errors, || async {
             let raw = self.run(&["--info"]).await?;
             Ok(ryzen_adj_parser::parse_info(&raw))

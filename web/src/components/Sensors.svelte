@@ -17,7 +17,7 @@
     const RETAIN_MAX_SECONDS = 1800;
     let availableSensors: string[] = [];
     let selectedSensors: string[] = [];
-    let telemetryPollMs: number = 1000;
+    let telemetryPollMs: number = 2000;
     let windowSeconds: number = 300; // UI window (persisted)
     let historyTimer: ReturnType<typeof setInterval> | null = null;
     let series: Record<string, Array<[number, number]>> = {};
@@ -168,7 +168,7 @@
         try {
             const cfg = await DefaultService.getConfig();
             const tel = cfg.telemetry;
-            telemetryPollMs = Number(tel.poll_ms ?? 1000);
+            telemetryPollMs = Number(tel.poll_ms ?? 2000);
             // Restore saved window or default
             try {
                 const saved = localStorage.getItem(WINDOW_KEY);
@@ -246,7 +246,7 @@
             });
 
             // Tie history refresh to the configured interval
-            const interval = Math.max(200, Math.floor(telemetryPollMs || 1000));
+            const interval = Math.max(1000, Math.floor(telemetryPollMs || 2000));
             if (historyTimer) clearInterval(historyTimer);
             historyTimer = setInterval(fetchHistory, interval);
         } catch {}
@@ -257,7 +257,7 @@
         await fetchSensors();
         await fetchHistory();
         // Initialize history refresh based on configured polling interval
-        const interval = Math.max(200, Math.floor(telemetryPollMs || 1000));
+        const interval = Math.max(1000, Math.floor(telemetryPollMs || 2000));
         historyTimer = setInterval(fetchHistory, interval);
     });
     onDestroy(() => {
@@ -432,7 +432,7 @@
                 label="Poll interval"
                 icon="mdi:timer-outline"
                 unit="ms"
-                min={200}
+                min={1000}
                 max={5000}
                 step={100}
                 bind:value={telemetryPollMs}

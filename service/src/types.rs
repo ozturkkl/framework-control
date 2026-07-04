@@ -177,7 +177,7 @@ impl Default for TelemetryConfig {
 }
 
 fn default_telemetry_poll_ms() -> u64 {
-    1000
+    2000
 }
 fn default_telemetry_retain_seconds() -> u64 {
     1800

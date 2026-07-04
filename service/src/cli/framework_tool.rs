@@ -44,7 +44,7 @@ impl FrameworkTool {
     }
 
     pub async fn power(&self) -> Result<PowerBatteryInfo, String> {
-        const TTL: Duration = Duration::from_millis(2000);
+        const TTL: Duration = Duration::from_secs(5);
         global_cache::cache_get_or_update("framework_tool.power", TTL, true, || async {
             let out = self.run(&["--power", "-vv"]).await?;
             Ok(parse_power(&out))
@@ -53,7 +53,7 @@ impl FrameworkTool {
     }
 
     pub async fn thermal(&self) -> Result<ThermalParsed, String> {
-        const TTL: Duration = Duration::from_millis(1000);
+        const TTL: Duration = Duration::from_secs(1);
         global_cache::cache_get_or_update("framework_tool.thermal", TTL, true, || async {
             let out = self.run(&["--thermal"]).await?;
             Ok(parse_thermal(&out))
@@ -86,7 +86,7 @@ impl FrameworkTool {
     /// Get charge limit min/max percentage as reported by EC
     pub async fn charge_limit_get(&self) -> Result<super::framework_tool_parser::BatteryChargeLimitInfo, String> {
         use super::framework_tool_parser::parse_charge_limit;
-        const TTL: Duration = Duration::from_millis(2000);
+        const TTL: Duration = Duration::from_secs(5);
         global_cache::cache_get_or_update("framework_tool.charge_limit", TTL, true, || async {
             let out = self.run(&["--charge-limit"]).await?;
             let info = parse_charge_limit(&out);

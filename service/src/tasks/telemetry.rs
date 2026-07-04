@@ -20,7 +20,7 @@ pub async fn run(
             let cfg = cfg_lock.read().await;
             cfg.telemetry.clone()
         };
-        let poll_interval = Duration::from_millis(tel_cfg.poll_ms.max(200));
+        let poll_interval = Duration::from_millis(tel_cfg.poll_ms.max(1000));
 
         // Obtain CLI
         let maybe_cli = { cli_lock.read().await.clone() };
