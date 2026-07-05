@@ -18,7 +18,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 **Linux install options** (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD) for full details):
 
 - **Install script** (any distro): `curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash`
-- **Arch Linux (AUR)**: `yay -S framework-control` — [AUR package](https://aur.archlinux.org/packages/framework-control)
+- **Arch Linux (AUR)**: `yay -S framework-control` — [stable](https://aur.archlinux.org/packages/framework-control) · [beta](https://aur.archlinux.org/packages/framework-control-beta)
 - **NixOS**: `services.framework-control.enable = true;` in your NixOS configuration
 
 ### Uninstall
@@ -28,7 +28,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
   ```bash
   curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uninstall-linux.sh | sudo bash
   ```
-- **Linux (AUR)**: `sudo pacman -R framework-control`
+- **Linux (AUR)**: `sudo pacman -R framework-control` (or `framework-control-beta`)
 - **NixOS**: Set `services.framework-control.enable = false;` and run `sudo nixos-rebuild switch`
 
 ## Disclaimer

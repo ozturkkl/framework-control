@@ -29,15 +29,32 @@ After installation, access the web UI at the address shown in the installer outp
 
 ### Arch Linux (AUR)
 
-An [AUR package](https://aur.archlinux.org/packages/framework-control) is available. It builds from source, installs the systemd unit and desktop entry, and pulls in `framework-system` (which provides `framework_tool`) as a dependency.
+An [AUR package](https://aur.archlinux.org/packages/framework-control) is available. It builds from source and installs the systemd unit and desktop entry. `framework_tool` is optional at install time — the service downloads it automatically on first run if it is not already on `PATH` (you can also install the official `framework-system` package beforehand).
 
 With an AUR helper:
+
+On a fresh install (or if dependency resolution fails), sync/update official repos first:
+
+```bash
+sudo pacman -Syu
+```
+
+Then install:
 
 ```bash
 yay -S framework-control
 # or
 paru -S framework-control
 ```
+
+A [beta/pre-release package](https://aur.archlinux.org/packages/framework-control-beta) is also published automatically when a GitHub prerelease is built (typically on version PRs). It conflicts with the stable package — install one or the other:
+
+```bash
+yay -S framework-control-beta
+# or
+paru -S framework-control-beta
+```
+
 ### NixOS
 
 `framework-control` is packaged in [nixpkgs](https://github.com/NixOS/nixpkgs/tree/master/pkgs/by-name/fr/framework-control) with a NixOS module. Add this to your configuration:
@@ -187,6 +204,8 @@ config directory, desktop entry, and icon assets.
 
 ```bash
 sudo pacman -R framework-control
+# or, if using the beta package:
+sudo pacman -R framework-control-beta
 ```
 
 The package hooks stop and disable the systemd service before removal.
