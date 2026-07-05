@@ -185,7 +185,6 @@
         }
     }
 
-    // Switch clears framework_tool; the resolver reloads it on its next pass.
     async function waitForToolCurrentVersion(expectedTag: string) {
         const expected = expectedTag.replace(/^v/, "");
         for (let i = 0; i < 10; i++) {
@@ -199,14 +198,13 @@
     }
 
     async function onToolVersionChange() {
-        const applied = toolSelection;
         toolBusy = true;
         toolError = null;
         try {
             await DefaultService.switchFrameworkToolVersion({
-                version: applied || undefined,
+                version: toolSelection || undefined,
             });
-            await waitForToolCurrentVersion(applied);
+            await waitForToolCurrentVersion(toolSelection);
             await loadToolVersions();
         } catch {
             toolError = TOOL_INSTALL_FAILED;
