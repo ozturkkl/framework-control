@@ -164,6 +164,7 @@
     let toolBusy: boolean = false;
     let toolError: string | null = null;
     const TOOL_INSTALL_FAILED = "Install failed; check the service logs.";
+    const TOOL_UNKNOWN = "?";
 
     async function loadToolVersions() {
         try {
@@ -173,13 +174,26 @@
             ]);
             onLatest = !!cfg?.framework_tool?.latest;
             toolVersions = versions;
-            toolSelection =
-                !onLatest && versions.current_version
-                    ? `v${versions.current_version}`
-                    : "";
+            toolSelection = onLatest
+                ? ""
+                : versions.current_version
+                  ? `v${versions.current_version}`
+                  : TOOL_UNKNOWN;
             toolError = null;
         } catch {
             toolError = "Failed to load framework_tool versions!";
+        }
+    }
+
+    async function waitForToolCurrentVersion(expectedTag: string) {
+        const expected = expectedTag.replace(/^v/, "");
+        for (let i = 0; i < 10; i++) {
+            try {
+                const versions = await DefaultService.getFrameworkToolVersions();
+                const cur = versions.current_version ?? null;
+                if (expected ? cur === expected : cur != null) return;
+            } catch {}
+            await new Promise((r) => setTimeout(r, 500));
         }
     }
 
@@ -190,6 +204,7 @@
             await DefaultService.switchFrameworkToolVersion({
                 version: toolSelection || undefined,
             });
+            await waitForToolCurrentVersion(toolSelection);
             await loadToolVersions();
         } catch {
             toolError = TOOL_INSTALL_FAILED;
@@ -405,6 +420,9 @@
                             ? ` (${toolVersions.latest_tag})`
                             : ""}</option
                     >
+                    {#if toolSelection === TOOL_UNKNOWN}
+                        <option value={TOOL_UNKNOWN}>Unknown</option>
+                    {/if}
                     {#each toolTags as tag (tag)}
                         <option value={tag}>{tag}</option>
                     {/each}
