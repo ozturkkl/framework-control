@@ -183,13 +183,28 @@
         }
     }
 
+    // Switch clears framework_tool; the resolver reloads it on its next pass.
+    async function waitForToolCurrentVersion(expectedTag: string) {
+        const expected = expectedTag.replace(/^v/, "");
+        for (let i = 0; i < 10; i++) {
+            try {
+                const versions = await DefaultService.getFrameworkToolVersions();
+                const cur = versions.current_version ?? null;
+                if (expected ? cur === expected : cur != null) return;
+            } catch {}
+            await new Promise((r) => setTimeout(r, 500));
+        }
+    }
+
     async function onToolVersionChange() {
+        const applied = toolSelection;
         toolBusy = true;
         toolError = null;
         try {
             await DefaultService.switchFrameworkToolVersion({
-                version: toolSelection || undefined,
+                version: applied || undefined,
             });
+            await waitForToolCurrentVersion(applied);
             await loadToolVersions();
         } catch {
             toolError = TOOL_INSTALL_FAILED;
