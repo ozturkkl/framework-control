@@ -6,7 +6,7 @@ use crate::update::{check_and_apply_now, get_current_and_latest};
 use poem::web::Data;
 use poem_openapi::{payload::Json, ApiResponse, OpenApi};
 use sysinfo::System;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 #[derive(ApiResponse)]
 enum ApiErrorResponse {
@@ -214,10 +214,20 @@ impl Api {
     /// Update: check for latest version from update feed
     #[oai(path = "/update/check", method = "get", operation_id = "checkUpdate")]
     async fn check_update(&self) -> ApiResult<UpdateCheck> {
+        if !crate::update::updates_enabled() {
+            info!("FRAMEWORK_CONTROL_UPDATE_REPO not set; in-app updates disabled");
+            let current = env!("CARGO_PKG_VERSION").trim().to_string();
+            return Ok(Json(UpdateCheck {
+                current_version: current.clone(),
+                latest_version: current,
+                updates_enabled: false,
+            }));
+        }
         match get_current_and_latest().await {
             Ok((current, latest)) => Ok(Json(UpdateCheck {
                 current_version: current,
                 latest_version: latest,
+                updates_enabled: true,
             })),
             Err(e) => {
                 error!("update check failed: {}", e);

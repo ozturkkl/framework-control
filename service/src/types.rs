@@ -146,6 +146,7 @@ fn default_rate_limit_pct_per_step() -> u32 {
 pub struct UpdateCheck {
     pub current_version: String,
     pub latest_version: String,
+    pub updates_enabled: bool,
 }
 
 #[derive(Serialize, Object)]

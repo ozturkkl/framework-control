@@ -1,6 +1,10 @@
 use crate::utils::github as gh;
 use tracing::{error, info};
 
+pub fn updates_enabled() -> bool {
+    parse_github_repo_env().is_some()
+}
+
 pub fn parse_github_repo_env() -> Option<(String, String)> {
     let repo = std::env::var("FRAMEWORK_CONTROL_UPDATE_REPO")
         .ok()

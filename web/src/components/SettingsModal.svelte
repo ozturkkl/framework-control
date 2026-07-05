@@ -31,6 +31,7 @@
     let applying = false;
     let errorMessage: string | null = null;
     let showLogs = false;
+    let updatesEnabled = true;
 
     // Theme handling (DaisyUI)
     let themeOptions: string[] = listAvailableDaisyUIThemes();
@@ -57,6 +58,7 @@
             const data = await DefaultService.checkUpdate();
             currentVersion = data.current_version?.toString().trim();
             latestVersion = data.latest_version?.toString().trim();
+            updatesEnabled = data.updates_enabled !== false;
             console.debug("[SettingsModal] checkUpdate result", {
                 currentVersion,
                 latestVersion,
@@ -269,6 +271,10 @@
                             <p class="text-xs opacity-70">
                                 Version {currentVersion}
                             </p>
+                        {:else if !updatesEnabled}
+                            <div class="badge badge-neutral badge-sm gap-1">
+                                Version {currentVersion}
+                            </div>
                         {:else if newVersionAvailable}
                             <div class="badge badge-warning badge-sm gap-1">
                                 <Icon icon="mdi:package-up" class="w-3 h-3" />
@@ -301,6 +307,11 @@
                             <div>You've paused update notifications.</div>
                             <div>
                                 Click "Unpause" to resume update notifications.
+                            </div>
+                        {:else if !updatesEnabled}
+                            <div>
+                                In-app updates are not available for this install.
+                                Use your package manager to upgrade.
                             </div>
                         {:else if newVersionAvailable}
                             <div>
@@ -354,6 +365,7 @@
                         {/if}
                     </div>
                     <div class="text-right space-y-1">
+                        {#if updatesEnabled}
                         <label
                             class="label cursor-pointer justify-start md:justify-end gap-2 text-xs"
                         >
@@ -368,6 +380,7 @@
                                 on:change={onToggleAutoInstall}
                             />
                         </label>
+                        {/if}
                     </div>
                 </div>
             </section>
