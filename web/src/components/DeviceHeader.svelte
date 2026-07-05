@@ -18,6 +18,11 @@
     import { tooltip } from "../lib/tooltip";
     import { isLinux } from "../lib/platform";
 
+    const LINUX_INSTALL_DOC =
+        "https://github.com/ozturkkl/framework-control/blob/main/LINUX_INSTALL.MD";
+    const ARCH_INSTALL_URL = `${LINUX_INSTALL_DOC}#arch-linux-aur`;
+    const NIXOS_INSTALL_URL = `${LINUX_INSTALL_DOC}#nixos`;
+
     const INSTALL_COMMAND =
         "curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash";
 
@@ -363,7 +368,20 @@
                         </h1>
                         <p class="opacity-70 leading-relaxed">
                             Install the background service to unlock live
-                            telemetry, fan control and more.
+                            telemetry, fan control and more.{#if isLinux()}
+                                {" "}Also on <a
+                                    class="link link-primary"
+                                    href={ARCH_INSTALL_URL}
+                                    target="_blank"
+                                    rel="noreferrer noopener">Arch</a
+                                >
+                                ·
+                                <a
+                                    class="link link-primary"
+                                    href={NIXOS_INSTALL_URL}
+                                    target="_blank"
+                                    rel="noreferrer noopener">Nix</a
+                                >.{/if}
                         </p>
                         {#if isLinux()}
                             <div class="space-y-3">
@@ -396,7 +414,7 @@
                                 <div class="flex items-center gap-3">
                                     <a
                                         class="btn btn-ghost btn-sm gap-2"
-                                        href="https://github.com/ozturkkl/framework-control/blob/main/LINUX_INSTALL.MD"
+                                        href={LINUX_INSTALL_DOC}
                                         target="_blank"
                                         rel="noreferrer noopener"
                                     >

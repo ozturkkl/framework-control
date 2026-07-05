@@ -2,7 +2,9 @@
 
 Framework Control on Linux runs as a systemd service and requires the official Framework CLI (`framework_tool`) to communicate with the embedded controller.
 
-## Quick Install (Recommended)
+## Install Options
+
+### Install script (all distributions)
 
 Run the automated installer as root:
 
@@ -25,6 +27,30 @@ This will:
 
 After installation, access the web UI at the address shown in the installer output.
 
+### Arch Linux (AUR)
+
+An [AUR package](https://aur.archlinux.org/packages/framework-control) is available. It builds from source, installs the systemd unit and desktop entry, and pulls in `framework-system` (which provides `framework_tool`) as a dependency.
+
+With an AUR helper:
+
+```bash
+yay -S framework-control
+# or
+paru -S framework-control
+```
+### NixOS
+
+`framework-control` is packaged in [nixpkgs](https://github.com/NixOS/nixpkgs/tree/master/pkgs/by-name/fr/framework-control) with a NixOS module. Add this to your configuration:
+
+```nix
+services.framework-control.enable = true;
+```
+
+Then rebuild:
+
+```bash
+sudo nixos-rebuild switch
+```
 ## Prerequisites
 
 ### 1. Install `framework_tool`
@@ -146,7 +172,7 @@ You can also update manually by re-running the install script.
 
 ## Uninstallation
 
-### Quick Uninstall (Recommended)
+### Install script installs
 
 Run the automated uninstaller as root:
 
@@ -156,6 +182,22 @@ curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uni
 
 This stops and disables the service, then removes the binary, systemd unit,
 config directory, desktop entry, and icon assets.
+
+### AUR installs
+
+```bash
+sudo pacman -R framework-control
+```
+
+The package hooks stop and disable the systemd service before removal.
+
+### NixOS installs
+
+Set `services.framework-control.enable = false;` (or remove the option) and rebuild:
+
+```bash
+sudo nixos-rebuild switch
+```
 
 ### Manual Uninstall
 
@@ -214,17 +256,9 @@ If it continues to fail, check the service logs.
 
 ## Distribution-Specific Notes
 
-### NixOS
-
-The installer should work on NixOS as `/usr/local/bin` is writable. However, for a more NixOS-native approach, consider packaging it as a Nix derivation.
-
 ### Immutable Distributions (Fedora Silverblue, Bazzite, etc.)
 
-The installer uses `/usr/local/bin` which is typically writable on immutable systems. If you encounter issues, you may need to use `rpm-ostree` or your distribution's preferred method for adding system binaries.
-
-### Arch Linux
-
-All prerequisites (`curl`, `tar`, `systemd`) are available in the base system or easily installable via `pacman`.
+The install script uses `/usr/local/bin` which is typically writable on immutable systems. If you encounter issues, you may need to use `rpm-ostree` or your distribution's preferred method for adding system binaries.
 
 ## Security Notes
 
