@@ -42,9 +42,10 @@
         }
     }
 
-    let triedToFetchVersions = false;
+    let fetchedVersions = false;
     let displayTitle = "Your Laptop";
     let openImage = IMG_13;
+    let toolVersion: string | null = null;
 
     $: {
         const t = displayTitle.toLowerCase();
@@ -76,17 +77,21 @@
         ? "https://github.com/ozturkkl/framework-control/blob/main/LINUX_INSTALL.MD"
         : "https://github.com/ozturkkl/framework-control/releases/latest/download/framework-control-service-x86_64.msi";
 
-    $: if (healthy && !triedToFetchVersions) {
+    async function fetchDeviceVersions() {
+        try {
+            const v = await DefaultService.getVersions();
+            if (v.mainboard_type) displayTitle = v.mainboard_type;
+            if (v.uefi_version) bios = v.uefi_version;
+            toolVersion = v.tool_version?.trim() || null;
+        } catch {
+            console.error("Failed to fetch versions");
+        }
+    }
+
+    $: if (healthy && !fetchedVersions) {
         (async () => {
-            try {
-                const v = await DefaultService.getVersions();
-                if (v.mainboard_type) displayTitle = v.mainboard_type;
-                if (v.uefi_version) bios = v.uefi_version;
-            } catch {
-                console.error("Failed to fetch versions");
-            } finally {
-                triedToFetchVersions = true;
-            }
+            await fetchDeviceVersions();
+            fetchedVersions = true;
         })();
     }
 
@@ -286,7 +291,10 @@
                     </div>
                     {#if showSettings}
                         <SettingsModal
-                            on:close={() => (showSettings = false)}
+                            on:close={() => {
+                                showSettings = false;
+                                fetchedVersions = false;
+                            }}
                         />
                     {/if}
                     {#if showLogs}
@@ -355,6 +363,26 @@
                                     <span
                                         >Screen: {screenRes.width}×{screenRes.height}</span
                                     >
+                                </div>
+                            {/if}
+                            {#if currentServiceVersion}
+                                <div class={infoCardClass}>
+                                    <Icon
+                                        icon="mdi:application-outline"
+                                        class={infoCardIconClass}
+                                    />
+                                    <span
+                                        >framework-control: {currentServiceVersion}</span
+                                    >
+                                </div>
+                            {/if}
+                            {#if cliPresent && toolVersion}
+                                <div class={infoCardClass}>
+                                    <Icon
+                                        icon="mdi:console"
+                                        class={infoCardIconClass}
+                                    />
+                                    <span>framework_tool: {toolVersion}</span>
                                 </div>
                             {/if}
                         </div>
