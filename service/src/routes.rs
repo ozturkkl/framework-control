@@ -6,7 +6,7 @@ use crate::update::{check_and_apply_now, get_current_and_latest};
 use poem::web::Data;
 use poem_openapi::{payload::Json, ApiResponse, OpenApi};
 use sysinfo::System;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 #[derive(ApiResponse)]
 enum ApiErrorResponse {

@@ -77,6 +77,13 @@ jobs:
             exit 0
           fi
 
+          if [ "$IS_PRERELEASE" = "false" ] && [ "$existingIsPrerelease" = "false" ]; then
+            echo "Release $tag is already stable, skipping rebuild"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "promoted_stable=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           promotedStable=false
           if [ "$IS_PRERELEASE" = "false" ] && [ "$existingIsPrerelease" != "false" ]; then
             promotedStable=true
