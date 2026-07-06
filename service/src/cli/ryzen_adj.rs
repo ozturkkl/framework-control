@@ -31,12 +31,14 @@ impl RyzenAdj {
         let _ = self
             .run(&["--stapm-limit", &mw, "--fast-limit", &mw, "--slow-limit", &mw])
             .await?;
+        global_cache::invalidate("ryzenadj.info").await;
         Ok(())
     }
 
     /// Set thermal limit (Tctl) in degrees Celsius
     pub async fn set_thermal_limit_c(&self, celsius: u32) -> Result<(), String> {
         let _ = self.run(&["--tctl-temp", &celsius.to_string()]).await?;
+        global_cache::invalidate("ryzenadj.info").await;
         Ok(())
     }
 

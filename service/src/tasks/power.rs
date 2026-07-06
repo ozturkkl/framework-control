@@ -13,7 +13,7 @@ use crate::cli::RyzenAdj;
 #[cfg(target_os = "linux")]
 use crate::cli::LinuxPower;
 
-const LOOP_INTERVAL_SECS: u64 = 15;
+const LOOP_INTERVAL_SECS: u64 = 1;
 
 async fn get_profile(
     cfg: &Arc<tokio::sync::RwLock<Config>>,
