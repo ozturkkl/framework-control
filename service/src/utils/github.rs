@@ -26,6 +26,7 @@ pub async fn list_release_tags(
     name: &str,
     count: u32,
     required_asset: &str,
+    stable_only: bool,
 ) -> Result<Vec<String>, String> {
     let api = format!(
         "https://api.github.com/repos/{}/{}/releases?per_page={}",
@@ -38,6 +39,14 @@ pub async fn list_release_tags(
     Ok(releases
         .iter()
         .filter(|r| {
+            if stable_only {
+                if r.get("draft").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    return false;
+                }
+                if r.get("prerelease").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    return false;
+                }
+            }
             r.get("assets").and_then(|a| a.as_array()).is_some_and(|assets| {
                 assets
                     .iter()

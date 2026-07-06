@@ -189,17 +189,20 @@ pub fn clear_latest_install_failed() {
 pub async fn list_available_versions() -> Result<Vec<String>, String> {
     const TTL: Duration = Duration::from_secs(600);
     global_cache::cache_get_or_update("framework_tool.release_tags", TTL, true, || async {
-        gh::list_release_tags(TOOL_REPO.0, TOOL_REPO.1, 10, TOOL_ASSET).await
+        gh::list_release_tags(TOOL_REPO.0, TOOL_REPO.1, 10, TOOL_ASSET, false).await
     })
     .await
 }
 
 pub async fn latest_tag() -> Result<String, String> {
-    list_available_versions()
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| "no framework_tool releases found".to_string())
+    const TTL: Duration = Duration::from_secs(600);
+    global_cache::cache_get_or_update("framework_tool.latest_stable_tag", TTL, true, || async {
+        gh::list_release_tags(TOOL_REPO.0, TOOL_REPO.1, 10, TOOL_ASSET, true).await
+    })
+    .await?
+    .into_iter()
+    .next()
+    .ok_or_else(|| "no framework_tool releases found".to_string())
 }
 
 /// All places a framework_tool binary may already exist: install path first, then PATH.
