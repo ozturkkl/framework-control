@@ -15,13 +15,21 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
 3. Launch via Start Menu/Desktop shortcuts or visit the local service URL in your browser (check installer output or service logs for the configured port)
 
+**Linux install options** (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD) for full details):
+
+- **Install script** (any distro): `curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash`
+- **Arch Linux (AUR)**: `yay -S framework-control` — [stable](https://aur.archlinux.org/packages/framework-control) · [beta](https://aur.archlinux.org/packages/framework-control-beta)
+- **NixOS**: `services.framework-control.enable = true;` in your NixOS configuration
+
 ### Uninstall
 
 - **Windows**: Uninstall "Framework Laptop Control Service" from Settings → Apps (or Add/Remove Programs). This removes the service, install folder, and the Start Menu/Desktop shortcuts.
-- **Linux**: Run the uninstall script (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD#uninstallation)):
+- **Linux (install script)**: Run the uninstall script (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD#uninstallation)):
   ```bash
   curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uninstall-linux.sh | sudo bash
   ```
+- **Linux (AUR)**: `sudo pacman -R framework-control` (or `framework-control-beta`)
+- **NixOS**: Set `services.framework-control.enable = false;` and run `sudo nixos-rebuild switch`
 
 ## Disclaimer
 
@@ -50,7 +58,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Linux Support**: 
   - systemd unit with udev rules for input modules
   - Native power management via kernel interfaces (no external dependencies)
-  - Automated install script with service configuration
+  - Install script, [AUR package](https://aur.archlinux.org/packages/framework-control), and [nixpkgs](https://github.com/NixOS/nixpkgs/tree/master/pkgs/by-name/fr/framework-control) / NixOS module
 
 ## Upcoming Goals
 
@@ -76,7 +84,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Frontend UI**: Svelte + Vite
   - Responsive panel layout adapting to active fan mode
   - Real-time telemetry updates
-- **Packaging**: WiX MSI installer for Windows, automated install script for Linux
+- **Packaging**: WiX MSI installer for Windows; Linux install script, AUR package, and nixpkgs / NixOS module
 
 ## Why CLI‑only for EC?
 

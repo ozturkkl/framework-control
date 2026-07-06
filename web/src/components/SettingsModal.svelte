@@ -4,7 +4,12 @@
     import Icon from "@iconify/svelte";
     import ShortcutInstaller from "./ShortcutInstaller.svelte";
     import LogsModal from "./LogsModal.svelte";
-    import { DefaultService, OpenAPI, type PartialConfig } from "../api";
+    import {
+        DefaultService,
+        OpenAPI,
+        type PartialConfig,
+        type FrameworkToolVersions,
+    } from "../api";
     import { gtSemver } from "../lib/semver";
     import { listAvailableDaisyUIThemes } from "../lib/themes";
     import { isLinux } from "../lib/platform";
@@ -26,6 +31,7 @@
     let applying = false;
     let errorMessage: string | null = null;
     let showLogs = false;
+    let updatesEnabled = true;
 
     // Theme handling (DaisyUI)
     let themeOptions: string[] = listAvailableDaisyUIThemes();
@@ -52,6 +58,7 @@
             const data = await DefaultService.checkUpdate();
             currentVersion = data.current_version?.toString().trim();
             latestVersion = data.latest_version?.toString().trim();
+            updatesEnabled = data.updates_enabled !== false;
             console.debug("[SettingsModal] checkUpdate result", {
                 currentVersion,
                 latestVersion,
@@ -151,10 +158,82 @@
         await checkUpdate();
     }
 
+    // framework_tool version: the select mirrors the active version, changing it
+    // is a one-off install attempt ("" = the persisted "latest" path).
+    let toolVersions: FrameworkToolVersions | null = null;
+    let onLatest: boolean = false;
+    let toolSelection: string = "";
+    let toolBusy: boolean = false;
+    let toolError: string | null = null;
+    const TOOL_INSTALL_FAILED = "Install failed; check the service logs.";
+    const TOOL_UNKNOWN = "?";
+
+    async function loadToolVersions() {
+        try {
+            const [cfg, versions] = await Promise.all([
+                DefaultService.getConfig(),
+                DefaultService.getFrameworkToolVersions(),
+            ]);
+            onLatest = !!cfg?.framework_tool?.latest;
+            toolVersions = versions;
+            toolSelection = onLatest
+                ? ""
+                : versions.current_version
+                  ? `v${versions.current_version}`
+                  : TOOL_UNKNOWN;
+            toolError = null;
+        } catch {
+            toolError = "Failed to load framework_tool versions!";
+        }
+    }
+
+    async function waitForToolCurrentVersion(expectedTag: string) {
+        const expected = expectedTag.replace(/^v/, "");
+        for (let i = 0; i < 10; i++) {
+            try {
+                const versions = await DefaultService.getFrameworkToolVersions();
+                const cur = versions.current_version ?? null;
+                if (expected ? cur === expected : cur != null) return;
+            } catch {}
+            await new Promise((r) => setTimeout(r, 500));
+        }
+    }
+
+    async function onToolVersionChange() {
+        toolBusy = true;
+        toolError = null;
+        try {
+            await DefaultService.switchFrameworkToolVersion({
+                version: toolSelection || undefined,
+            });
+            await waitForToolCurrentVersion(toolSelection);
+            await loadToolVersions();
+        } catch {
+            toolError = TOOL_INSTALL_FAILED;
+        } finally {
+            toolBusy = false;
+        }
+    }
+
+    $: currentTag = toolVersions?.current_version
+        ? `v${toolVersions.current_version}`
+        : "";
+    $: latestTag = toolVersions?.latest_tag ?? "";
+    $: latestDesynced =
+        onLatest &&
+        !!currentTag &&
+        !!latestTag &&
+        currentTag !== latestTag;
+    $: toolTags =
+        currentTag && !(toolVersions?.available_tags ?? []).includes(currentTag)
+            ? [currentTag, ...(toolVersions?.available_tags ?? [])]
+            : (toolVersions?.available_tags ?? []);
+
     // auto-check on mount and load backend prefs
     onMount(() => {
         checkUpdate();
         loadBackendUpdatePrefs();
+        loadToolVersions();
     });
 
     $: newVersionAvailable =
@@ -192,6 +271,10 @@
                             <p class="text-xs opacity-70">
                                 Version {currentVersion}
                             </p>
+                        {:else if !updatesEnabled}
+                            <div class="badge badge-neutral badge-sm gap-1">
+                                Version {currentVersion}
+                            </div>
                         {:else if newVersionAvailable}
                             <div class="badge badge-warning badge-sm gap-1">
                                 <Icon icon="mdi:package-up" class="w-3 h-3" />
@@ -224,6 +307,11 @@
                             <div>You've paused update notifications.</div>
                             <div>
                                 Click "Unpause" to resume update notifications.
+                            </div>
+                        {:else if !updatesEnabled}
+                            <div>
+                                In-app updates are not available for this install.
+                                Use your package manager to upgrade.
                             </div>
                         {:else if newVersionAvailable}
                             <div>
@@ -277,6 +365,7 @@
                         {/if}
                     </div>
                     <div class="text-right space-y-1">
+                        {#if updatesEnabled}
                         <label
                             class="label cursor-pointer justify-start md:justify-end gap-2 text-xs"
                         >
@@ -291,6 +380,7 @@
                                 on:change={onToggleAutoInstall}
                             />
                         </label>
+                        {/if}
                     </div>
                 </div>
             </section>
@@ -315,6 +405,41 @@
                         {/each}
                     </select>
                 </div>
+            </section>
+            <div class="divider opacity-80"></div>
+            <section class="flex items-center justify-between gap-4">
+                <div>
+                    <h4 class="font-semibold">framework_tool Version</h4>
+                    <p class="text-xs opacity-70">
+                        Selecting a version installs and switches to it
+                    </p>
+                    {#if toolError}
+                        <p class="text-xs text-error">{toolError}</p>
+                    {:else if latestDesynced}
+                        <p class="text-xs text-warning">
+                            Latest is enabled but running {currentTag}
+                        </p>
+                    {/if}
+                </div>
+                <select
+                    class="select select-sm"
+                    bind:value={toolSelection}
+                    on:change={onToolVersionChange}
+                    disabled={!toolVersions || toolBusy}
+                    aria-label="Select framework_tool version"
+                >
+                    <option value=""
+                        >Latest{toolVersions?.latest_tag
+                            ? ` (${toolVersions.latest_tag})`
+                            : ""}</option
+                    >
+                    {#if toolSelection === TOOL_UNKNOWN}
+                        <option value={TOOL_UNKNOWN}>Unknown</option>
+                    {/if}
+                    {#each toolTags as tag (tag)}
+                        <option value={tag}>{tag}</option>
+                    {/each}
+                </select>
             </section>
             <div class="divider opacity-80"></div>
             <section class="flex items-center justify-between gap-4">
