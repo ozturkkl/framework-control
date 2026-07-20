@@ -16,6 +16,8 @@ pub struct Config {
     pub telemetry: TelemetryConfig,
     #[serde(default)]
     pub ui: UiConfig,
+    #[serde(default)]
+    pub framework_tool: FrameworkToolConfig,
 }
 
 impl Default for Config {
@@ -27,8 +29,40 @@ impl Default for Config {
             updates: UpdatesConfig::default(),
             telemetry: TelemetryConfig::default(),
             ui: UiConfig::default(),
+            framework_tool: FrameworkToolConfig::default(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, PartialEq)]
+pub struct FrameworkToolConfig {
+    #[serde(default = "default_true", alias = "recommended")]
+    pub latest: bool,
+}
+
+impl Default for FrameworkToolConfig {
+    fn default() -> Self {
+        Self { latest: true }
+    }
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Serialize, Object, Default)]
+pub struct FrameworkToolVersions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_tag: Option<String>,
+    pub available_tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Object)]
+pub struct SwitchFrameworkToolRequest {
+    /// Release tag to install and switch to. None = switch to the latest.
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Enum, Default)]
@@ -112,6 +146,7 @@ fn default_rate_limit_pct_per_step() -> u32 {
 pub struct UpdateCheck {
     pub current_version: String,
     pub latest_version: String,
+    pub updates_enabled: bool,
 }
 
 #[derive(Serialize, Object)]
@@ -177,7 +212,7 @@ impl Default for TelemetryConfig {
 }
 
 fn default_telemetry_poll_ms() -> u64 {
-    1000
+    2000
 }
 fn default_telemetry_retain_seconds() -> u64 {
     1800

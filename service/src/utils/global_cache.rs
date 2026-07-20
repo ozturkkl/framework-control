@@ -126,3 +126,15 @@ where
         }
     }
 }
+
+pub async fn invalidate(key: &str) {
+    let st = state();
+    {
+        let mut values = st.values.write().await;
+        values.remove(key);
+    }
+    {
+        let mut error_values = st.error_values.write().await;
+        error_values.remove(key);
+    }
+}
