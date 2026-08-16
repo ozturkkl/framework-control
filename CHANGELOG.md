@@ -1,5 +1,11 @@
 # Unreleased
 
+## 0.5.4 - 2026-07-03
+- **framework_tool version selection** (#68): New Settings dropdown showing the active `framework_tool` version. Selecting a release tag is a one-off attempt to download, validate, and switch to that version.
+- **Service**: Reduced background CLI process spawning and Windows WinRing0 driver churn (#66) — longer cache TTLs (RyzenAdj 15s, `framework_tool` power/charge-limit 5s), power reconcile loop slowed to 15s, telemetry default poll raised to 2s, and UI poll-interval minimums aligned with backend floors.
+- **Linux**: AUR stable and beta packages; NixOS/nixpkgs install docs; `install-linux.sh --beta`. AUR marks `framework-system` at install time because of install capabilites.
+- **Updates**: In-app self-updates hidden when `FRAMEWORK_CONTROL_UPDATE_REPO` is unset (e.g. AUR installs).
+
 ## 0.5.3 - 2026-06-14
 
 - **Multi-fan control**: Per-fan manual/curve overrides for multi-fan laptops — shared global defaults with optional per-fan tabs, separate spin-down rate limits, and live per-fan RPM overlays on the curve editor. Backend fansetduty calls accept an optional fan index; config adds `fan.overrides[]` with per-index manual or curve settings that fall back to the global config when unset.

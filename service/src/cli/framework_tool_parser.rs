@@ -296,6 +296,8 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct VersionsParsed {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub mainboard_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mainboard_revision: Option<String>,
@@ -317,6 +319,10 @@ pub fn parse_versions(text: &str) -> VersionsParsed {
     for raw in text.lines() {
         let line = raw.replace('\t', "    ");
         if line.trim().is_empty() {
+            continue;
+        }
+        if let Some(v) = line.trim().strip_prefix("Tool Version:") {
+            out.tool_version = Some(v.trim().to_string());
             continue;
         }
         let is_section = !line.starts_with(' ') && !line.starts_with('\t');
@@ -441,6 +447,19 @@ mod tests {
 "#;
         let t = parse_thermal(s);
         assert_eq!(rpms(&t), vec![1200]);
+    }
+    #[test]
+    fn parse_versions_tool_version() {
+        let s = r#"
+Tool Version:     0.6.4
+OS Version:       Linux 7.1.1 x86_64
+Mainboard Hardware
+  Type:           Laptop 13 (AMD Ryzen 7040Series)
+  Revision:       MassProduction
+"#;
+        let v = parse_versions(s);
+        assert_eq!(v.tool_version.as_deref(), Some("0.6.4"));
+        assert_eq!(v.mainboard_type.as_deref(), Some("Laptop 13 (AMD Ryzen 7040Series)"));
     }
     #[test]
     fn parse_power_verbose_sample() {

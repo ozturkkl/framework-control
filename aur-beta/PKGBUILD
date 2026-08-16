@@ -1,23 +1,26 @@
 # Maintainer: Kemal Ozturk <97kemalozturk at gmail dot com>
 
-pkgname=framework-control
+pkgname=framework-control-beta
 pkgver=0.5.3
-pkgrel=2
-pkgdesc="Lightweight control surface for Framework laptops (Fan, Battery, Power, LEDs)"
+pkgrel=1
+pkgdesc="Lightweight control surface for Framework laptops (Fan, Battery, Power, LEDs) - beta/pre-release"
 arch=('x86_64')
 url="https://github.com/ozturkkl/framework-control"
 license=('MIT')
 depends=('xdg-utils' 'hicolor-icon-theme')
 optdepends=('framework-system: Framework CLI on PATH; otherwise auto-downloaded on first run')
 makedepends=('rust' 'nodejs')
-install=framework-control.install
-source=("$pkgname-$pkgver.tar.gz::https://github.com/ozturkkl/framework-control/archive/refs/tags/$pkgver.tar.gz")
-sha256sums=('1824cfaf4298e33609d9793259b0723c7f2cbd337ad71b8fc1cc4055ff1a422d')
+conflicts=('framework-control')
+provides=('framework-control')
+install=framework-control-beta.install
+_pkgname=framework-control
+source=("$_pkgname-$pkgver.tar.gz::https://github.com/ozturkkl/framework-control/archive/refs/tags/$pkgver.tar.gz")
+sha256sums=('SKIP')
 
 _port=30912
 
 prepare() {
-    cd "$srcdir/$pkgname-$pkgver"
+    cd "$srcdir/$_pkgname-$pkgver"
 
     cd web
     npm ci
@@ -27,15 +30,13 @@ prepare() {
 }
 
 build() {
-    cd "$srcdir/$pkgname-$pkgver"
+    cd "$srcdir/$_pkgname-$pkgver"
 
-    # Build web UI (prebuild hook generates icons and OpenAPI TS client)
     cd web
     GITHUB_PAGES=false \
     VITE_BASE="/" \
         npm run build
 
-    # Build service binary with embedded UI
     cd ../service
     FRAMEWORK_CONTROL_PORT=$_port \
     FRAMEWORK_CONTROL_ALLOWED_ORIGINS="http://127.0.0.1:$_port" \
@@ -43,12 +44,11 @@ build() {
 }
 
 package() {
-    cd "$srcdir/$pkgname-$pkgver"
+    cd "$srcdir/$_pkgname-$pkgver"
 
     install -Dm755 service/target/release/framework-control-service "$pkgdir/usr/bin/framework-control"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
-    # Icon generated during web build (guaranteed 512x512)
     install -Dm644 web/public/assets/generated/icon-512.png \
         "$pkgdir/usr/share/icons/hicolor/512x512/apps/framework-control.png"
 

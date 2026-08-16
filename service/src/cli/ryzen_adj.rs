@@ -31,12 +31,14 @@ impl RyzenAdj {
         let _ = self
             .run(&["--stapm-limit", &mw, "--fast-limit", &mw, "--slow-limit", &mw])
             .await?;
+        global_cache::invalidate("ryzenadj.info").await;
         Ok(())
     }
 
     /// Set thermal limit (Tctl) in degrees Celsius
     pub async fn set_thermal_limit_c(&self, celsius: u32) -> Result<(), String> {
         let _ = self.run(&["--tctl-temp", &celsius.to_string()]).await?;
+        global_cache::invalidate("ryzenadj.info").await;
         Ok(())
     }
 
@@ -48,7 +50,7 @@ impl RyzenAdj {
     /// Variant of `info` that allows callers to opt out of error caching.
     /// Useful for validation flows after install where we want fresh attempts
     async fn info_with_error_cache(&self, cache_errors: bool) -> Result<RyzenAdjInfo, String> {
-        const INFO_TTL: Duration = Duration::from_millis(2000);
+        const INFO_TTL: Duration = Duration::from_secs(15);
         global_cache::cache_get_or_update("ryzenadj.info", INFO_TTL, cache_errors, || async {
             let raw = self.run(&["--info"]).await?;
             Ok(ryzen_adj_parser::parse_info(&raw))
@@ -190,7 +192,7 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     let filename = format!("ryzenadj{}", ext);
 
     // Try to find a direct .exe (Windows) or bare binary asset
-    let url = gh::get_latest_release_url_ending_with("FlyGoat", "RyzenAdj", &[filename.as_str()])
+    let url = gh::get_release("FlyGoat", "RyzenAdj", None, &[filename.as_str()])
         .await
         .map_err(|e| format!("failed to resolve ryzenadj asset: {e}"))?
         .ok_or_else(|| "ryzenadj asset not found in latest release".to_string())?;

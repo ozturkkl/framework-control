@@ -29,7 +29,7 @@ impl AppState {
 
         // Wrap framework_tool in a lock and spawn a passive resolver (no auto-install here)
         let framework_tool = Arc::new(tokio::sync::RwLock::new(None));
-        Self::spawn_framework_tool_resolver(framework_tool.clone());
+        Self::spawn_framework_tool_resolver(framework_tool.clone(), config.clone());
 
         #[cfg(target_os = "windows")]
         let ryzenadj = {
@@ -98,7 +98,10 @@ impl AppState {
         });
     }
 
-    fn spawn_framework_tool_resolver(ft_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>) {
+    fn spawn_framework_tool_resolver(
+        ft_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
+        config: Arc<tokio::sync::RwLock<Config>>,
+    ) {
         tokio::spawn(async move {
             use tokio::time::{sleep, Duration};
             // Steady cadence while present; exponential backoff while absent.
@@ -119,21 +122,24 @@ impl AppState {
                         backoff = BASE;
                         BASE
                     }
-                    None => match resolve_or_install().await {
-                        Ok(cli) => {
-                            let mut w = ft_lock.write().await;
-                            *w = Some(cli);
-                            tracing::info!("state: framework_tool is now available");
-                            backoff = BASE;
-                            BASE
+                    None => {
+                        let cfg = { config.read().await.clone() };
+                        match resolve_or_install(&cfg.framework_tool).await {
+                            Ok(cli) => {
+                                let mut w = ft_lock.write().await;
+                                *w = Some(cli);
+                                tracing::info!("state: framework_tool is now available");
+                                backoff = BASE;
+                                BASE
+                            }
+                            Err(_) => {
+                                let this_wait = backoff;
+                                backoff = (backoff * 2).min(MAX_BACKOFF);
+                                tracing::debug!("state: framework_tool unavailable; next attempt in {:?}", this_wait);
+                                this_wait
+                            }
                         }
-                        Err(_) => {
-                            let this_wait = backoff;
-                            backoff = (backoff * 2).min(MAX_BACKOFF);
-                            tracing::debug!("state: framework_tool unavailable; next attempt in {:?}", this_wait);
-                            this_wait
-                        }
-                    },
+                    }
                 };
                 sleep(wait).await;
             }

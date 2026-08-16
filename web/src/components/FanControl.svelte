@@ -37,7 +37,7 @@
                 [90, 50],
                 [100, 80],
             ] as Point[],
-            poll_ms: 400,
+            poll_ms: 500,
             hysteresis_c: 1,
             rate_limit_pct_per_step: 1,
             rate_limit_down_pct_per_step: 1,
@@ -1281,7 +1281,7 @@
                             label="Poll interval"
                             icon="mdi:timer-outline"
                             unit="ms"
-                            min={200}
+                            min={500}
                             max={5000}
                             step={100}
                             disabled={activeFan !== "all"}
