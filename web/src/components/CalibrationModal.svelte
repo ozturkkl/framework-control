@@ -1,11 +1,19 @@
 <script lang="ts">
   import { DefaultService } from "../api";
-  import type { PartialConfig } from "../api";
+  import type { FanOverride, PartialConfig } from "../api";
   import { createEventDispatcher } from "svelte";
   import { tweened } from "svelte/motion";
   import { get } from "svelte/store";
 
-  const dispatch = createEventDispatcher();
+  type CalibrationFan = {
+    index: number;
+    points: [number, number][];
+  };
+
+  const dispatch = createEventDispatcher<{
+    done: CalibrationFan[];
+    cancel: void;
+  }>();
 
   let progress = 0; // 0..100
   let info = "";
@@ -13,6 +21,8 @@
   let hasStarted = false;
 
   let prevMode: "manual" | "curve" | "disabled" = "curve";
+  let prevOverrides: FanOverride[] = [];
+  let restoreOverrides = false;
 
   // Simple tween with tunable power ease-out towards the actual progress
   const powOut = (p: number) => (t: number) => 1 - Math.pow(1 - t, p);
@@ -30,8 +40,12 @@
     }
   }
 
-  async function setMode(mode: "manual" | "curve" | "disabled") {
-    const patch: PartialConfig = { fan: { mode } };
+  async function restoreFanState() {
+    const patch: PartialConfig = {
+      fan: restoreOverrides
+        ? { mode: prevMode, overrides: prevOverrides }
+        : { mode: prevMode },
+    };
     try {
       await DefaultService.setConfig(patch);
     } catch {}
@@ -47,68 +61,84 @@
     await DefaultService.setConfig(patch);
   }
 
-  async function readStableRpm(): Promise<number> {
-    // Simple sliding window with deviation check and a hard timeout
-    const WINDOW = 5;
-    const STDEV_MAX = 30; // accept when std-dev is small
-    const POLL_MS = 500;
-    const TIMEOUT_MS = 10000;
+  function stdev(values: number[]): number {
+    if (!values.length) return Number.POSITIVE_INFINITY;
+    let sum = 0;
+    for (const v of values) sum += v;
+    const mean = sum / values.length;
+    let varSum = 0;
+    for (const v of values) {
+      const d = v - mean;
+      varSum += d * d;
+    }
+    return Math.sqrt(varSum / values.length);
+  }
 
-    const buf: number[] = [];
+  function median(values: number[]): number {
+    if (!values.length) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+
+  async function readStableRpms(): Promise<number[]> {
+    const SETTLE_MS = 1000;
+    const WINDOW = 8;
+    const STDEV_MAX = 30;
+    const POLL_MS = 500;
+    const TIMEOUT_MS = 15000;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const bufs: number[][] = [];
     const started = performance.now();
+    let pendingAccept = false;
+
+    await sleep(SETTLE_MS);
 
     while (performance.now() - started < TIMEOUT_MS) {
-      if (cancelled) return 0;
+      if (cancelled) return bufs.map(median);
       try {
         const res = await DefaultService.getThermal();
         const rpms = (res.fans ?? []).map((f) => f.rpm);
-        const rpm = rpms.length ? Math.max(...rpms) : 0;
-        if (rpm > 0) {
-          buf.push(rpm);
-          if (buf.length > WINDOW) buf.shift();
+        while (bufs.length < rpms.length) bufs.push([]);
+        for (let i = 0; i < rpms.length; i++) {
+          bufs[i].push(rpms[i]);
+          if (bufs[i].length > WINDOW) bufs[i].shift();
         }
       } catch {}
 
-      if (buf.length >= WINDOW) {
-        let sum = 0;
-        for (const v of buf) sum += v;
-        const mean = sum / buf.length;
-        let varSum = 0;
-        for (const v of buf) {
-          const d = v - mean;
-          varSum += d * d;
-        }
-        const stdev = Math.sqrt(varSum / buf.length);
-        console.log("stdev", stdev);
-        if (stdev <= STDEV_MAX) {
-          const sorted = [...buf].sort((a, b) => a - b);
-          console.log("stdev is small, sorted", sorted);
-          console.log("median", sorted[Math.floor(sorted.length / 2)]);
-          return sorted[Math.floor(sorted.length / 2)];
-        }
+      const ready =
+        bufs.length > 0 &&
+        bufs.every((b) => b.length >= WINDOW && stdev(b) <= STDEV_MAX);
+      if (ready) {
+        if (pendingAccept) return bufs.map(median);
+        pendingAccept = true;
+      } else {
+        pendingAccept = false;
       }
 
-      await new Promise((r) => setTimeout(r, POLL_MS));
+      await sleep(pendingAccept ? SETTLE_MS : POLL_MS);
     }
 
-    if (!buf.length) return 0;
-    const sorted = [...buf].sort((a, b) => a - b);
-    return sorted[Math.floor(sorted.length / 2)];
+    return bufs.map(median);
   }
 
   async function start() {
     cancelled = false;
     progress = 20;
     info = "Starting calibration";
-    // Snapshot current mode so we can restore it later
     try {
       const config = await DefaultService.getConfig();
       if (config?.fan?.mode) {
         prevMode = config.fan.mode;
       }
+      prevOverrides = config?.fan?.overrides ?? [];
+      restoreOverrides = true;
+      await DefaultService.setConfig({
+        fan: { mode: "manual", overrides: [] },
+      });
     } catch {}
     const duties = [100, 80, 60, 40, 20];
-    const out: [number, number][] = [];
+    const perFan: [number, number][][] = [];
     for (let i = 0; i < duties.length; i++) {
       if (cancelled) {
         return;
@@ -119,25 +149,30 @@
       if (cancelled) {
         return;
       }
-      const rpm = await readStableRpm();
-      out.push([d, rpm]);
+      const rpms = await readStableRpms();
+      while (perFan.length < rpms.length) perFan.push([]);
+      for (let f = 0; f < rpms.length; f++) {
+        perFan[f].push([d, rpms[f]]);
+      }
       progress = Math.round(((i + 2) / duties.length) * 100);
     }
-    out.push([0, 0]);
-    out.sort((a, b) => a[0] - b[0]);
+    const fans: CalibrationFan[] = perFan.map((pts, index) => {
+      const points: [number, number][] = [...pts, [0, 0]];
+      points.sort((a, b) => a[0] - b[0]);
+      return { index, points };
+    });
     info = "Saving";
-    // Save calibration at root; include mode to satisfy backend schema
     try {
       await DefaultService.setConfig({
         fan: {
           calibration: {
-            points: out,
             updated_at: Math.floor(Date.now() / 1000),
+            fans,
           },
         },
       });
     } catch {}
-    dispatch("done", out);
+    dispatch("done", fans);
   }
 
   function cancel() {
@@ -147,8 +182,8 @@
   function onStart() {
     hasStarted = true;
     info = 'Starting calibration';
-    start().finally(() => {
-      setMode(prevMode);
+    start().finally(async () => {
+      await restoreFanState();
       if (cancelled) {
         dispatch('cancel');
       }
@@ -162,7 +197,7 @@
       <div class="space-y-3">
         <div class="font-semibold">Calibrate to enable Live RPM</div>
         <div class="text-sm opacity-80">
-          To display the live RPM overlay accurately, we need to measure how your fan speed (RPM) maps to duty percentage. This takes about a minute and will briefly spin the fan at different speeds.
+          To display the live RPM overlay accurately, we need to measure how each fan's speed (RPM) maps to duty percentage. This takes about a minute and will briefly spin the fans at different speeds.
         </div>
         <ul class="list-disc list-inside text-sm opacity-70">
           <li>Your current fan settings will be restored after calibration.</li>
@@ -180,7 +215,7 @@
       </div>
     {:else}
       <div class="flex items-center justify-between mb-2">
-        <div class="font-semibold">Calibrating fan</div>
+        <div class="font-semibold">Calibrating fans</div>
       </div>
       <div class="text-sm opacity-80 mb-3">
         {info}

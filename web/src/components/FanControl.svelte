@@ -25,7 +25,8 @@
     const LIVE_POLL_MS = 1000;
     let liveTemp: number | null = null;
     let liveRpms: number[] = [];
-    let calibrationPoints: [number, number][] | null = null;
+    let calibrationByFan = new Map<number, [number, number][]>();
+    $: hasCalibration = calibrationByFan.size > 0;
 
     // Centralized defaults for the fan control config (backend schema)
     type Point = [number, number];
@@ -115,7 +116,7 @@
     $: (function persistShowLivePreferenceAndCalibrate() {
         if (showLive) {
             // If enabling and we don't have calibration, start it
-            if (onMountComplete && !calibrationPoints) {
+            if (onMountComplete && !hasCalibration) {
                 openCalibration();
             }
         }
@@ -148,12 +149,15 @@
 
     // --- Spline helpers moved to lib/spline ---
 
-    function rpmToPercent(rpm: number): number {
-        // Use calibration points if available
-        if (calibrationPoints) {
-            // Invert the calibration: we have [duty%, rpm] but need rpm -> duty%
-            // Create inverted points [rpm, duty%]
-            const invertedPoints: [number, number][] = calibrationPoints.map(
+    function pointsForFan(fanIndex: number | null): [number, number][] | null {
+        if (fanIndex == null) return null;
+        return calibrationByFan.get(fanIndex) ?? null;
+    }
+
+    function rpmToPercent(rpm: number, fanIndex: number | null = null): number {
+        const pts = pointsForFan(fanIndex);
+        if (pts) {
+            const invertedPoints: [number, number][] = pts.map(
                 ([duty, rpmVal]) => [rpmVal, duty],
             );
             const duty = cubicSplineInterpolate(invertedPoints, rpm);
@@ -168,13 +172,24 @@
     }
     function closeCalibration() {
         showCalibration = false;
-        // If user cancelled and we still don't have calibration, disable live
-        if (!calibrationPoints) {
+        if (calibrationByFan.size === 0) {
             showLive = false;
         }
     }
-    async function handleCalibrationDone(pts: [number, number][]) {
-        calibrationPoints = pts;
+    function applyCalibration(
+        fans: { index: number; points: [number, number][] }[] | null | undefined,
+    ) {
+        const next = new Map<number, [number, number][]>();
+        for (const fan of fans ?? []) {
+            next.set(fan.index, fan.points);
+        }
+        calibrationByFan = next;
+    }
+
+    async function handleCalibrationDone(
+        fans: { index: number; points: [number, number][] }[],
+    ) {
+        applyCalibration(fans);
         await pollLiveOnce();
         showSavedCheckmark = true;
         closeCalibration();
@@ -290,9 +305,15 @@
     $: pathLine = buildPath(sortedWithAnchors);
     $: pathArea = buildArea(sortedWithAnchors);
     // Live crosshair coordinates
+    $: liveFanIndex =
+        activeFan !== "all"
+            ? activeFan
+            : liveRpms.length === 0
+              ? null
+              : liveRpms.indexOf(Math.max(0, ...liveRpms));
     $: liveDutyPct =
-        liveRpm != null && calibrationPoints != null
-            ? rpmToPercent(liveRpm)
+        liveRpm != null && hasCalibration
+            ? rpmToPercent(liveRpm, liveFanIndex)
             : null;
     $: liveX = liveTemp != null ? xToPx(liveTemp) : null;
     $: liveY = liveDutyPct != null ? yToPx(liveDutyPct) : null;
@@ -303,7 +324,7 @@
         if (
             mode !== "Curve" ||
             !showLive ||
-            !calibrationPoints ||
+            !hasCalibration ||
             activeFan !== "all" ||
             !overrides.some((o) => o.curve != null)
         ) {
@@ -317,7 +338,7 @@
                 : selectedSensors;
             const t = pickTempForSelection(latestTemps, sensors);
             if (t == null) continue;
-            const duty = rpmToPercent(liveRpms[i] ?? 0);
+            const duty = rpmToPercent(liveRpms[i] ?? 0, i);
             out.push({
                 i,
                 label: fanLabels[i],
@@ -383,8 +404,11 @@
         try {
             const config = await DefaultService.getConfig();
             const cal = config?.fan?.calibration;
-            if (cal?.points)
-                calibrationPoints = cal.points as [number, number][];
+            if (cal?.fans?.length) {
+                applyCalibration(
+                    cal.fans as { index: number; points: [number, number][] }[],
+                );
+            }
         } catch (_) {}
 
         // Sync prevMode to whatever we loaded so lifting suppression won't trigger a save
@@ -957,6 +981,7 @@
                             <span class="text-sm opacity-70">
                                 {latestTemps?.[selectedMaxSensor ?? ""]} °C • {rpmToPercent(
                                     liveRpm ?? 0,
+                                    liveFanIndex,
                                 )}%
                             </span>
                         {/if}
@@ -1141,7 +1166,7 @@
                         />
                     {/if}
 
-                    {#if mode === "Curve" && showLive && calibrationPoints && liveX != null && liveY != null && liveProbes.length === 0}
+                    {#if mode === "Curve" && showLive && hasCalibration && liveX != null && liveY != null && liveProbes.length === 0}
                         <!-- live crosshair -->
                         <g pointer-events="none">
                             <line
@@ -1427,7 +1452,7 @@
                         <button
                             class="btn btn-sm"
                             on:click={openCalibration}
-                            aria-label="Recalibrate fan"
+                            aria-label="Recalibrate fans"
                         >
                             Recalibrate
                         </button>

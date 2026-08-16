@@ -225,13 +225,17 @@ pub struct TelemetrySample {
     pub rpms: Vec<u32>,
 }
 
-// Fan calibration types
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct FanCalibration {
-    /// Calibration data points: [duty_pct, rpm]
-    pub points: Vec<[u32; 2]>,
-    /// Unix timestamp (seconds)
     pub updated_at: i64,
+    #[serde(default)]
+    pub fans: Vec<PerFanCalibration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct PerFanCalibration {
+    pub index: u32,
+    pub points: Vec<[u32; 2]>,
 }
 
 // Generic API error envelope
