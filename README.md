@@ -68,17 +68,7 @@ This software is provided "as is," without warranty of any kind, express or impl
   - Optional integrations for animations/GIF/pixel art
 - **Additional EC Controls**: Keyboard backlight, fingerprint LED levels, input deck modes
 - **Import/Export**: Settings backup and sharing
-- **App Signing for Windows**: Support for Windows Store app signing and distribution
-
-## Star History
-
-<a href="https://www.star-history.com/?type=date&legend=top-left&repos=ozturkkl%2Fframework-control">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&theme=dark&legend=top-left&sealed_token=y-OZHNo3k6OOuq_2pmnwQT9Sx1YI724vJWbTwdFzdUGPX4MTmyD1SAQYFIjcDJHopqx6UEarxtpT8JK9Sl8d_ttXjPEQeEgaUJWc59UOUwQOtPOoDwHGnaFflaE7Jnbv26gqaNmLhcKTDXOreHH8m4aV2CZF7W0PT2K1lQFAiAvDOW7IGgSvruoFpmMv" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&legend=top-left&sealed_token=y-OZHNo3k6OOuq_2pmnwQT9Sx1YI724vJWbTwdFzdUGPX4MTmyD1SAQYFIjcDJHopqx6UEarxtpT8JK9Sl8d_ttXjPEQeEgaUJWc59UOUwQOtPOoDwHGnaFflaE7Jnbv26gqaNmLhcKTDXOreHH8m4aV2CZF7W0PT2K1lQFAiAvDOW7IGgSvruoFpmMv" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&legend=top-left&sealed_token=y-OZHNo3k6OOuq_2pmnwQT9Sx1YI724vJWbTwdFzdUGPX4MTmyD1SAQYFIjcDJHopqx6UEarxtpT8JK9Sl8d_ttXjPEQeEgaUJWc59UOUwQOtPOoDwHGnaFflaE7Jnbv26gqaNmLhcKTDXOreHH8m4aV2CZF7W0PT2K1lQFAiAvDOW7IGgSvruoFpmMv" width=700 />
- </picture>
-</a>
+- **App Signing for Windows**: Support for Windows Store app signing and distributio
 
 ## Architecture
 
