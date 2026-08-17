@@ -1,18 +1,16 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
-    import { onMount } from "svelte";
+    import { createEventDispatcher, onMount, onDestroy } from "svelte";
     import Icon from "@iconify/svelte";
     import ShortcutInstaller from "./ShortcutInstaller.svelte";
     import LogsModal from "./LogsModal.svelte";
     import {
         DefaultService,
-        OpenAPI,
-        type PartialConfig,
         type FrameworkToolVersions,
     } from "../api";
     import { gtSemver } from "../lib/semver";
     import { listAvailableDaisyUIThemes } from "../lib/themes";
     import { isLinux } from "../lib/platform";
+    import { configStore, followConfig, patch } from "../lib/config";
     const dispatch = createEventDispatcher();
     function close() {
         dispatch("close");
@@ -36,17 +34,16 @@
     // Theme handling (DaisyUI)
     let themeOptions: string[] = listAvailableDaisyUIThemes();
     let theme: string = localStorage?.getItem("fc_theme") ?? "light";
-    function onThemeChange(event: Event) {
+    async function onThemeChange(event: Event) {
         const target = event.currentTarget as HTMLSelectElement;
         theme = target?.value ?? theme;
         localStorage.setItem("fc_theme", theme);
         document.documentElement.setAttribute("data-theme", theme);
         // Persist to backend for cross-client consistency
         try {
-            const body: PartialConfig = {
+            await patch({
                 ui: { theme },
-            };
-            DefaultService.setConfig(body);
+            });
         } catch {
             // non-fatal; leave localStorage applied
         }
@@ -94,26 +91,14 @@
         }
     }
 
-    async function loadBackendUpdatePrefs() {
-        try {
-            const cfg = await DefaultService.getConfig();
-            autoInstall = !!cfg?.updates?.auto_install;
-            errorMessage = null;
-        } catch {
-            autoInstall = false;
-            errorMessage = "Failed to load auto update preference!";
-        }
-    }
-
     async function onToggleAutoInstall(event: Event) {
         const target = event.currentTarget as HTMLInputElement | null;
         const nextValue = target?.checked ?? autoInstall;
         const previousValue = !nextValue;
         try {
-            const body: PartialConfig = {
+            await patch({
                 updates: { auto_install: nextValue },
-            } as PartialConfig;
-            await DefaultService.setConfig(body);
+            });
             errorMessage = null;
             // If enabling auto-install, reuse existing applyUpdate() and then re-check
             if (nextValue && newVersionAvailable) {
@@ -136,10 +121,9 @@
         if (autoInstall) {
             autoInstall = false;
             try {
-                const body: PartialConfig = {
+                await patch({
                     updates: { auto_install: false },
-                } as PartialConfig;
-                await DefaultService.setConfig(body);
+                });
                 errorMessage = null;
             } catch {
                 autoInstall = true;
@@ -170,11 +154,8 @@
 
     async function loadToolVersions() {
         try {
-            const [cfg, versions] = await Promise.all([
-                DefaultService.getConfig(),
-                DefaultService.getFrameworkToolVersions(),
-            ]);
-            onLatest = !!cfg?.framework_tool?.latest;
+            const versions = await DefaultService.getFrameworkToolVersions();
+            onLatest = !!$configStore.config?.framework_tool?.latest;
             toolVersions = versions;
             toolSelection = onLatest
                 ? ""
@@ -229,10 +210,24 @@
             ? [currentTag, ...(toolVersions?.available_tags ?? [])]
             : (toolVersions?.available_tags ?? []);
 
-    // auto-check on mount and load backend prefs
+    onDestroy(
+        followConfig({
+            select: (c) => ({
+                auto_install: !!c.updates?.auto_install,
+                theme: c.ui?.theme,
+                latest: !!c.framework_tool?.latest,
+            }),
+            apply: (s) => {
+                autoInstall = s.auto_install;
+                if (s.theme) theme = s.theme;
+                onLatest = s.latest;
+            },
+        }),
+    );
+
+    // auto-check on mount and load tool versions
     onMount(() => {
         checkUpdate();
-        loadBackendUpdatePrefs();
         loadToolVersions();
     });
 
@@ -397,7 +392,7 @@
                         on:change={onThemeChange}
                         aria-label="Select theme"
                     >
-                        {#each themeOptions as t}
+                        {#each themeOptions as t (t)}
                             <option value={t}
                                 >{t.charAt(0).toUpperCase() +
                                     t.slice(1)}</option

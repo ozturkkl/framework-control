@@ -2,12 +2,12 @@
     import { onMount, onDestroy, tick } from "svelte";
     import { DefaultService } from "../api";
     import type {
-        PartialConfig,
         FanControlConfig,
         FanOverride,
         CurveConfig,
         GlobalCurveConfig,
     } from "../api";
+    import { configStore, followConfig, patch } from "../lib/config";
     import { throttleDebounce } from "../lib/utils";
     import { cubicSplineInterpolate } from "../lib/spline";
     import CalibrationModal from "./CalibrationModal.svelte";
@@ -366,54 +366,30 @@
 
     onMount(async () => {
         try {
-            const config = await DefaultService.getConfig();
-            if (config) {
-                // map backend mode to UI mode (accept lowercase or capitalized)
-                const m = config.fan.mode;
-                switch (m) {
-                    case "manual":
-                        mode = "Manual";
-                        break;
-                    case "curve":
-                        mode = "Curve";
-                        break;
-                    default:
-                        mode = "Auto";
-                        break;
-                }
-                applyLoadedGlobalConfig(config.fan);
-                overrides = config.fan.overrides ?? [];
-            }
-        } catch (e: unknown) {
-            error = e instanceof Error ? e.message : String(e);
-        }
-        // Load available sensors from thermal endpoint
-        try {
             const t = await DefaultService.getThermal();
             availableSensors = Object.keys(t.temps);
             latestTemps = t.temps;
             fanCount = t.fans?.length ?? 0;
             fanNames = (t.fans ?? []).map((f) => f.name);
-            // Best-effort: if user has no custom selection and list is empty, select all
-            if (selectedSensors.length === 0 && availableSensors.length > 0) {
-                selectedSensors = availableSensors.slice();
-                save();
-            }
         } catch (_) {}
-        // Load calibration from fan if present
-        try {
-            const config = await DefaultService.getConfig();
-            const cal = config?.fan?.calibration;
-            if (cal?.fans?.length) {
-                applyCalibration(
-                    cal.fans as { index: number; points: [number, number][] }[],
-                );
-            }
-        } catch (_) {}
-
-        // Sync prevMode to whatever we loaded so lifting suppression won't trigger a save
-        // Allow reactive saves after initial load completes
-        prevMode = mode;
+        if (!$configStore.loaded && !$configStore.error) {
+            await new Promise<void>((resolve) => {
+                const unsub = configStore.subscribe((s) => {
+                    if (s.loaded || s.error) {
+                        unsub();
+                        resolve();
+                    }
+                });
+            });
+        }
+        if (
+            $configStore.loaded &&
+            selectedSensors.length === 0 &&
+            availableSensors.length > 0
+        ) {
+            selectedSensors = availableSensors.slice();
+            save();
+        }
         onMountComplete = true;
     });
 
@@ -466,6 +442,57 @@
         if (fan.manual) manualDutyPct = fan.manual.duty_pct;
     }
 
+    function applyEditorFromFan(
+        fan: FanControlConfig | undefined,
+        target: "all" | number,
+    ) {
+        if (target === "all") {
+            if (fan) applyLoadedGlobalConfig(fan);
+            return;
+        }
+        const ov = overrides.find((o) => o.index === target);
+        const globalCurve = fan?.curve;
+        const globalManual = fan?.manual;
+        if (ov?.curve) {
+            applyCurveConfig(ov.curve);
+        } else if (globalCurve) {
+            applyCurveConfig(curveConfigFromGlobal(globalCurve));
+        }
+        manualDutyPct =
+            ov?.manual?.duty_pct ??
+            globalManual?.duty_pct ??
+            DEFAULTS.manual.duty_pct;
+        // Poll interval is a single control-loop cadence shared by all fans.
+        pollMs = globalCurve?.poll_ms ?? DEFAULTS.curve.poll_ms;
+    }
+
+    function applyFanConfig(fan: FanControlConfig) {
+        switch (fan.mode) {
+            case "manual":
+                mode = "Manual";
+                break;
+            case "curve":
+                mode = "Curve";
+                break;
+            default:
+                mode = "Auto";
+                break;
+        }
+        if (mode === "Auto") {
+            activeFan = "all";
+        }
+        overrides = fan.overrides ?? [];
+        applyCalibration(
+            fan.calibration?.fans as
+                | { index: number; points: [number, number][] }[]
+                | undefined,
+        );
+        applyEditorFromFan(fan, activeFan);
+        prevMode = mode;
+    }
+
+    onDestroy(followConfig({ select: (c) => c.fan, apply: applyFanConfig }));
+
     function upsertOverride(
         list: FanOverride[],
         item: FanOverride,
@@ -503,28 +530,7 @@
             }
             activeFan = target;
             selectedIdx = null;
-
-            const config = await DefaultService.getConfig();
-            const fan = config?.fan;
-            const globalCurve = fan?.curve;
-            const globalManual = fan?.manual;
-
-            if (target === "all") {
-                if (fan) applyLoadedGlobalConfig(fan);
-            } else {
-                const ov = overrides.find((o) => o.index === target);
-                if (ov?.curve) {
-                    applyCurveConfig(ov.curve);
-                } else if (globalCurve) {
-                    applyCurveConfig(curveConfigFromGlobal(globalCurve));
-                }
-                manualDutyPct =
-                    ov?.manual?.duty_pct ??
-                    globalManual?.duty_pct ??
-                    DEFAULTS.manual.duty_pct;
-                // Poll interval is a single control-loop cadence shared by all fans.
-                pollMs = globalCurve?.poll_ms ?? DEFAULTS.curve.poll_ms;
-            }
+            applyEditorFromFan($configStore.config?.fan, target);
             await tick();
         } catch (e: unknown) {
             error = e instanceof Error ? e.message : String(e);
@@ -570,9 +576,8 @@
         }
         // Overrides replace wholesale when provided; always send the full list.
         fanPatch.overrides = overrides;
-        const patch: PartialConfig = { fan: fanPatch };
         try {
-            await DefaultService.setConfig(patch);
+            await patch({ fan: fanPatch });
             if (!opts?.silent) {
                 if (showSavedCheckmarkTimeout) {
                     clearTimeout(showSavedCheckmarkTimeout);

@@ -4,7 +4,7 @@ use tokio::time::{sleep, Duration, Instant};
 use tracing::{debug, info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::Config;
+use crate::config::LiveConfig;
 use crate::utils::reconciler::{ReconcileOutcome, Reconciler, ReconcilerPolicy, SettingIo};
 
 #[cfg(target_os = "windows")]
@@ -16,7 +16,7 @@ use crate::cli::LinuxPower;
 const LOOP_INTERVAL_SECS: u64 = 1;
 
 async fn get_profile(
-    cfg: &Arc<tokio::sync::RwLock<Config>>,
+    cfg: &LiveConfig,
     framework_tool_lock: &Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
 ) -> Option<crate::types::PowerProfile> {
     let Some(ft) = framework_tool_lock.read().await.clone() else {
@@ -183,7 +183,7 @@ impl SettingIo<(Option<u32>, Option<u32>)> for LinuxFreqLimitsIo {
 #[cfg(target_os = "windows")]
 pub async fn run(
     power_backend_lock: Arc<tokio::sync::RwLock<Option<RyzenAdj>>>,
-    cfg: Arc<tokio::sync::RwLock<Config>>,
+    cfg: LiveConfig,
     framework_tool_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
 ) {
     info!("Power task started (Windows/RyzenAdj)");
@@ -230,7 +230,7 @@ pub async fn run(
 #[cfg(target_os = "linux")]
 pub async fn run(
     power_backend_lock: Arc<tokio::sync::RwLock<Option<LinuxPower>>>,
-    cfg: Arc<tokio::sync::RwLock<Config>>,
+    cfg: LiveConfig,
     framework_tool_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
 ) {
     info!("Power task started (Linux native)");

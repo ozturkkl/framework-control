@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::cli::framework_tool::{resolve_or_install, tool_suspect};
 use crate::cli::FrameworkTool;
-use crate::types::Config;
+use crate::config::LiveConfig;
 
 #[cfg(target_os = "windows")]
 use crate::cli::RyzenAdj;
@@ -13,7 +13,7 @@ use crate::cli::LinuxPower;
 #[derive(Clone)]
 pub struct AppState {
     pub framework_tool: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
-    pub config: Arc<tokio::sync::RwLock<Config>>,
+    pub config: LiveConfig,
     pub telemetry_samples: Arc<tokio::sync::RwLock<std::collections::VecDeque<crate::types::TelemetrySample>>>,
 
     #[cfg(target_os = "windows")]
@@ -25,7 +25,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn initialize() -> Self {
-        let config = Arc::new(tokio::sync::RwLock::new(crate::config::load()));
+        let config = LiveConfig::new();
 
         // Wrap framework_tool in a lock and spawn a passive resolver (no auto-install here)
         let framework_tool = Arc::new(tokio::sync::RwLock::new(None));
@@ -98,10 +98,7 @@ impl AppState {
         });
     }
 
-    fn spawn_framework_tool_resolver(
-        ft_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
-        config: Arc<tokio::sync::RwLock<Config>>,
-    ) {
+    fn spawn_framework_tool_resolver(ft_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, config: LiveConfig) {
         tokio::spawn(async move {
             use tokio::time::{sleep, Duration};
             // Steady cadence while present; exponential backoff while absent.

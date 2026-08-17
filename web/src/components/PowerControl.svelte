@@ -2,16 +2,15 @@
     import { onMount, onDestroy } from "svelte";
     import {
         DefaultService,
-        OpenAPI,
         type PowerConfig,
         type PowerProfile,
-        type PartialConfig,
         type BatteryInfo,
         type PowerCapabilities,
         type PowerState,
     } from "../api";
     import Icon from "@iconify/svelte";
     import { deepMerge } from "../lib/utils";
+    import { followConfig, patch } from "../lib/config";
     import UiControlCard from "./UiControlCard.svelte";
     import { tooltip } from "../lib/tooltip";
     import { isWindows as getIsWindows } from "../lib/platform";
@@ -36,25 +35,28 @@
     let agreed = false;
     let hasCheckedStatus: boolean = false;
 
-    // Power config
-    let powerConfig: PowerConfig = {
-        ac: {
-            tdp_watts: { enabled: false, value: 75 },
-            thermal_limit_c: { enabled: false, value: 90 },
-            epp_preference: { enabled: false, value: "" },
-            governor: { enabled: false, value: "" },
-            min_freq_mhz: { enabled: false, value: 1000 },
-            max_freq_mhz: { enabled: false, value: 4000 },
-        },
-        battery: {
-            tdp_watts: { enabled: false, value: 60 },
-            thermal_limit_c: { enabled: false, value: 90 },
-            epp_preference: { enabled: false, value: "" },
-            governor: { enabled: false, value: "" },
-            min_freq_mhz: { enabled: false, value: 1000 },
-            max_freq_mhz: { enabled: false, value: 3000 },
-        },
-    };
+    function defaultPowerConfig(): PowerConfig {
+        return {
+            ac: {
+                tdp_watts: { enabled: false, value: 75 },
+                thermal_limit_c: { enabled: false, value: 90 },
+                epp_preference: { enabled: false, value: "" },
+                governor: { enabled: false, value: "" },
+                min_freq_mhz: { enabled: false, value: 1000 },
+                max_freq_mhz: { enabled: false, value: 4000 },
+            },
+            battery: {
+                tdp_watts: { enabled: false, value: 60 },
+                thermal_limit_c: { enabled: false, value: 90 },
+                epp_preference: { enabled: false, value: "" },
+                governor: { enabled: false, value: "" },
+                min_freq_mhz: { enabled: false, value: 1000 },
+                max_freq_mhz: { enabled: false, value: 3000 },
+            },
+        };
+    }
+
+    let powerConfig: PowerConfig = defaultPowerConfig();
 
     // Capabilities + current state reported by the backend
     let capabilities: PowerCapabilities | null = null;
@@ -105,6 +107,13 @@
         highTdpUnlocked = acVal > 120 || batVal > 60;
     }
 
+    function applyPowerConfig(pow: PowerConfig) {
+        powerConfig = deepMerge(defaultPowerConfig(), pow, true);
+        recomputeHighTdpUnlocked();
+    }
+
+    onDestroy(followConfig({ select: (c) => c.power, apply: applyPowerConfig }));
+
     async function setPower(
         profile: keyof PowerConfig,
         field: keyof PowerProfile,
@@ -112,14 +121,13 @@
         value: number | string,
     ) {
         try {
-            const patch: PartialConfig = {
+            await patch({
                 power: {
                     [profile]: {
                         [field]: { enabled, value },
                     },
                 },
-            };
-            await DefaultService.setConfig(patch);
+            });
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
@@ -176,17 +184,6 @@
                 activeProfile = saved;
             }
         } catch (_) {}
-        try {
-            const cfg = await DefaultService.getConfig();
-            if (cfg.power) {
-                powerConfig = deepMerge(
-                    powerConfig,
-                    cfg.power as PowerConfig,
-                    true,
-                );
-                recomputeHighTdpUnlocked();
-            }
-        } catch {}
         await pollPower();
         infoPoll = setInterval(pollPower, 2000);
     });
@@ -240,15 +237,14 @@
         maxEnabled: boolean,
     ) {
         try {
-            const patch: PartialConfig = {
+            await patch({
                 power: {
                     [profile]: {
                         min_freq_mhz: { enabled: minEnabled, value: minVal },
                         max_freq_mhz: { enabled: maxEnabled, value: maxVal },
                     },
                 },
-            };
-            await DefaultService.setConfig(patch);
+            });
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }

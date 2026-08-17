@@ -1,9 +1,10 @@
 <script lang="ts">
   import { DefaultService } from "../api";
-  import type { FanOverride, PartialConfig } from "../api";
+  import type { FanOverride } from "../api";
   import { createEventDispatcher } from "svelte";
   import { tweened } from "svelte/motion";
   import { get } from "svelte/store";
+  import { configStore, patch } from "../lib/config";
 
   type CalibrationFan = {
     index: number;
@@ -41,24 +42,22 @@
   }
 
   async function restoreFanState() {
-    const patch: PartialConfig = {
+    try {
+      await patch({
       fan: restoreOverrides
         ? { mode: prevMode, overrides: prevOverrides }
         : { mode: prevMode },
-    };
-    try {
-      await DefaultService.setConfig(patch);
+    });
     } catch {}
   }
 
   async function setManualDuty(duty: number) {
-    const patch: PartialConfig = {
+    await patch({
       fan: {
         mode: "manual",
         manual: { duty_pct: Math.max(0, Math.min(100, Math.round(duty))) },
       },
-    };
-    await DefaultService.setConfig(patch);
+    });
   }
 
   function stdev(values: number[]): number {
@@ -127,13 +126,13 @@
     progress = 20;
     info = "Starting calibration";
     try {
-      const config = await DefaultService.getConfig();
+      const config = get(configStore).config;
       if (config?.fan?.mode) {
         prevMode = config.fan.mode;
       }
       prevOverrides = config?.fan?.overrides ?? [];
       restoreOverrides = true;
-      await DefaultService.setConfig({
+      await patch({
         fan: { mode: "manual", overrides: [] },
       });
     } catch {}
@@ -163,7 +162,7 @@
     });
     info = "Saving";
     try {
-      await DefaultService.setConfig({
+      await patch({
         fan: {
           calibration: {
             updated_at: Math.floor(Date.now() / 1000),

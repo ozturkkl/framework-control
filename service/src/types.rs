@@ -171,6 +171,12 @@ pub struct ShortcutsStatus {
 #[derive(Serialize, Object, Default)]
 pub struct Empty {}
 
+#[derive(Debug, Clone, Serialize, Object)]
+pub struct ConfigEvent {
+    pub client_id: Option<String>,
+    pub config: Config,
+}
+
 #[derive(Debug, Clone, Deserialize, Object)]
 pub struct PartialConfig {
     pub fan: Option<FanControlConfig>,
@@ -198,24 +204,18 @@ pub struct UiConfig {
 pub struct TelemetryConfig {
     #[serde(default = "default_telemetry_poll_ms")]
     pub poll_ms: u64,
-    #[serde(default = "default_telemetry_retain_seconds")]
-    pub retain_seconds: u64,
 }
 
 impl Default for TelemetryConfig {
     fn default() -> Self {
         Self {
             poll_ms: default_telemetry_poll_ms(),
-            retain_seconds: default_telemetry_retain_seconds(),
         }
     }
 }
 
 fn default_telemetry_poll_ms() -> u64 {
     2000
-}
-fn default_telemetry_retain_seconds() -> u64 {
-    1800
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]

@@ -4,14 +4,13 @@
     import UiControlCard from "./UiControlCard.svelte";
     import { tooltip } from "../lib/tooltip";
     import {
+        type BatteryConfig,
         type BatteryInfo,
         DefaultService,
-        OpenAPI,
         type PowerResponse,
-        type PartialConfig,
-        type Config,
     } from "../api";
     import { throttleDebounce } from "../lib/utils";
+    import { followConfig, patch } from "../lib/config";
 
     // Polling
     let poll: ReturnType<typeof setInterval> | null = null;
@@ -168,15 +167,14 @@
 
     async function applyChargeLimitConfig() {
         try {
-            const patch: PartialConfig = {
+            await patch({
                 battery: {
                     charge_limit_max_pct: {
                         enabled: !!clEnabled,
                         value: Math.max(CL_MIN, Math.min(CL_MAX, clValue)),
                     },
                 },
-            };
-            await DefaultService.setConfig(patch);
+            });
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
@@ -187,7 +185,7 @@
             const value = rateEnabled
                 ? Math.max(0.05, Math.min(1.0, Math.round(rateC * 20) / 20))
                 : 1.0;
-            const patch: PartialConfig = {
+            await patch({
                 battery: {
                     charge_rate_c: {
                         enabled: !!rateEnabled,
@@ -195,8 +193,7 @@
                     },
                     charge_rate_soc_threshold_pct: socThresholdPct,
                 },
-            };
-            await DefaultService.setConfig(patch);
+            });
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
@@ -215,24 +212,21 @@
         true,
     );
 
+    function applyBatConfig(bat: BatteryConfig) {
+        if (bat.charge_limit_max_pct) {
+            clEnabled = !!bat.charge_limit_max_pct.enabled;
+            clValue = bat.charge_limit_max_pct.value ?? clValue;
+        }
+        if (bat.charge_rate_c) {
+            rateEnabled = !!bat.charge_rate_c.enabled;
+            rateC = bat.charge_rate_c.value ?? rateC;
+        }
+        socThresholdPct = bat.charge_rate_soc_threshold_pct ?? undefined;
+    }
+
+    onDestroy(followConfig({ select: (c) => c.battery, apply: applyBatConfig }));
+
     onMount(async () => {
-        // Seed from config
-        try {
-            const cfg: Config = await DefaultService.getConfig();
-            const bat = cfg.battery;
-            if (bat) {
-                if (bat.charge_limit_max_pct) {
-                    clEnabled = !!bat.charge_limit_max_pct.enabled;
-                    clValue = bat.charge_limit_max_pct.value ?? clValue;
-                }
-                if (bat.charge_rate_c) {
-                    rateEnabled = !!bat.charge_rate_c.enabled;
-                    rateC = bat.charge_rate_c.value ?? rateC;
-                }
-                socThresholdPct =
-                    bat.charge_rate_soc_threshold_pct ?? undefined;
-            }
-        } catch (_) {}
         await pollOnce();
         poll = setInterval(pollOnce, 2000);
     });

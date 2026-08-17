@@ -4,13 +4,11 @@ use tokio::time::{sleep, Duration, Instant};
 use tracing::{debug, info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::{BatteryConfig, Config};
+use crate::config::LiveConfig;
+use crate::types::BatteryConfig;
 
 /// Battery task: applies config.battery settings when they change and periodically every 30 minutes.
-pub async fn run(
-    framework_tool_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
-    cfg: Arc<tokio::sync::RwLock<Config>>,
-) {
+pub async fn run(framework_tool_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: LiveConfig) {
     info!("Battery task started");
 
     const REAPPLY_INTERVAL_SECS: u64 = 10 * 60;

@@ -5,10 +5,11 @@ use tokio::time::{sleep, Duration};
 use tracing::{debug, info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::{Config, CurveConfig, FanControlMode};
+use crate::config::LiveConfig;
+use crate::types::{CurveConfig, FanControlMode};
 
 /// Main fan control task that runs continuously based on config
-pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: Arc<tokio::sync::RwLock<Config>>) {
+pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: LiveConfig) {
     info!("Fan control task started");
 
     let mut global = CurveStepper::new();

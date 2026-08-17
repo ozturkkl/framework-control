@@ -1,11 +1,16 @@
-use crate::config; // for save/load
+use std::pin::Pin;
+use std::time::Duration;
+
 use crate::shortcuts;
 use crate::state::AppState;
-use crate::types::{Empty, Health, PartialConfig, ShortcutsStatus, SystemInfo, UpdateCheck};
+use crate::types::{Config, ConfigEvent, Empty, Health, PartialConfig, ShortcutsStatus, SystemInfo, UpdateCheck};
 use crate::update::{check_and_apply_now, get_current_and_latest};
 use poem::web::Data;
-use poem_openapi::{payload::Json, ApiResponse, OpenApi};
+use poem_openapi::param::Query;
+use poem_openapi::payload::{EventStream, Json};
+use poem_openapi::{ApiResponse, OpenApi};
 use sysinfo::System;
+use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 use tracing::{error, info};
 
 #[derive(ApiResponse)]
@@ -115,14 +120,12 @@ impl Api {
         }
     }
 
-    /// RyzenAdj: uninstall and remove any downloaded artifacts (Windows only)
     #[oai(path = "/ryzenadj/uninstall", method = "post", operation_id = "uninstallRyzenadj")]
     async fn uninstall_ryzenadj(&self, _state: Data<&AppState>) -> ApiResult<Empty> {
         #[cfg(target_os = "windows")]
         {
             match crate::cli::ryzen_adj::remove_installed_files().await {
                 Ok(_) => {
-                    // Clear from in-memory state so UI reflects removal soon
                     {
                         let mut w = _state.ryzenadj.write().await;
                         *w = None;
@@ -149,18 +152,15 @@ impl Api {
         let cli = require_framework_tool_async(&state).await?;
         let p = cli.power().await.map_err(map_cli_err)?;
 
-        // Also include charge limit min/max when available; do not fail if missing
         let limits = match cli.charge_limit_get().await {
             Ok(info) => info,
             Err(_e) => Default::default(),
         };
-        // Build API-facing battery info by combining parsed battery + limits (always include)
         let battery_api: Option<crate::types::BatteryInfo> = Some(crate::types::BatteryInfo {
             power_info: p.clone(),
             limits,
         });
 
-        // Get power control info based on platform
         let power_control = {
             #[cfg(target_os = "windows")]
             {
@@ -211,7 +211,6 @@ impl Api {
         }))
     }
 
-    /// Update: check for latest version from update feed
     #[oai(path = "/update/check", method = "get", operation_id = "checkUpdate")]
     async fn check_update(&self) -> ApiResult<UpdateCheck> {
         if !crate::update::updates_enabled() {
@@ -236,7 +235,6 @@ impl Api {
         }
     }
 
-    /// Update: apply latest by downloading MSI and invoking msiexec (Windows only)
     #[oai(path = "/update/apply", method = "post", operation_id = "applyUpdate")]
     async fn apply_update(&self) -> ApiResult<Empty> {
         match check_and_apply_now().await {
@@ -248,7 +246,6 @@ impl Api {
         }
     }
 
-    /// Thermal (parsed)
     #[oai(path = "/thermal", method = "get", operation_id = "getThermal")]
     async fn get_thermal(&self, state: Data<&AppState>) -> ApiResult<crate::cli::framework_tool_parser::ThermalParsed> {
         let cli = require_framework_tool_async(&state).await?;
@@ -256,7 +253,6 @@ impl Api {
         Ok(Json(v))
     }
 
-    /// Telemetry history: returns recent samples collected by the service
     #[oai(path = "/thermal/history", method = "get", operation_id = "getThermalHistory")]
     async fn get_thermal_history(&self, state: Data<&AppState>) -> ApiResult<Vec<crate::types::TelemetrySample>> {
         let samples: Vec<crate::types::TelemetrySample> = {
@@ -266,7 +262,6 @@ impl Api {
         Ok(Json(samples))
     }
 
-    /// Framework versions (parsed)
     #[oai(path = "/versions", method = "get", operation_id = "getVersions")]
     async fn get_versions(
         &self,
@@ -277,123 +272,46 @@ impl Api {
         Ok(Json(v))
     }
 
-    /// Get config
     #[oai(path = "/config", method = "get", operation_id = "getConfig")]
     async fn get_config(&self, state: Data<&AppState>) -> ApiResult<crate::types::Config> {
         let cfg = state.config.read().await.clone();
         Ok(Json(cfg))
     }
 
-    /// Set config (partial)
+    /// Config write events to keep clients in sync
+    #[oai(path = "/config/events", method = "get", operation_id = "getConfigEvents")]
+    async fn get_config_events(
+        &self,
+        state: Data<&AppState>,
+    ) -> EventStream<Pin<Box<dyn Stream<Item = ConfigEvent> + Send>>> {
+        let rx = state.config.subscribe();
+        let stream: Pin<Box<dyn Stream<Item = ConfigEvent> + Send>> = Box::pin(
+            BroadcastStream::new(rx)
+                .take_while(|r| r.is_ok())
+                .filter_map(|r| r.ok()),
+        );
+        EventStream::new(stream).keep_alive(Duration::from_secs(15))
+    }
+
     #[oai(path = "/config", method = "post", operation_id = "setConfig")]
-    async fn set_config(&self, state: Data<&AppState>, req: Json<PartialConfig>) -> ApiResult<Empty> {
+    async fn set_config(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "client_id", default)] client_id: Query<Option<String>>,
+        req: Json<PartialConfig>,
+    ) -> ApiResult<Config> {
         let req = req.0;
-        let mut merged = state.config.read().await.clone();
-        if let Some(fan) = req.fan {
-            let mut new_fan = merged.fan.clone();
-            // Overwrite sections only if provided
-            if let Some(m) = fan.mode {
-                new_fan.mode = Some(m);
+        let client_id = client_id.0.filter(|s| !s.is_empty());
+        match state.config.persist_partial(client_id, req).await {
+            Ok(cfg) => {
+                info!("set_config applied successfully");
+                Ok(Json(cfg))
             }
-            if let Some(man) = fan.manual {
-                new_fan.manual = Some(man);
+            Err(e) => {
+                error!("config save error: {}", e);
+                Err(bad_gateway("save_failed", e))
             }
-            if let Some(cur) = fan.curve {
-                new_fan.curve = Some(cur);
-            }
-            if let Some(cal) = fan.calibration {
-                new_fan.calibration = Some(cal);
-            }
-            // Overrides are replaced wholesale when provided. An empty array clears them entirely.
-            if let Some(ov) = fan.overrides {
-                new_fan.overrides = if ov.is_empty() { None } else { Some(ov) };
-            }
-            merged.fan = new_fan;
         }
-        if let Some(pow) = req.power {
-            let mut new_pow = merged.power.clone();
-            if let Some(ac_in) = pow.ac {
-                let mut ac = new_pow.ac.unwrap_or_default();
-                if let Some(s) = ac_in.tdp_watts {
-                    ac.tdp_watts = Some(s);
-                }
-                if let Some(s) = ac_in.thermal_limit_c {
-                    ac.thermal_limit_c = Some(s);
-                }
-                if let Some(s) = ac_in.epp_preference {
-                    ac.epp_preference = Some(s);
-                }
-                if let Some(s) = ac_in.governor {
-                    ac.governor = Some(s);
-                }
-                if let Some(s) = ac_in.min_freq_mhz {
-                    ac.min_freq_mhz = Some(s);
-                }
-                if let Some(s) = ac_in.max_freq_mhz {
-                    ac.max_freq_mhz = Some(s);
-                }
-                new_pow.ac = Some(ac);
-            }
-            if let Some(bat_in) = pow.battery {
-                let mut bat = new_pow.battery.unwrap_or_default();
-                if let Some(s) = bat_in.tdp_watts {
-                    bat.tdp_watts = Some(s);
-                }
-                if let Some(s) = bat_in.thermal_limit_c {
-                    bat.thermal_limit_c = Some(s);
-                }
-                if let Some(s) = bat_in.epp_preference {
-                    bat.epp_preference = Some(s);
-                }
-                if let Some(s) = bat_in.governor {
-                    bat.governor = Some(s);
-                }
-                if let Some(s) = bat_in.min_freq_mhz {
-                    bat.min_freq_mhz = Some(s);
-                }
-                if let Some(s) = bat_in.max_freq_mhz {
-                    bat.max_freq_mhz = Some(s);
-                }
-                new_pow.battery = Some(bat);
-            }
-            merged.power = new_pow;
-        }
-        if let Some(up) = req.updates {
-            let mut new_up = merged.updates.clone();
-            new_up.auto_install = up.auto_install;
-            merged.updates = new_up;
-        }
-        if let Some(bat) = req.battery {
-            let mut new_bat = merged.battery.clone();
-            if let Some(s) = bat.charge_limit_max_pct {
-                new_bat.charge_limit_max_pct = Some(s);
-            }
-            if let Some(s) = bat.charge_rate_c {
-                new_bat.charge_rate_c = Some(s);
-                new_bat.charge_rate_soc_threshold_pct = bat.charge_rate_soc_threshold_pct;
-            }
-            merged.battery = new_bat;
-        }
-        if let Some(tel) = req.telemetry {
-            merged.telemetry = tel;
-        }
-        if let Some(ui) = req.ui {
-            let mut new_ui = merged.ui.clone();
-            if let Some(theme) = ui.theme {
-                new_ui.theme = Some(theme);
-            }
-            merged.ui = new_ui;
-        }
-        if let Err(e) = config::save(&merged) {
-            error!("config save error: {}", e);
-            return Err(bad_gateway("save_failed", e));
-        }
-        {
-            let mut w = state.config.write().await;
-            *w = merged;
-        }
-        info!("set_config applied successfully");
-        Ok(Json(Empty {}))
     }
 
     #[oai(
@@ -416,17 +334,17 @@ impl Api {
     }
 
     async fn set_tool_latest(state: &AppState, latest: bool) -> Result<(), ApiErrorResponse> {
-        let mut cfg = { state.config.read().await.clone() };
-        if cfg.framework_tool.latest == latest {
+        if state.config.read().await.framework_tool.latest == latest {
             return Ok(());
         }
-        cfg.framework_tool.latest = latest;
-        if let Err(e) = config::save(&cfg) {
+        if let Err(e) = state
+            .config
+            .persist(None, |cfg| cfg.framework_tool.latest = latest)
+            .await
+        {
             error!("config save error: {}", e);
             return Err(bad_gateway("save_failed", e));
         }
-        let mut w = state.config.write().await;
-        *w = cfg;
         Ok(())
     }
 
@@ -466,7 +384,6 @@ impl Api {
         Ok(Json(Empty {}))
     }
 
-    /// System info
     #[oai(path = "/system", method = "get", operation_id = "getSystemInfo")]
     async fn get_system_info(&self) -> ApiResult<SystemInfo> {
         let sys = System::new_all();
@@ -495,7 +412,6 @@ impl Api {
 
     #[oai(path = "/shortcuts/create", method = "post", operation_id = "createShortcuts")]
     async fn create_shortcuts(&self) -> ApiResult<Empty> {
-        // Get port from environment (required at startup)
         let port: u16 = std::env::var("FRAMEWORK_CONTROL_PORT")
             .ok()
             .or_else(|| option_env!("FRAMEWORK_CONTROL_PORT").map(String::from))
@@ -515,7 +431,6 @@ impl Api {
         }
     }
 
-    /// Logs: retrieve recent service logs
     #[oai(path = "/logs", method = "get", operation_id = "getLogs")]
     async fn get_logs(&self) -> Result<poem_openapi::payload::PlainText<String>, ApiErrorResponse> {
         match get_service_logs().await {
@@ -554,14 +469,12 @@ async fn get_service_logs() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        // Read FrameworkControlService.out.log from the service directory
         let exe = std::env::current_exe().map_err(|e| format!("failed to get current exe path: {}", e))?;
         let dir = exe.parent().ok_or_else(|| "failed to get exe directory".to_string())?;
         let log_path = dir.join("FrameworkControlService.out.log");
 
         let contents = std::fs::read_to_string(&log_path).map_err(|e| format!("failed to read log file: {}", e))?;
 
-        // Return last 500 lines (approximate)
         let lines: Vec<&str> = contents.lines().collect();
         let start = lines.len().saturating_sub(500);
         Ok(lines[start..].join("\n"))

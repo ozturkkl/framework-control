@@ -1,13 +1,13 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
     import Icon from "@iconify/svelte";
-    import { DefaultService, type TelemetryConfig } from "../api";
-    import { OpenAPI } from "../api";
+    import { DefaultService } from "../api";
     import MultiSelect from "./MultiSelect.svelte";
     import UiControlCard from "./UiControlCard.svelte";
     import { hashColor } from "../lib/seriesColors";
     import GraphPanel from "./GraphPanel.svelte";
     import { tooltip } from "../lib/tooltip";
+    import { followConfig, patch } from "../lib/config";
 
     // No power bar here anymore; moved to PowerControl
 
@@ -164,25 +164,35 @@
         for (let t = first; t <= tMax; t += step) ticks.push(t);
         return ticks;
     })();
-    async function loadTelemetryConfig() {
+    function startHistoryTimer(pollMs: number) {
+        const interval = Math.max(1000, Math.floor(pollMs || 2000));
+        if (historyTimer) clearInterval(historyTimer);
+        historyTimer = setInterval(fetchHistory, interval);
+    }
+
+    function applyTelemetryConfig(pollMs: number) {
+        telemetryPollMs = pollMs;
+        if (historyTimer) startHistoryTimer(pollMs);
+    }
+
+    onDestroy(followConfig({ select: (c) => c.telemetry.poll_ms, apply: applyTelemetryConfig }));
+
+    onMount(async () => {
         try {
-            const cfg = await DefaultService.getConfig();
-            const tel = cfg.telemetry;
-            telemetryPollMs = Number(tel.poll_ms ?? 2000);
-            // Restore saved window or default
-            try {
-                const saved = localStorage.getItem(WINDOW_KEY);
-                const parsed = saved ? parseInt(saved, 10) : NaN;
-                if (!Number.isNaN(parsed)) {
-          windowSeconds = Math.min(Math.max(30, parsed), RETAIN_MAX_SECONDS);
-                } else {
-                    windowSeconds = 300;
-                }
-            } catch {
+            const saved = localStorage.getItem(WINDOW_KEY);
+            const parsed = saved ? parseInt(saved, 10) : NaN;
+            if (!Number.isNaN(parsed)) {
+                windowSeconds = Math.min(Math.max(30, parsed), RETAIN_MAX_SECONDS);
+            } else {
                 windowSeconds = 300;
             }
-        } catch {}
-    }
+        } catch {
+            windowSeconds = 300;
+        }
+        await fetchSensors();
+        await fetchHistory();
+        startHistoryTimer(telemetryPollMs);
+    });
 
     async function fetchSensors() {
         try {
@@ -236,30 +246,13 @@
 
     async function saveTelemetryConfig() {
         try {
-            const patch: TelemetryConfig = {
-                poll_ms: telemetryPollMs,
-                // For now, hardcode the retain seconds to 1800 to test.
-                retain_seconds: 1800,
-            };
-            await DefaultService.setConfig({
-                telemetry: patch,
+            await patch({
+                telemetry: { poll_ms: telemetryPollMs },
             });
-
-            // Tie history refresh to the configured interval
-            const interval = Math.max(1000, Math.floor(telemetryPollMs || 2000));
-            if (historyTimer) clearInterval(historyTimer);
-            historyTimer = setInterval(fetchHistory, interval);
+            startHistoryTimer(telemetryPollMs);
         } catch {}
     }
 
-    onMount(async () => {
-        await loadTelemetryConfig();
-        await fetchSensors();
-        await fetchHistory();
-        // Initialize history refresh based on configured polling interval
-        const interval = Math.max(1000, Math.floor(telemetryPollMs || 2000));
-        historyTimer = setInterval(fetchHistory, interval);
-    });
     onDestroy(() => {
         if (historyTimer) clearInterval(historyTimer);
     });

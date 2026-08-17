@@ -1,14 +1,12 @@
-use std::sync::Arc;
-
 use tokio::time::{sleep, Duration};
 use tracing::{error, info};
 
-use crate::types::Config;
+use crate::config::LiveConfig;
 use crate::update::check_and_apply_now;
 
 /// Auto-update background task
 /// Periodically checks for updates and applies them if `auto_install` is enabled.
-pub async fn run(cfg: Arc<tokio::sync::RwLock<Config>>) {
+pub async fn run(cfg: LiveConfig) {
     loop {
         let cfg = cfg.read().await.clone();
         if cfg.updates.auto_install {

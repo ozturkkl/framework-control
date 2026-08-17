@@ -5,11 +5,15 @@ use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::{Config, TelemetrySample};
+use crate::config::LiveConfig;
+use crate::types::TelemetrySample;
+
+// 30 minutes
+const RETAIN_SECONDS: u64 = 1800;
 
 pub async fn run(
     cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
-    cfg_lock: Arc<tokio::sync::RwLock<Config>>,
+    cfg_lock: LiveConfig,
     samples_lock: Arc<tokio::sync::RwLock<VecDeque<TelemetrySample>>>,
 ) {
     info!("Telemetry task started");
@@ -41,8 +45,7 @@ pub async fn run(
                 {
                     let mut w = samples_lock.write().await;
                     w.push_back(sample);
-                    // Trim by retain_seconds
-                    let cutoff_ms = now_ms - (tel_cfg.retain_seconds as i64 * 1000);
+                    let cutoff_ms = now_ms - (RETAIN_SECONDS as i64 * 1000);
                     while let Some(front) = w.front() {
                         if front.ts_ms < cutoff_ms {
                             w.pop_front();
