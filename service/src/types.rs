@@ -323,6 +323,36 @@ pub struct BatteryConfig {
     /// Optional SoC threshold (%) for rate limiting
     #[serde(skip_serializing_if = "Option::is_none")]
     pub charge_rate_soc_threshold_pct: Option<u8>,
+    /// History poll interval in ms. Absent means the default (15000). Clamped to 5s–1min.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub poll_ms: Option<u64>,
+}
+
+impl BatteryConfig {
+    pub fn history_poll_ms(&self) -> u64 {
+        self.poll_ms
+            .unwrap_or(default_battery_poll_ms())
+            .clamp(MIN_BATTERY_POLL_MS, MAX_BATTERY_POLL_MS)
+    }
+}
+
+pub const MIN_BATTERY_POLL_MS: u64 = 5_000;
+pub const MAX_BATTERY_POLL_MS: u64 = 60_000;
+
+fn default_battery_poll_ms() -> u64 {
+    15_000
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct BatterySample {
+    pub ts_ms: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charge_pct: Option<f32>,
+    /// Signed pack power: positive while charging, negative while discharging.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub watts: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ac_present: Option<bool>,
 }
 
 // API-facing union of battery info (flatten of parsed + limits)

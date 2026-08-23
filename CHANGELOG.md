@@ -1,5 +1,6 @@
 # Unreleased
 
+- **Battery history** (#72): Background poll keeps up to 7 days of charge % and signed pack watts on disk (`battery-history.json`, sibling of config). `/api/battery/history` feeds a dual-axis graph on the Battery panel. Window presets include 1 hour through 7 days and **Since last charge**. Solid lines are contiguous samples; dotted connectors mark gaps (sleep, shutdown, or downtime). History sample interval is `battery.poll_ms` (5s–1min, default 15s).
 - **Config sync**: One UI config store plus SSE on config writes so open tabs (and `curl` POSTs) stay in sync without polling. Writer tabs skip their own echo; lagged SSE clients reconnect and refresh (#75).
 - **Fan calibration**: Per-fan duty-to-RPM mapping. One run commands all fans together, waits until each is stable, and stores a curve per fan (`fan.calibration.fans[]`). Live RPM overlay uses that fan's curve. The shared `points` field is removed — existing calibrations are treated as missing and need a re-run. Sampling waits for settle and a longer stable window so a slow fan response is not recorded as the next step.
 

@@ -7,6 +7,7 @@ use tracing::{info, warn};
 use crate::cli::FrameworkTool;
 use crate::config::LiveConfig;
 use crate::types::TelemetrySample;
+use crate::utils::time::unix_time_ms;
 
 // 30 minutes
 const RETAIN_SECONDS: u64 = 1800;
@@ -62,10 +63,4 @@ pub async fn run(
 
         sleep(poll_interval).await;
     }
-}
-
-fn unix_time_ms() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let now = SystemTime::now();
-    now.duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as i64
 }

@@ -262,6 +262,20 @@ impl Api {
         Ok(Json(samples))
     }
 
+    #[oai(path = "/battery/history", method = "get", operation_id = "getBatteryHistory")]
+    async fn get_battery_history(
+        &self,
+        state: Data<&AppState>,
+        #[oai(name = "since", default)] since: Query<Option<i64>>,
+    ) -> ApiResult<Vec<crate::types::BatterySample>> {
+        let since = since.0.unwrap_or(0);
+        let samples: Vec<crate::types::BatterySample> = {
+            let r = state.battery_samples.read().await;
+            r.iter().skip_while(|s| s.ts_ms <= since).cloned().collect()
+        };
+        Ok(Json(samples))
+    }
+
     #[oai(path = "/versions", method = "get", operation_id = "getVersions")]
     async fn get_versions(
         &self,

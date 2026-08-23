@@ -11,6 +11,7 @@
     } from "../api";
     import { throttleDebounce } from "../lib/utils";
     import { followConfig, patch } from "../lib/config";
+    import BatteryGraph from "./BatteryGraph.svelte";
 
     // Polling
     let poll: ReturnType<typeof setInterval> | null = null;
@@ -463,6 +464,10 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="mt-3">
+        <BatteryGraph />
     </div>
 
     {#if errorMessage}

@@ -267,6 +267,10 @@
                                             State of charge threshold for rate
                                             limit
                                         </li>
+                                        <li>
+                                            History graph of charge level and
+                                            charge/discharge power
+                                        </li>
                                     </ul>
                                 </div>
                             {/if}

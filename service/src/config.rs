@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock, RwLockReadGuard};
 use tracing::info;
 
-use crate::types::{Config, ConfigEvent, PartialConfig};
+use crate::types::{Config, ConfigEvent, PartialConfig, MAX_BATTERY_POLL_MS, MIN_BATTERY_POLL_MS};
 
 #[derive(Clone)]
 pub struct LiveConfig {
@@ -133,6 +133,9 @@ fn apply_partial(merged: &mut Config, req: PartialConfig) {
             new_bat.charge_rate_c = Some(s);
             new_bat.charge_rate_soc_threshold_pct = bat.charge_rate_soc_threshold_pct;
         }
+        if let Some(ms) = bat.poll_ms {
+            new_bat.poll_ms = Some(ms.clamp(MIN_BATTERY_POLL_MS, MAX_BATTERY_POLL_MS));
+        }
         merged.battery = new_bat;
     }
     if let Some(tel) = req.telemetry {
@@ -147,29 +150,44 @@ fn apply_partial(merged: &mut Config, req: PartialConfig) {
     }
 }
 
-fn config_path() -> PathBuf {
+fn config_dir() -> PathBuf {
     // Explicit override always wins (all platforms)
     if let Ok(p) = std::env::var("FRAMEWORK_CONTROL_CONFIG") {
-        return PathBuf::from(p);
+        let path = PathBuf::from(p);
+        return path
+            .parent()
+            .map(|d| d.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
     }
 
     // Windows: prefer ProgramData for system-wide service config
     #[cfg(windows)]
     {
         let base = std::env::var("PROGRAMDATA").unwrap_or_else(|_| r"C:\ProgramData".into());
-        return PathBuf::from(base).join("FrameworkControl").join("config.json");
+        return PathBuf::from(base).join("FrameworkControl");
     }
 
     // Linux: system-wide config
     #[cfg(target_os = "linux")]
     {
-        return PathBuf::from("/etc").join("framework-control").join("config.json");
+        return PathBuf::from("/etc").join("framework-control");
     }
 
     #[cfg(all(not(windows), not(target_os = "linux")))]
     {
         panic!("Unsupported platform: Framework Control currently supports Windows and Linux only");
     }
+}
+
+fn config_path() -> PathBuf {
+    if let Ok(p) = std::env::var("FRAMEWORK_CONTROL_CONFIG") {
+        return PathBuf::from(p);
+    }
+    config_dir().join("config.json")
+}
+
+pub fn battery_history_path() -> PathBuf {
+    config_dir().join("battery-history.json")
 }
 
 fn load() -> Config {

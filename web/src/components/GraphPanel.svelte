@@ -28,9 +28,11 @@
         <div class="w-full relative">
           <slot name="graph" />
         </div>
-        <div class="mt-2">
-          <slot name="bottom" />
-        </div>
+        {#if $$slots.bottom}
+          <div class="mt-2">
+            <slot name="bottom" />
+          </div>
+        {/if}
       </div>
     </div>
   {:else}

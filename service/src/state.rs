@@ -15,6 +15,7 @@ pub struct AppState {
     pub framework_tool: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
     pub config: LiveConfig,
     pub telemetry_samples: Arc<tokio::sync::RwLock<std::collections::VecDeque<crate::types::TelemetrySample>>>,
+    pub battery_samples: Arc<tokio::sync::RwLock<std::collections::VecDeque<crate::types::BatterySample>>>,
 
     #[cfg(target_os = "windows")]
     pub ryzenadj: Arc<tokio::sync::RwLock<Option<RyzenAdj>>>,
@@ -51,6 +52,7 @@ impl AppState {
             framework_tool,
             config,
             telemetry_samples: Arc::new(tokio::sync::RwLock::new(Default::default())),
+            battery_samples: Arc::new(tokio::sync::RwLock::new(Default::default())),
             #[cfg(target_os = "windows")]
             ryzenadj,
             #[cfg(target_os = "linux")]
