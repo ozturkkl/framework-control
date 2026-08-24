@@ -12,6 +12,10 @@
     import { deepMerge } from "../lib/utils";
     import { followConfig, patch } from "../lib/config";
     import UiControlCard from "./UiControlCard.svelte";
+    import {
+        PANEL_HEADER_OVERLAY_CLASS,
+        PANEL_HEADER_TOGGLE_CLASS,
+    } from "./Panel.svelte";
     import { tooltip } from "../lib/tooltip";
     import { isWindows as getIsWindows } from "../lib/platform";
 
@@ -21,6 +25,11 @@
 
     let activeProfile: keyof PowerConfig = "ac";
     const ACTIVE_PROFILE_KEY = "fc.power.activeProfile";
+    const POWER_PROFILES: { value: keyof PowerConfig; label: string }[] = [
+        { value: "ac", label: "Plugged in" },
+        { value: "battery", label: "On battery" },
+    ];
+
     function setActiveProfile(profile: keyof PowerConfig) {
         activeProfile = profile;
         try {
@@ -99,6 +108,94 @@
         const batAny = batMin || batMax;
         return (acAny && !batMin && !batMax) || (batAny && !acMin && !acMax);
     })();
+
+    type StatusMetric = {
+        id: string;
+        icon?: string;
+        iconClass?: string;
+        label?: string;
+        value?: string;
+    };
+
+    $: statusMetrics = ((): StatusMetric[] => {
+        const metrics: StatusMetric[] = [];
+        if (showControls && currentState) {
+            if (currentState.tdp_limit_watts != null) {
+                const tdp = Number(currentState.tdp_limit_watts);
+                metrics.push({
+                    id: "tdp",
+                    icon: "mdi:flash-outline",
+                    iconClass: `w-4 h-4 ${tdp > 95 ? "brightness-200" : tdp > 60 ? "brightness-150" : "brightness-100"} text-success`,
+                    label: "TDP:",
+                    value: `${currentState.tdp_limit_watts} W`,
+                });
+            }
+            if (currentState.thermal_limit_c != null) {
+                const thermal = Number(currentState.thermal_limit_c);
+                metrics.push({
+                    id: "thermal",
+                    icon: "mdi:thermometer",
+                    iconClass: `w-4 h-4 ${thermal > 95 ? "text-error" : thermal > 90 ? "text-warning" : "text-success"}`,
+                    value: `${currentState.thermal_limit_c} °C`,
+                });
+            }
+            if (
+                currentState.min_freq_mhz != null &&
+                currentState.max_freq_mhz != null
+            ) {
+                metrics.push({
+                    id: "freq",
+                    value: `${(currentState.min_freq_mhz / 1000).toFixed(2)} - ${(
+                        currentState.max_freq_mhz / 1000
+                    ).toFixed(2)} GHz`,
+                });
+            }
+            if (currentState.epp_preference) {
+                metrics.push({
+                    id: "epp",
+                    label: currentState.epp_preference,
+                });
+            }
+            if (currentState.governor) {
+                metrics.push({
+                    id: "governor",
+                    label: currentState.governor,
+                });
+            }
+        }
+        if (acPresent) {
+            metrics.push({
+                id: "charger",
+                icon: "mdi:power-plug-outline",
+                iconClass: "w-3.5 h-3.5",
+                value: `${chargerRequestedWatts != null ? Math.round(chargerRequestedWatts) : "—"}/${chargerWatts != null ? Math.round(chargerWatts) : "—"} W`,
+            });
+        }
+        return metrics;
+    })();
+
+    type BatterySummaryItem = {
+        id: string;
+        icon?: string;
+        iconClass?: string;
+        value?: string;
+        text?: string;
+        textClass?: string;
+    };
+
+    $: batterySummary = ((): BatterySummaryItem[] => [
+        {
+            id: "pct",
+            icon: acPresent ? "mdi:battery-charging" : "mdi:battery",
+            iconClass: `w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`,
+            value: `${batteryPct ?? "—"}%`,
+        },
+        {
+            id: "status",
+            text: acPresent ? "Plugged in" : "On battery",
+            textClass: `text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`,
+        },
+    ])();
 
     function recomputeHighTdpUnlocked() {
         if (!capabilities?.supports_tdp) return;
@@ -264,251 +361,187 @@
     }
 </script>
 
+<div class={PANEL_HEADER_OVERLAY_CLASS}>
+    <div
+        class={PANEL_HEADER_TOGGLE_CLASS}
+        role="radiogroup"
+        aria-label="Power profile"
+    >
+        {#each POWER_PROFILES as opt (opt.value)}
+            <input
+                type="radio"
+                name="power-profile"
+                aria-label={opt.label}
+                class="btn btn-xs join-item"
+                value={opt.value}
+                checked={activeProfile === opt.value}
+                on:change={() => setActiveProfile(opt.value)}
+            />
+        {/each}
+    </div>
+</div>
+
 <!-- Preload icons -->
 <div aria-hidden="true" class="absolute opacity-0 pointer-events-none -z-10">
     <Icon icon="mdi:power-plug-outline" class="w-3.5 h-3.5" />
     <Icon icon="mdi:battery-outline" class="w-3.5 h-3.5" />
 </div>
 
-<!-- Overlay status positioned into the parent header area -->
-<div
-    class="absolute top-[0.62rem] left-24 right-11 flex items-center justify-between gap-2 text-sm"
->
-    {#if showControls}
-        <div class="flex items-center">
-            <div class="join border border-primary/35">
-                <input
-                    type="radio"
-                    name="power-profile"
-                    aria-label="Plugged in"
-                    class="btn btn-xs join-item"
-                    value="ac"
-                    on:change={() => setActiveProfile("ac")}
-                    checked={activeProfile === "ac"}
-                />
-                <input
-                    type="radio"
-                    name="power-profile"
-                    aria-label="On battery"
-                    class="btn btn-xs join-item"
-                    value="battery"
-                    on:change={() => setActiveProfile("battery")}
-                    checked={activeProfile === "battery"}
-                />
-            </div>
-
-            {#if hasFreqLimitsMismatchWarning}
-                <div class="relative ml-1">
-                    <button
-                        class="btn btn-ghost btn-xs text-warning"
-                        aria-label="Frequency limits warning"
-                        bind:this={freqWarningBtn}
-                        on:mouseenter={() => (freqWarningTipVisible = true)}
-                        on:mouseleave={() => (freqWarningTipVisible = false)}
-                        on:focus={() => (freqWarningTipVisible = true)}
-                        on:blur={() => (freqWarningTipVisible = false)}
-                    >
-                        <Icon icon="mdi:alert-outline" class="w-4 h-4" />
-                    </button>
-
-                    <div
-                        use:tooltip={{
-                            anchor: freqWarningBtn,
-                            visible: freqWarningTipVisible,
-                            attachGlobalDismiss: false,
-                        }}
-                        class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-64 text-center"
-                    >
-                        One profile applies CPU frequency limits, but the other profile has them disabled. When switching to the disabled profile, Framework Control won’t reset touch the limits, so they may remain active until something else changes them (reboot/OS power daemon/etc).
-                    </div>
-                </div>
-            {/if}
-        </div>
-
-        {#if capabilities?.supports_tdp}
-            <div>
-                <button
-                    class="btn btn-ghost btn-xs"
-                    aria-label={highTdpUnlocked
-                        ? "Disable high TDP values"
-                        : "Unlock higher TDP values"}
-                    bind:this={unlockBtn}
-                    on:mouseenter={() => (unlockTipVisible = true)}
-                    on:mouseleave={() => (unlockTipVisible = false)}
-                    on:focus={() => (unlockTipVisible = true)}
-                    on:blur={() => (unlockTipVisible = false)}
-                    on:click={() => (highTdpUnlocked = !highTdpUnlocked)}
-                >
-                    <Icon
-                        icon={highTdpUnlocked
-                            ? "mdi:lock-open-variant-outline"
-                            : "mdi:lock-outline"}
-                        class="w-3.5 h-3.5"
-                    />
-                </button>
-                {#if isWindows}
-                    <button
-                        class="btn btn-ghost btn-xs"
-                        aria-label="Remove helper"
-                        bind:this={removeBtn}
-                        on:mouseenter={() => (removeTipVisible = true)}
-                        on:mouseleave={() => (removeTipVisible = false)}
-                        on:focus={() => (removeTipVisible = true)}
-                        on:blur={() => (removeTipVisible = false)}
-                        on:click={uninstallRyzenAdj}
-                        disabled={uninstallingRyzenAdj}
-                    >
-                        {#if uninstallingRyzenAdj}
-                            <Icon
-                                icon="mdi:loading"
-                                class="w-3.5 h-3.5 animate-spin"
-                            />
-                        {:else}
-                            <Icon
-                                icon="mdi:trash-can-outline"
-                                class="w-3.5 h-3.5"
-                            />
-                        {/if}
-                    </button>
-                {/if}
-            </div>
-
-            <div
-                use:tooltip={{
-                    anchor: unlockBtn,
-                    visible: unlockTipVisible,
-                    attachGlobalDismiss: false,
-                }}
-                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs text-center"
-            >
-                Unlock higher values for TDP.<br />
-                <span class="opacity-90 text-error">USE AT YOUR OWN RISK.</span>
-            </div>
-            {#if isWindows}
-                <div
-                    use:tooltip={{
-                        anchor: removeBtn,
-                        visible: removeTipVisible,
-                        attachGlobalDismiss: false,
-                    }}
-                    class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-60 text-center"
-                >
-                    Remove the RyzenAdj helper. You can reinstall later from
-                    here.
-                </div>
-            {/if}
-        {/if}
-    {/if}
-</div>
-
-<div class="my-auto">
+<div class="h-full min-h-0 flex flex-col flex-1">
     <div
-        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
+        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex flex-wrap items-center gap-2 text-xs"
     >
         <div
             class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
         >
-            {#if showControls && currentState}
-                {#if currentState.tdp_limit_watts != null}
+            {#each statusMetrics as metric, i (metric.id)}
+                {#if i > 0}
                     <span class="opacity-60">•</span>
-                    <span
-                        class="inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                        <Icon
-                            icon="mdi:flash-outline"
-                            class={`w-4 h-4 ${Number(currentState.tdp_limit_watts) > 95 ? "brightness-200" : Number(currentState.tdp_limit_watts) > 60 ? "brightness-150" : "brightness-100"} text-success`}
-                        />
-                        <span class="text-xs opacity-70">TDP:</span>
-                        <span class="tabular-nums text-xs"
-                            >{currentState.tdp_limit_watts} W</span
-                        >
-                    </span>
                 {/if}
-
-                {#if currentState.thermal_limit_c != null}
-                    <span class="opacity-60">•</span>
-                    <span
-                        class="inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                        <Icon
-                            icon="mdi:thermometer"
-                            class={`w-4 h-4 ${Number(currentState.thermal_limit_c) > 95 ? "text-error" : Number(currentState.thermal_limit_c) > 90 ? "text-warning" : "text-success"}`}
-                        />
-                        <span class="tabular-nums text-xs"
-                            >{currentState.thermal_limit_c} °C</span
-                        >
-                    </span>
-                {/if}
-
-                {#if currentState.min_freq_mhz != null && currentState.max_freq_mhz != null}
-                    <span class="opacity-60">•</span>
-                    <span
-                        class="inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                        <span class="tabular-nums text-xs"
-                            >{(currentState.min_freq_mhz / 1000).toFixed(2)} - {(
-                                currentState.max_freq_mhz / 1000
-                            ).toFixed(2)} GHz</span
-                        >
-                    </span>
-                {/if}
-
-                {#if currentState.epp_preference}
-                    <span class="opacity-60">•</span>
-                    <span
-                        class="inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                        <span class="text-xs opacity-70"
-                            >{currentState.epp_preference}</span
-                        >
-                    </span>
-                {/if}
-
-                {#if currentState.governor}
-                    <span class="opacity-60">•</span>
-                    <span
-                        class="inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                        <span class="text-xs opacity-70"
-                            >{currentState.governor}</span
-                        >
-                    </span>
-                {/if}
-            {/if}
-
-            {#if acPresent && showControls}
-                <span class="opacity-60">•</span>
-            {/if}
-
-            {#if acPresent}
-                <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                    <Icon icon="mdi:power-plug-outline" class="w-3.5 h-3.5" />
-                    <span class="tabular-nums text-xs"
-                        >{chargerRequestedWatts != null
-                            ? Math.round(chargerRequestedWatts)
-                            : "—"}/{chargerWatts != null
-                            ? Math.round(chargerWatts)
-                            : "—"}
-                        W</span
-                    >
+                <span
+                    class="inline-flex items-center gap-1 whitespace-nowrap"
+                >
+                    {#if metric.icon}
+                        <Icon icon={metric.icon} class={metric.iconClass} />
+                    {/if}
+                    {#if metric.label}
+                        <span class="text-xs opacity-70">{metric.label}</span>
+                    {/if}
+                    {#if metric.value}
+                        <span class="tabular-nums text-xs">{metric.value}</span>
+                    {/if}
                 </span>
-            {/if}
+            {/each}
         </div>
-        <div class="flex gap-x-2 gap-y-1 justify-end whitespace-nowrap">
-            <span class={`inline-flex items-center gap-1 whitespace-nowrap`}>
-                <Icon
-                    icon={acPresent ? "mdi:battery-charging" : "mdi:battery"}
-                    class={`w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`}
-                />
-                <span class="tabular-nums text-xs">{batteryPct ?? "—"}%</span>
-            </span>
-            <span class="opacity-60">•</span>
-            <span
-                class={`text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`}
-                >{acPresent ? "Plugged in" : "On battery"}</span
-            >
+        {#if showControls && (hasFreqLimitsMismatchWarning || capabilities?.supports_tdp)}
+            <div class="flex items-center">
+                {#if hasFreqLimitsMismatchWarning}
+                    <div class="relative">
+                        <button
+                            class="btn btn-ghost btn-xs text-warning"
+                            aria-label="Frequency limits warning"
+                            bind:this={freqWarningBtn}
+                            on:mouseenter={() =>
+                                (freqWarningTipVisible = true)}
+                            on:mouseleave={() =>
+                                (freqWarningTipVisible = false)}
+                            on:focus={() => (freqWarningTipVisible = true)}
+                            on:blur={() => (freqWarningTipVisible = false)}
+                        >
+                            <Icon icon="mdi:alert-outline" class="w-4 h-4" />
+                        </button>
+
+                        <div
+                            use:tooltip={{
+                                anchor: freqWarningBtn,
+                                visible: freqWarningTipVisible,
+                                attachGlobalDismiss: false,
+                            }}
+                            class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-64 text-center"
+                        >
+                            One profile applies CPU frequency limits, but the
+                            other profile has them disabled. When switching to
+                            the disabled profile, Framework Control won’t reset
+                            touch the limits, so they may remain active until
+                            something else changes them (reboot/OS power
+                            daemon/etc).
+                        </div>
+                    </div>
+                {/if}
+                {#if capabilities?.supports_tdp}
+                    <button
+                        class="btn btn-ghost btn-xs"
+                        aria-label={highTdpUnlocked
+                            ? "Disable high TDP values"
+                            : "Unlock higher TDP values"}
+                        bind:this={unlockBtn}
+                        on:mouseenter={() => (unlockTipVisible = true)}
+                        on:mouseleave={() => (unlockTipVisible = false)}
+                        on:focus={() => (unlockTipVisible = true)}
+                        on:blur={() => (unlockTipVisible = false)}
+                        on:click={() => (highTdpUnlocked = !highTdpUnlocked)}
+                    >
+                        <Icon
+                            icon={highTdpUnlocked
+                                ? "mdi:lock-open-variant-outline"
+                                : "mdi:lock-outline"}
+                            class="w-3.5 h-3.5"
+                        />
+                    </button>
+                    {#if isWindows}
+                        <button
+                            class="btn btn-ghost btn-xs"
+                            aria-label="Remove helper"
+                            bind:this={removeBtn}
+                            on:mouseenter={() => (removeTipVisible = true)}
+                            on:mouseleave={() => (removeTipVisible = false)}
+                            on:focus={() => (removeTipVisible = true)}
+                            on:blur={() => (removeTipVisible = false)}
+                            on:click={uninstallRyzenAdj}
+                            disabled={uninstallingRyzenAdj}
+                        >
+                            {#if uninstallingRyzenAdj}
+                                <Icon
+                                    icon="mdi:loading"
+                                    class="w-3.5 h-3.5 animate-spin"
+                                />
+                            {:else}
+                                <Icon
+                                    icon="mdi:trash-can-outline"
+                                    class="w-3.5 h-3.5"
+                                />
+                            {/if}
+                        </button>
+                    {/if}
+                {/if}
+            </div>
+        {/if}
+        <div
+            class="flex gap-x-2 gap-y-1 justify-end whitespace-nowrap ml-auto"
+        >
+            {#each batterySummary as item, i (item.id)}
+                {#if i > 0}
+                    <span class="opacity-60">•</span>
+                {/if}
+                {#if item.icon}
+                    <span
+                        class="inline-flex items-center gap-1 whitespace-nowrap"
+                    >
+                        <Icon icon={item.icon} class={item.iconClass} />
+                        <span class="tabular-nums text-xs">{item.value}</span>
+                    </span>
+                {:else}
+                    <span class={item.textClass}>{item.text}</span>
+                {/if}
+            {/each}
         </div>
     </div>
+    {#if showControls && capabilities?.supports_tdp}
+        <div
+            use:tooltip={{
+                anchor: unlockBtn,
+                visible: unlockTipVisible,
+                attachGlobalDismiss: false,
+            }}
+            class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs text-center"
+        >
+            Unlock higher values for TDP.<br />
+            <span class="opacity-90 text-error">USE AT YOUR OWN RISK.</span>
+        </div>
+        {#if isWindows}
+            <div
+                use:tooltip={{
+                    anchor: removeBtn,
+                    visible: removeTipVisible,
+                    attachGlobalDismiss: false,
+                }}
+                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-60 text-center"
+            >
+                Remove the RyzenAdj helper. You can reinstall later from
+                here.
+            </div>
+        {/if}
+    {/if}
 
     {#if !hasCheckedStatus}
         <div class={POWER_INFO_CONTAINER_CLASS}>

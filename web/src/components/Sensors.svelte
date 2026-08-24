@@ -8,6 +8,7 @@
     import GraphPanel from "./GraphPanel.svelte";
     import { tooltip } from "../lib/tooltip";
     import { followConfig, patch } from "../lib/config";
+    import { measureSize, type MeasuredSize } from "../lib/measureSize";
 
     // No power bar here anymore; moved to PowerControl
 
@@ -38,26 +39,34 @@
     $: tMin = allTimes.length ? Math.min(...allTimes) : null;
     $: tMax = allTimes.length ? Math.max(...allTimes) : null;
 
-    // SVG and layout
+    // SVG and layout — viewBox tracks CSS pixels so labels stay ~10px
     const padding = { left: 36, right: 12, top: 12, bottom: 22 };
     let svgWidth = 400;
     let svgHeight = 220;
     let svgEl: SVGSVGElement;
+    function applyGraphSize(size: MeasuredSize) {
+        svgWidth = size.width;
+        svgHeight = size.height;
+    }
 
-    function xToPx(x: number) {
+    function xToPx(x: number, width = svgWidth) {
         if (tMin == null || tMax == null || tMax === tMin) return padding.left;
-        const w = svgWidth - padding.left - padding.right;
+        const w = width - padding.left - padding.right;
         return padding.left + ((x - tMin) / (tMax - tMin)) * w;
     }
-    function yToPx(y: number) {
-        const h = svgHeight - padding.top - padding.bottom;
+    function yToPx(y: number, height = svgHeight) {
+        const h = height - padding.top - padding.bottom;
         return padding.top + (1 - (y - yMin) / (yMax - yMin)) * h;
     }
 
-    function buildPath(points: Array<[number, number]>) {
+    function buildPath(
+        points: Array<[number, number]>,
+        width = svgWidth,
+        height = svgHeight,
+    ) {
         if (!points.length) return "";
         return points
-      .map((p, i) => `${i === 0 ? "M" : "L"}${xToPx(p[0])},${yToPx(p[1])}`)
+      .map((p, i) => `${i === 0 ? "M" : "L"}${xToPx(p[0], width)},${yToPx(p[1], height)}`)
             .join(" ");
     }
 
@@ -262,7 +271,7 @@
     <svelte:fragment slot="top" let:openSettings>
         <!-- Inline legend on the left -->
         <div class="flex flex-wrap items-center gap-2 text-xs gap-y-1 pl-[2px]">
-            {#each selectedSensors as name}
+            {#each selectedSensors as name (name)}
                 <span class="inline-flex items-center gap-1">
                     <span
                         class="w-2.5 h-2.5 rounded-sm"
@@ -284,11 +293,15 @@
     </svelte:fragment>
 
     <svelte:fragment slot="graph">
-        <div class="relative">
+        <div
+            class="relative h-full min-h-0"
+            use:measureSize={{ onChange: applyGraphSize }}
+        >
             <svg
                 bind:this={svgEl}
-                class="w-full bg-base-100 rounded border border-base-300"
+                class="absolute inset-0 w-full h-full bg-base-100 rounded border border-base-300"
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                preserveAspectRatio="none"
                 role="img"
                 aria-label="Temperature sensors graph"
                 on:mousemove={onMouseMove}
@@ -298,9 +311,9 @@
                 <g stroke="currentColor" class="opacity-30">
                     <line
                         x1={padding.left}
-                        y1={yToPx(yMin)}
+                        y1={yToPx(yMin, svgHeight)}
                         x2={svgWidth - padding.right}
-                        y2={yToPx(yMin)}
+                        y2={yToPx(yMin, svgHeight)}
                         stroke-width="1"
                     />
                     <line
@@ -313,19 +326,19 @@
                 </g>
 
                 <!-- horizontal gridlines and labels -->
-                {#each [0, 20, 40, 60, 80, 100] as d}
+                {#each [0, 20, 40, 60, 80, 100] as d (d)}
                     <g>
                         <line
                             x1={padding.left}
-                            y1={yToPx(d)}
+                            y1={yToPx(d, svgHeight)}
                             x2={svgWidth - padding.right}
-                            y2={yToPx(d)}
+                            y2={yToPx(d, svgHeight)}
                             stroke="currentColor"
                             class="opacity-10"
                         />
                         <text
                             x={padding.left - 6}
-                            y={yToPx(d) + 4}
+                            y={yToPx(d, svgHeight) + 4}
                             text-anchor="end"
               class="fill-current opacity-60 text-[10px]">{d}°C</text
                         >
@@ -333,18 +346,18 @@
                 {/each}
 
                 <!-- vertical time gridlines -->
-                {#each timeTicks as t}
+                {#each timeTicks as t (t)}
                     <g>
                         <line
-                            x1={xToPx(t)}
+                            x1={xToPx(t, svgWidth)}
                             y1={padding.top}
-                            x2={xToPx(t)}
+                            x2={xToPx(t, svgWidth)}
                             y2={svgHeight - padding.bottom}
                             stroke="currentColor"
                             class="opacity-10"
                         />
                         <text
-                            x={xToPx(t)}
+                            x={xToPx(t, svgWidth)}
                             y={svgHeight - padding.bottom + 16}
                             text-anchor="middle"
                             class="fill-current opacity-60 text-[10px]"
@@ -354,9 +367,9 @@
                 {/each}
 
                 <!-- series lines -->
-                {#each Object.entries(series) as [name, pts]}
+                {#each Object.entries(series) as [name, pts] (name)}
                     <path
-                        d={buildPath(pts)}
+                        d={buildPath(pts, svgWidth, svgHeight)}
                         fill="none"
                         stroke={hashColor(name)}
                         stroke-width="2"
@@ -366,9 +379,9 @@
                 <!-- crosshair + marker -->
                 {#if hover}
                     <line
-                        x1={xToPx(hover.ts)}
+                        x1={xToPx(hover.ts, svgWidth)}
                         y1={padding.top}
-                        x2={xToPx(hover.ts)}
+                        x2={xToPx(hover.ts, svgWidth)}
                         y2={svgHeight - padding.bottom}
                         stroke="currentColor"
                         class="opacity-40"
@@ -376,8 +389,8 @@
                     />
                     <circle
                         bind:this={hoverCircleEl}
-                        cx={xToPx(hover.ts)}
-                        cy={yToPx(hover.value)}
+                        cx={xToPx(hover.ts, svgWidth)}
+                        cy={yToPx(hover.value, svgHeight)}
                         r="3.5"
                         fill={hashColor(hover.name)}
                         stroke="white"

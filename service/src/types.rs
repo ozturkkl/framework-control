@@ -193,11 +193,54 @@ pub struct UpdatesConfig {
     pub auto_install: bool,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Enum)]
+#[serde(rename_all = "lowercase")]
+pub enum DashboardPanelId {
+    #[oai(rename = "telemetry")]
+    Telemetry,
+    #[oai(rename = "fan")]
+    Fan,
+    #[oai(rename = "power")]
+    Power,
+    #[oai(rename = "battery")]
+    Battery,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Enum, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DashboardPanelSize {
+    #[default]
+    #[oai(rename = "half")]
+    Half,
+    #[oai(rename = "full")]
+    Full,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, PartialEq)]
+pub struct DashboardPanel {
+    pub id: DashboardPanelId,
+    pub enabled: bool,
+    pub size: DashboardPanelSize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct UiConfig {
     /// Preferred UI theme (matches DaisyUI theme names)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    /// Absent layout or a missing id means that panel is enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panels: Option<Vec<DashboardPanel>>,
+}
+
+impl UiConfig {
+    pub fn is_panel_enabled(&self, id: DashboardPanelId) -> bool {
+        self.panels
+            .as_ref()
+            .and_then(|panels| panels.iter().find(|panel| panel.id == id))
+            .map(|panel| panel.enabled)
+            .unwrap_or(true)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]

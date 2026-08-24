@@ -39,6 +39,7 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "openapi-typescript-codegen": "^0.29.0"
+    "openapi-typescript-codegen": "^0.29.0",
+    "svelte-dnd-action": "^0.9.79"
   }
 }

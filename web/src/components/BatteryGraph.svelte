@@ -6,6 +6,7 @@
 	import GraphPanel from './GraphPanel.svelte';
 	import { tooltip } from '../lib/tooltip';
 	import { followConfig, patch } from '../lib/config';
+	import { measureSize, type MeasuredSize } from '../lib/measureSize';
 
 	const WINDOW_KEY = 'fc.battery.window';
 	const WINDOW_SINCE_CHARGE = 'Since last charge';
@@ -33,9 +34,13 @@
 	let historyError: string | null = null;
 
 	const padding = { left: 36, right: 56, top: 12, bottom: 22 };
-	const svgWidth = 400;
-	const svgHeight = 220;
+	let svgWidth = 400;
+	let svgHeight = 220;
 	let svgEl: SVGSVGElement;
+	function applyGraphSize(size: MeasuredSize) {
+		svgWidth = size.width;
+		svgHeight = size.height;
+	}
 	let hoverCircleEl: SVGCircleElement | null = null;
 
 	type Pt = [number, number];
@@ -116,24 +121,31 @@
 		return now;
 	}
 
-	function xToPx(x: number) {
+	function xToPx(x: number, width = svgWidth) {
 		if (tMax === tMin) return padding.left;
-		const w = svgWidth - padding.left - padding.right;
+		const w = width - padding.left - padding.right;
 		return padding.left + ((x - tMin) / (tMax - tMin)) * w;
 	}
-	function yToPxPct(y: number) {
-		const h = svgHeight - padding.top - padding.bottom;
+	function yToPxPct(y: number, height = svgHeight) {
+		const h = height - padding.top - padding.bottom;
 		return padding.top + (1 - y / 100) * h;
 	}
-	function yToPxWatts(y: number) {
-		const h = svgHeight - padding.top - padding.bottom;
+	function yToPxWatts(y: number, height = svgHeight) {
+		const h = height - padding.top - padding.bottom;
 		const { min, max } = wattScale;
 		if (max === min) return padding.top + h / 2;
 		return padding.top + (1 - (y - min) / (max - min)) * h;
 	}
 
-	function buildPath(points: Pt[], yToPx: (y: number) => number) {
-		return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${xToPx(p[0])},${yToPx(p[1])}`).join(' ');
+	function buildPath(
+		points: Pt[],
+		yToPx: (y: number, height?: number) => number,
+		width = svgWidth,
+		height = svgHeight,
+	) {
+		return points
+			.map((p, i) => `${i === 0 ? 'M' : 'L'}${xToPx(p[0], width)},${yToPx(p[1], height)}`)
+			.join(' ');
 	}
 
 	function connectors(segs: Pt[][]): Array<[Pt, Pt]> {
@@ -361,11 +373,15 @@
 	</svelte:fragment>
 
 	<svelte:fragment slot="graph">
-		<div class="relative">
+		<div
+			class="relative h-full min-h-0"
+			use:measureSize={{ onChange: applyGraphSize }}
+		>
 			<svg
 				bind:this={svgEl}
-				class="w-full bg-base-100 rounded border border-base-300"
+				class="absolute inset-0 w-full h-full bg-base-100 rounded border border-base-300"
 				viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+				preserveAspectRatio="none"
 				role="img"
 				aria-label="Battery charge and power history"
 				on:mousemove={onMouseMove}
@@ -385,9 +401,9 @@
 				<g stroke="currentColor" class="opacity-30">
 					<line
 						x1={padding.left}
-						y1={yToPxPct(0)}
+						y1={yToPxPct(0, svgHeight)}
 						x2={svgWidth - padding.right}
-						y2={yToPxPct(0)}
+						y2={yToPxPct(0, svgHeight)}
 						stroke-width="1"
 					/>
 					<line
@@ -410,13 +426,13 @@
 					<g>
 						<line
 							x1={padding.left}
-							y1={yToPxPct(d)}
+							y1={yToPxPct(d, svgHeight)}
 							x2={svgWidth - padding.right}
-							y2={yToPxPct(d)}
+							y2={yToPxPct(d, svgHeight)}
 							stroke="currentColor"
 							class="opacity-10"
 						/>
-						<text x={padding.left - 6} y={yToPxPct(d) + 4} text-anchor="end" class="fill-current opacity-60 text-[10px]"
+						<text x={padding.left - 6} y={yToPxPct(d, svgHeight) + 4} text-anchor="end" class="fill-current opacity-60 text-[10px]"
 							>{d}%</text
 						>
 					</g>
@@ -425,7 +441,7 @@
 				{#each wattScale.ticks as w (w)}
 					<text
 						x={svgWidth - padding.right + 6}
-						y={yToPxWatts(w) + 4}
+						y={yToPxWatts(w, svgHeight) + 4}
 						text-anchor="start"
 						class="fill-current opacity-60 text-[10px]">{formatAxisWatts(w)}W</text
 					>
@@ -434,9 +450,9 @@
 				{#if wattScale.min < 0 && wattScale.max > 0}
 					<line
 						x1={padding.left}
-						y1={yToPxWatts(0)}
+						y1={yToPxWatts(0, svgHeight)}
 						x2={svgWidth - padding.right}
-						y2={yToPxWatts(0)}
+						y2={yToPxWatts(0, svgHeight)}
 						stroke="currentColor"
 						stroke-width="1"
 						class="opacity-30"
@@ -446,14 +462,14 @@
 				{#each timeAxis.ticks as t (t)}
 					<g>
 						<line
-							x1={xToPx(t)}
+							x1={xToPx(t, svgWidth)}
 							y1={padding.top}
-							x2={xToPx(t)}
+							x2={xToPx(t, svgWidth)}
 							y2={svgHeight - padding.bottom}
 							stroke="currentColor"
 							class="opacity-10"
 						/>
-						<text x={xToPx(t)} y={svgHeight - padding.bottom + 16} text-anchor="middle" class="fill-current opacity-60 text-[10px]"
+						<text x={xToPx(t, svgWidth)} y={svgHeight - padding.bottom + 16} text-anchor="middle" class="fill-current opacity-60 text-[10px]"
 							>{formatClock(t, timeAxis.step >= 86400 * 1000)}</text
 						>
 					</g>
@@ -462,11 +478,11 @@
 				<g clip-path="url(#battery-plot-clip)">
 					{#each plotSeries as series (series.key)}
 						{#each series.segs as seg (seg[0]?.[0])}
-							<path d={buildPath(seg, series.yToPx)} fill="none" stroke={series.color} stroke-width="2" />
+							<path d={buildPath(seg, series.yToPx, svgWidth, svgHeight)} fill="none" stroke={series.color} stroke-width="2" />
 						{/each}
 						{#each series.gaps as [a, b] (a[0])}
 							<path
-								d={`M${xToPx(a[0])},${series.yToPx(a[1])} L${xToPx(b[0])},${series.yToPx(b[1])}`}
+								d={`M${xToPx(a[0], svgWidth)},${series.yToPx(a[1], svgHeight)} L${xToPx(b[0], svgWidth)},${series.yToPx(b[1], svgHeight)}`}
 								fill="none"
 								stroke={series.color}
 								stroke-width="1.5"
@@ -479,9 +495,9 @@
 
 				{#if hover}
 					<line
-						x1={xToPx(hover.ts)}
+						x1={xToPx(hover.ts, svgWidth)}
 						y1={padding.top}
-						x2={xToPx(hover.ts)}
+						x2={xToPx(hover.ts, svgWidth)}
 						y2={svgHeight - padding.bottom}
 						stroke="currentColor"
 						class="opacity-40"
@@ -489,7 +505,7 @@
 					/>
 					<circle
 						bind:this={hoverCircleEl}
-						cx={xToPx(hover.ts)}
+						cx={xToPx(hover.ts, svgWidth)}
 						cy={hover.anchorY}
 						r="3.5"
 						fill={hover.anchor === 'charge' ? CHARGE_COLOR : POWER_COLOR}

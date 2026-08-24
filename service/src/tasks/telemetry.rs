@@ -6,7 +6,7 @@ use tracing::{info, warn};
 
 use crate::cli::FrameworkTool;
 use crate::config::LiveConfig;
-use crate::types::TelemetrySample;
+use crate::types::{DashboardPanelId, TelemetrySample};
 use crate::utils::time::unix_time_ms;
 
 // 30 minutes
@@ -21,11 +21,19 @@ pub async fn run(
 
     loop {
         // Snapshot config at loop start
-        let tel_cfg = {
+        let (tel_cfg, telemetry_enabled) = {
             let cfg = cfg_lock.read().await;
-            cfg.telemetry.clone()
+            (
+                cfg.telemetry.clone(),
+                cfg.ui.is_panel_enabled(DashboardPanelId::Telemetry),
+            )
         };
         let poll_interval = Duration::from_millis(tel_cfg.poll_ms.max(1000));
+
+        if !telemetry_enabled {
+            sleep(poll_interval).await;
+            continue;
+        }
 
         // Obtain CLI
         let maybe_cli = { cli_lock.read().await.clone() };
