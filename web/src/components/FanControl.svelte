@@ -918,21 +918,26 @@
 
     {#if mode === "Manual"}
         <div class="flex-1 min-h-0 flex flex-col">
-            <div
-                class="card bg-base-200 p-3 h-full min-h-0 flex flex-col flex-1 w-full"
+            <UiControlCard
+                label="Manual duty"
+                unit="%"
+                min={0}
+                max={100}
+                step={1}
+                bind:value={manualDutyPct}
+                on:input={() => {
+                    commitOverrideFromEditor();
+                    save();
+                }}
+                on:change={() => {
+                    commitOverrideFromEditor();
+                    save();
+                }}
             >
                 <div
-                    class="flex items-center gap-1.5 shrink-0 relative z-20 min-w-0"
+                    slot="header-trailing"
+                    class="flex items-center gap-1.5 min-w-0"
                 >
-                    {#if fanTabsVisible}
-                        <FanSelector
-                            {activeFan}
-                            {fanLabels}
-                            overrideFans={modeOverrideFans}
-                            on:select={(e) => selectFan(e.detail)}
-                            on:clear={(e) => clearOverride(e.detail)}
-                        />
-                    {/if}
                     {#if manualDutyReadouts.length > 0}
                         <div class="font-medium min-w-0 overflow-hidden">
                             <div
@@ -957,47 +962,17 @@
                             </div>
                         </div>
                     {/if}
-                </div>
-                <div
-                    class="flex-1 min-h-0 flex flex-col items-center justify-center gap-8 px-4"
-                >
-                    <div class="text-center">
-                        <div
-                            class="tabular-nums font-medium tracking-tight text-5xl leading-none"
-                        >
-                            {manualDutyPct}<span
-                                class="text-2xl opacity-50 ml-0.5">%</span
-                            >
-                        </div>
-                        <div class="mt-2 text-xs opacity-60">Manual duty</div>
-                    </div>
-                    <div class="w-full max-w-md">
-                        <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            step={1}
-                            aria-label="Manual duty"
-                            bind:value={manualDutyPct}
-                            class="range range-sm w-full"
-                            on:input={() => {
-                                commitOverrideFromEditor();
-                                save();
-                            }}
-                            on:change={() => {
-                                commitOverrideFromEditor();
-                                save();
-                            }}
+                    {#if fanTabsVisible}
+                        <FanSelector
+                            {activeFan}
+                            {fanLabels}
+                            overrideFans={modeOverrideFans}
+                            on:select={(e) => selectFan(e.detail)}
+                            on:clear={(e) => clearOverride(e.detail)}
                         />
-                        <div
-                            class="flex justify-between mt-1.5 text-[10px] opacity-40 tabular-nums"
-                        >
-                            <span>0%</span>
-                            <span>100%</span>
-                        </div>
-                    </div>
+                    {/if}
                 </div>
-            </div>
+            </UiControlCard>
         </div>
     {/if}
 

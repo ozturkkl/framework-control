@@ -21,6 +21,10 @@
 
     const POWER_INFO_CONTAINER_CLASS =
         "flex flex-col h-44 my-0.5 px-6 justify-center gap-2";
+    const POWER_CONTROLS_GRID_CLASS =
+        "grid flex-1 min-h-0 gap-3 pb-1 auto-rows-[minmax(min-content,1fr)] [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]";
+    const POWER_CONTROL_WRAP_CLASS =
+        "h-full min-h-0 transition-transform duration-100";
     const isWindows = getIsWindows();
 
     let activeProfile: keyof PowerConfig = "ac";
@@ -387,9 +391,9 @@
     <Icon icon="mdi:battery-outline" class="w-3.5 h-3.5" />
 </div>
 
-<div class="h-full min-h-0 flex flex-col flex-1">
+<div class="min-h-0 flex flex-col flex-1">
     <div
-        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex flex-wrap items-center gap-2 text-xs"
+        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex flex-wrap items-center gap-2 text-xs shrink-0"
     >
         <div
             class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
@@ -624,13 +628,11 @@
             </ul>
         </div>
     {:else}
-        <div
-            class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
-        >
+        <div class={POWER_CONTROLS_GRID_CLASS}>
             <!-- TDP Control (RAPL or RyzenAdj) -->
             {#if capabilities?.supports_tdp && powerConfig[activeProfile]?.tdp_watts}
                 <div
-                    class="transition-transform duration-100"
+                    class={POWER_CONTROL_WRAP_CLASS}
                     class:scale-[0.985]={!powerConfig[activeProfile]?.tdp_watts
                         ?.enabled}
                 >
@@ -663,7 +665,7 @@
             <!-- Thermal Limit (RyzenAdj) -->
             {#if capabilities?.supports_thermal && powerConfig[activeProfile]?.thermal_limit_c}
                 <div
-                    class="transition-transform duration-100"
+                    class={POWER_CONTROL_WRAP_CLASS}
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.thermal_limit_c?.enabled}
                 >
@@ -692,7 +694,7 @@
             <!-- AMD P-State EPP -->
             {#if capabilities?.supports_epp && powerConfig[activeProfile]?.epp_preference}
                 <div
-                    class="transition-transform duration-100"
+                    class={POWER_CONTROL_WRAP_CLASS}
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.epp_preference?.enabled}
                 >
@@ -723,7 +725,7 @@
             <!-- cpufreq Governor -->
             {#if capabilities?.supports_governor && powerConfig[activeProfile]?.governor}
                 <div
-                    class="transition-transform duration-100"
+                    class={POWER_CONTROL_WRAP_CLASS}
                     class:scale-[0.985]={!powerConfig[activeProfile]?.governor
                         ?.enabled}
                 >
@@ -751,7 +753,7 @@
             <!-- Frequency Limits (cpufreq) -->
             {#if capabilities?.supports_frequency_limits && powerConfig[activeProfile]?.min_freq_mhz}
                 <div
-                    class="transition-transform duration-100"
+                    class={POWER_CONTROL_WRAP_CLASS}
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.min_freq_mhz?.enabled}
                 >
@@ -780,7 +782,7 @@
 
             {#if capabilities?.supports_frequency_limits && powerConfig[activeProfile]?.max_freq_mhz}
                 <div
-                    class="transition-transform duration-100"
+                    class={POWER_CONTROL_WRAP_CLASS}
                     class:scale-[0.985]={!powerConfig[activeProfile]
                         ?.max_freq_mhz?.enabled}
                 >
