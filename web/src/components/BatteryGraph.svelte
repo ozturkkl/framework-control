@@ -7,6 +7,7 @@
 	import { tooltip } from '../lib/tooltip';
 	import { followConfig, patch } from '../lib/config';
 	import { measureSize, type MeasuredSize } from '../lib/measureSize';
+	import { bracketByTime, pointerToDomainX } from '../lib/plot';
 
 	const WINDOW_KEY = 'fc.battery.window';
 	const WINDOW_SINCE_CHARGE = 'Since last charge';
@@ -33,7 +34,7 @@
 	let nowMs = Date.now();
 	let historyError: string | null = null;
 
-	const padding = { left: 36, right: 56, top: 12, bottom: 22 };
+	const padding = { left: 36, right: 44, top: 12, bottom: 22 };
 	let svgWidth = 400;
 	let svgHeight = 220;
 	let svgEl: SVGSVGElement;
@@ -59,19 +60,28 @@
 	$: tMin = samples.length ? Math.max(requestedMin, samples[0].ts_ms) : requestedMin;
 	$: includeDate = tMax - tMin >= 20 * 3600 * 1000 || new Date(tMin).toDateString() !== new Date(tMax).toDateString();
 	$: windowed = samples.filter((s) => s.ts_ms >= tMin && s.ts_ms <= tMax);
-	$: chargeRaw = windowed
-		.filter((s) => s.charge_pct != null)
-		.map((s) => [s.ts_ms, s.charge_pct as number] as Pt);
+	$: chargeRaw = (() => {
+		const pts = windowed
+			.filter((s) => s.charge_pct != null)
+			.map((s) => [s.ts_ms, s.charge_pct as number] as Pt);
+		const prior = gapAnchorBefore(samples, pts[0]?.[0], (s) => s.charge_pct != null);
+		return prior && pts.length ? [[prior.ts_ms, prior.charge_pct as number] as Pt, ...pts] : pts;
+	})();
 	$: wattRaw = windowed.filter((s) => s.watts != null).map((s) => [s.ts_ms, s.watts as number] as Pt);
 	$: chargeSegs = splitByTime(chargeRaw, GAP_MS).map((seg) => decimate(seg, 400));
 	$: wattSegs = splitByTime(wattRaw, GAP_MS).map((seg) => decimate(seg, 400));
 	$: chargeGaps = connectors(chargeSegs);
-	$: wattGaps = connectors(wattSegs);
 	$: wattScale = wattsScale(wattRaw.map((p) => p[1]));
 	$: last = windowed.length ? windowed[windowed.length - 1] : undefined;
+	// Same lead-in as chargeRaw so hover can lerp charge across a window that starts mid-gap.
+	$: hoverSamples = (() => {
+		const prior = gapAnchorBefore(samples, windowed[0]?.ts_ms);
+		return prior ? [prior, ...windowed] : windowed;
+	})();
 	$: plotSeries = [
 		{ key: 'charge', color: CHARGE_COLOR, segs: chargeSegs, gaps: chargeGaps, yToPx: yToPxPct },
-		{ key: 'power', color: POWER_COLOR, segs: wattSegs, gaps: wattGaps, yToPx: yToPxWatts },
+		// Power is instantaneous — leave sampling gaps empty rather than inventing values.
+		{ key: 'power', color: POWER_COLOR, segs: wattSegs, gaps: [], yToPx: yToPxWatts },
 	];
 
 	function pickStep(candidates: number[], approx: number): number {
@@ -79,6 +89,22 @@
 			if (c >= approx) return c;
 		}
 		return candidates[candidates.length - 1];
+	}
+
+	/** Last sample before `afterTs` when that span is a sampling gap (for clipped dotted lead-in). */
+	function gapAnchorBefore(
+		list: BatterySample[],
+		afterTs: number | undefined,
+		ok?: (s: BatterySample) => boolean,
+	): BatterySample | null {
+		if (afterTs == null) return null;
+		for (let i = list.length - 1; i >= 0; i--) {
+			const s = list[i];
+			if (s.ts_ms >= afterTs) continue;
+			if (ok && !ok(s)) continue;
+			return afterTs - s.ts_ms > GAP_MS ? s : null;
+		}
+		return null;
 	}
 
 	function splitByTime(points: Pt[], gapMs: number): Pt[][] {
@@ -226,44 +252,45 @@
 		return { ticks, step };
 	})();
 
-	function findNearestSample(targetTs: number): BatterySample | null {
-		if (!windowed.length) return null;
-		let lo = 0;
-		let hi = windowed.length - 1;
-		while (lo < hi) {
-			const mid = Math.floor((lo + hi) / 2);
-			if (windowed[mid].ts_ms < targetTs) lo = mid + 1;
-			else hi = mid;
-		}
-		const right = windowed[lo];
-		const left = lo > 0 ? windowed[lo - 1] : right;
+	function lerpMaybe(a: number | null | undefined, b: number | null | undefined, t: number): number | undefined {
+		if (a == null && b == null) return undefined;
+		if (a == null) return b ?? undefined;
+		if (b == null) return a ?? undefined;
+		return a + (b - a) * t;
+	}
+
+	function valuesAtTime(targetTs: number): { ts: number; chargePct?: number; watts?: number } | null {
+		const bracket = bracketByTime(hoverSamples, targetTs, (s) => s.ts_ms);
+		if (!bracket) return null;
+		const { left, right } = bracket;
 		if (left !== right && targetTs > left.ts_ms && targetTs < right.ts_ms && right.ts_ms - left.ts_ms > GAP_MS) {
-			return null;
+			const t = (targetTs - left.ts_ms) / (right.ts_ms - left.ts_ms);
+			return {
+				ts: targetTs,
+				chargePct: lerpMaybe(left.charge_pct, right.charge_pct, t),
+			};
 		}
-		return Math.abs(right.ts_ms - targetTs) < Math.abs(left.ts_ms - targetTs) ? right : left;
+		const nearest = Math.abs(right.ts_ms - targetTs) < Math.abs(left.ts_ms - targetTs) ? right : left;
+		return {
+			ts: nearest.ts_ms,
+			chargePct: nearest.charge_pct ?? undefined,
+			watts: nearest.watts ?? undefined,
+		};
 	}
 
 	function onMouseMove(e: MouseEvent) {
 		if (!svgEl) return;
-		const rect = svgEl.getBoundingClientRect();
-		const relX = e.clientX - rect.left;
-		const relY = e.clientY - rect.top;
-		const fracX = Math.max(0, Math.min(1, relX / Math.max(1, rect.width)));
-		const xView = fracX * svgWidth;
-		const w = svgWidth - padding.left - padding.right;
-		if (w <= 0) return;
-		if (xView < padding.left || xView > svgWidth - padding.right) {
-			hover = null;
-			return;
-		}
-		const targetTs = tMin + ((xView - padding.left) / w) * (tMax - tMin);
-		const sample = findNearestSample(targetTs);
+		const targetTs = pointerToDomainX(e.clientX, svgEl, svgWidth, padding, tMin, tMax);
+		if (targetTs == null) return;
+		const sample = valuesAtTime(targetTs);
 		if (!sample) {
 			hover = null;
 			return;
 		}
-		const chargeY = sample.charge_pct != null ? yToPxPct(sample.charge_pct) : null;
+		const chargeY = sample.chargePct != null ? yToPxPct(sample.chargePct) : null;
 		const wattY = sample.watts != null ? yToPxWatts(sample.watts) : null;
+		const rect = svgEl.getBoundingClientRect();
+		const relY = e.clientY - rect.top;
 		const scaleY = rect.height / svgHeight;
 		let anchor: 'charge' | 'power' = chargeY != null ? 'charge' : 'power';
 		let anchorY = chargeY ?? wattY ?? padding.top;
@@ -278,9 +305,9 @@
 			}
 		}
 		hover = {
-			ts: sample.ts_ms,
-			chargePct: sample.charge_pct ?? undefined,
-			watts: sample.watts ?? undefined,
+			ts: sample.ts,
+			chargePct: sample.chargePct,
+			watts: sample.watts,
 			anchorY,
 			anchor,
 		};
@@ -387,6 +414,7 @@
 				on:mousemove={onMouseMove}
 				on:mouseleave={onMouseLeave}
 			>
+				<rect width={svgWidth} height={svgHeight} fill="transparent" />
 				<defs>
 					<clipPath id="battery-plot-clip">
 						<rect
@@ -438,15 +466,6 @@
 					</g>
 				{/each}
 
-				{#each wattScale.ticks as w (w)}
-					<text
-						x={svgWidth - padding.right + 6}
-						y={yToPxWatts(w, svgHeight) + 4}
-						text-anchor="start"
-						class="fill-current opacity-60 text-[10px]">{formatAxisWatts(w)}W</text
-					>
-				{/each}
-
 				{#if wattScale.min < 0 && wattScale.max > 0}
 					<line
 						x1={padding.left}
@@ -492,6 +511,15 @@
 						{/each}
 					{/each}
 				</g>
+
+				{#each wattScale.ticks as w (w)}
+					<text
+						x={svgWidth - padding.right + 6}
+						y={yToPxWatts(w, svgHeight) + 4}
+						text-anchor="start"
+						class="fill-current opacity-60 text-[10px]">{formatAxisWatts(w)}W</text
+					>
+				{/each}
 
 				{#if hover}
 					<line

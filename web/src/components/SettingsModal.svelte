@@ -11,9 +11,16 @@
     import { listAvailableDaisyUIThemes } from "../lib/themes";
     import { isLinux } from "../lib/platform";
     import { configStore, followConfig, patch } from "../lib/config";
+    import { portal } from "../lib/portal";
     const dispatch = createEventDispatcher();
     function close() {
         dispatch("close");
+    }
+
+    function onWindowKeydown(e: KeyboardEvent) {
+        if (e.key !== "Escape" || showLogs) return;
+        e.preventDefault();
+        close();
     }
 
     let currentVersion: string;
@@ -246,9 +253,17 @@
     });
 </script>
 
-<div class="modal modal-open">
-    <div class="modal-box max-w-2xl">
-        <h3 class="font-bold text-lg">Settings</h3>
+<svelte:window on:keydown={onWindowKeydown} />
+
+<div class="modal modal-open" use:portal>
+    <div
+        class="modal-box max-w-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
+        tabindex="-1"
+    >
+        <h3 id="settings-modal-title" class="font-bold text-lg">Settings</h3>
         <div class="divider my-2"></div>
         <div class="space-y-4">
             <section
@@ -468,7 +483,11 @@
             <button class="btn" on:click={close}>Close</button>
         </div>
     </div>
-    <button class="modal-backdrop" on:click={close} aria-label="Close settings"
+    <button
+        class="modal-backdrop"
+        tabindex="-1"
+        on:click={close}
+        aria-label="Close settings"
     ></button>
 </div>
 

@@ -9,6 +9,7 @@
     import { tooltip } from "../lib/tooltip";
     import { followConfig, patch } from "../lib/config";
     import { measureSize, type MeasuredSize } from "../lib/measureSize";
+    import { findNearestByTime, pointerToDomainX } from "../lib/plot";
 
     // No power bar here anymore; moved to PowerControl
 
@@ -77,37 +78,13 @@
     let hoverCssY = 0;
     let hoverCircleEl: SVGCircleElement | null = null;
 
-    function findNearestPoint(
-        pts: Array<[number, number]>,
-    targetTs: number
-    ): [number, number] | null {
-        if (!pts.length) return null;
-        let lo = 0;
-        let hi = pts.length - 1;
-        while (lo < hi) {
-            const mid = Math.floor((lo + hi) / 2);
-            if (pts[mid][0] < targetTs) lo = mid + 1;
-            else hi = mid;
-        }
-        const i2 = lo;
-        const i1 = Math.max(0, lo - 1);
-        const p1 = pts[i1];
-        const p2 = pts[i2] ?? pts[pts.length - 1];
-    return Math.abs(p2[0] - targetTs) < Math.abs(p1[0] - targetTs) ? p2 : p1;
-    }
-
     function onMouseMove(e: MouseEvent) {
         if (!svgEl || tMin == null || tMax == null) return;
+        const targetTs = pointerToDomainX(e.clientX, svgEl, svgWidth, padding, tMin, tMax);
+        if (targetTs == null) return;
+
         const rect = svgEl.getBoundingClientRect();
-        const relX = e.clientX - rect.left;
         const relY = e.clientY - rect.top;
-        const fracX = Math.max(0, Math.min(1, relX / Math.max(1, rect.width)));
-        const xView = fracX * svgWidth;
-
-        const w = svgWidth - padding.left - padding.right;
-        if (w <= 0) return;
-        const targetTs = tMin + ((xView - padding.left) / w) * (tMax - tMin);
-
         const scaleX = rect.width / svgWidth;
         const scaleY = rect.height / svgHeight;
 
@@ -121,7 +98,7 @@
         } | null = null;
         for (const [name, pts] of Object.entries(series)) {
             if (!pts?.length) continue;
-            const p = findNearestPoint(pts, targetTs);
+            const p = findNearestByTime(pts, targetTs, (pt) => pt[0]);
             if (!p) continue;
             const yPx = yToPx(p[1]) * scaleY;
             const vDist = Math.abs(yPx - relY);
@@ -140,7 +117,6 @@
         }
         hover = { ts: best.ts, name: best.name, value: best.value };
 
-        // Compute CSS pixel position for tooltip
         hoverCssX = xToPx(best.ts) * scaleX;
         hoverCssY = yToPx(best.value) * scaleY;
     }
