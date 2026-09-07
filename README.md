@@ -1,6 +1,6 @@
 # Framework Control
 
-Framework Control is a lightweight control surface for Framework laptops. It exposes a minimal local HTTP API and a modern web UI to monitor telemetry and tweak core platform settings (fans, power, charging, etc.). The project is designed to be fast, unobtrusive, and extensible. Windows background service + Svelte web UI for telemetry and advanced fan control (auto/manual/curve, hysteresis, rate limit, live RPM overlay with calibration).
+A local lightweight Linux/Windows service with a Svelte web UI for Framework devices (Laptop 12, 13, 16, and Desktop). It exposes a loopback HTTP API to monitor telemetry and tweak fans, power, and charging, including auto, manual, and curve fan control with hysteresis, rate limiting, a live RPM overlay, and calibration.
 
 ## How To Use
 
@@ -18,7 +18,7 @@ Framework Control is a lightweight control surface for Framework laptops. It exp
 **Linux install options** (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD) for full details):
 
 - **Install script** (any distro): `curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash`
-- **Arch Linux (AUR)**: `yay -S framework-control` — [stable](https://aur.archlinux.org/packages/framework-control) · [beta](https://aur.archlinux.org/packages/framework-control-beta)
+- **Arch Linux (AUR)**: `yay -S framework-control` ([stable](https://aur.archlinux.org/packages/framework-control) · [beta](https://aur.archlinux.org/packages/framework-control-beta))
 - **NixOS**: `services.framework-control.enable = true;` in your NixOS configuration
 
 ### Uninstall
@@ -37,24 +37,25 @@ This software is provided "as is," without warranty of any kind, express or impl
 
 ## Current Features
 
-- **Fan Controls**: Auto, Manual duty, and Curve editor with hysteresis and rate‑limit
-  - Per-fan overrides on multi-fan laptops (optional custom manual duty or curve per fan)
+- **Fan Controls**: Auto, Manual duty, and Curve editor with hysteresis and rate-limit
+  - Per-fan overrides on multi-fan devices (optional custom manual duty or curve per fan)
   - Live RPM overlay with crosshair showing current temperature and estimated duty% on the curve editor
-  - One‑time calibration wizard for accurate RPM-to-duty mapping
+  - One-time calibration wizard for accurate RPM-to-duty mapping
 - **Telemetry & Sensors**: Live temperature and fan RPM graphs with history
   - Background telemetry sampling with configurable poll interval and history window
   - Per-sensor series with selection and legend, sourced from the local service
 - **Persistent Settings**: Configurations saved locally with sensible defaults
-- **Clean Architecture**: Minimal always‑on local service with REST API on loopback
+- **Clean Architecture**: Minimal always-on local service with REST API on loopback
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
-- **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode (created on first run)
+- **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode on Windows; Linux gets an application menu desktop entry (created on first run)
 - **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold.
 - **Power Controls**:
   - **Windows (RyzenAdj)**: TDP and thermal limit control for AMD Ryzen systems
   - **Linux (Native)**: Uses kernel interfaces (AMD P-State EPP, cpufreq governor)
   - Set energy preferences (AMD P-State) or governors/frequency limits (cpufreq)
   - Separate AC/Battery profiles with background reapply and live power readout
-- **Updates & Shortcuts**: In-app update checks and optional auto-install, plus Start Menu/Desktop shortcut management from the Settings modal
+- **Updates & Shortcuts**: In-app update checks and optional auto-install, Start Menu/Desktop shortcut management, and `framework_tool` version selection from the Settings modal
+- **Themes**: DaisyUI theme picker persisted in config and applied across clients
 - **Linux Support**: 
   - systemd unit with udev rules for input modules
   - Native power management via kernel interfaces (no external dependencies)
@@ -64,11 +65,11 @@ This software is provided "as is," without warranty of any kind, express or impl
 
 - **LED Matrix Support** (Framework 16 input module):
   - Live canvas editor (draw/erase/brightness/sleep) inspired by https://ledmatrix.frame.work/
-  - One/two‑module layouts (9×34 and 9×68), dithering and content scheduling
+  - One/two-module layouts (9×34 and 9×68), dithering and content scheduling
   - Optional integrations for animations/GIF/pixel art
 - **Additional EC Controls**: Keyboard backlight, fingerprint LED levels, input deck modes
 - **Import/Export**: Settings backup and sharing
-- **App Signing for Windows**: Support for Windows Store app signing and distributio
+- **App Signing for Windows**: Support for Windows Store app signing and distribution
 
 ## Architecture
 
@@ -77,18 +78,18 @@ This software is provided "as is," without warranty of any kind, express or impl
   - Executes Framework CLI (`framework_tool`) for all EC interactions
   - Power management: RyzenAdj on Windows, native kernel interfaces (AMD P-State EPP, cpufreq) on Linux
   - Applies persisted fan-control and power config at boot
-- **Frontend UI**: Svelte + Vite
+- **Frontend UI**: Svelte + TypeScript + Vite + Tailwind + DaisyUI
   - Responsive panel layout adapting to active fan mode
   - Real-time telemetry updates
 - **Packaging**: WiX MSI installer for Windows; Linux install script, AUR package, and nixpkgs / NixOS module
 
-## Why CLI‑only for EC?
+## Why CLI-only for EC?
 
-Early iterations used the Rust `framework_lib` directly. On Windows that required build‑time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux.
+Early iterations used the Rust `framework_lib` directly. On Windows that required build-time git metadata and custom driver bindings, which added fragility to packaging and dev setup. Pivoting to the official CLI (`framework_tool`) gives a stable, tested interface with consistent elevation semantics on Windows. It also maps cleanly to Linux.
 
 ## Contributing
 
-This project is **not currently accepting outside contributions** and is maintained solely by the author. Pull requests from non-collaborators are closed automatically — please [open an issue](https://github.com/ozturkkl/framework-control/issues) instead. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+This project is **not currently accepting outside contributions** and is maintained solely by the author. Pull requests from non-collaborators are closed automatically; please [open an issue](https://github.com/ozturkkl/framework-control/issues) instead. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Developer Setup
 
@@ -167,7 +168,7 @@ The service provides a REST API for health and telemetry (`/api/health`, `/api/t
 - `/api/power`: combined battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`.
 - `/api/thermal/history`: recent temperature/RPM samples collected by the background telemetry task.
 
-Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.json` (Windows, overridable via `FRAMEWORK_CONTROL_CONFIG`) and includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters, power AC/Battery profiles, battery charge-limit/rate settings and SoC threshold, telemetry poll/retention, update preferences, and UI theme.
+Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.json` on Windows (overridable via `FRAMEWORK_CONTROL_CONFIG`) and `/etc/framework-control/config.json` on Linux. It includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters, power AC/Battery profiles, battery charge-limit/rate settings and SoC threshold, telemetry poll/retention, update preferences, and UI theme.
 
 ## UI Features
 
@@ -196,4 +197,4 @@ Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.
 
 - API binds to loopback only (127.0.0.1) - no remote exposure
 - CORS restricts browser-based cross-origin requests
-- Service logs diagnostics via the Windows service wrapper (rolling logs in the install directory)
+- Service logs diagnostics via the Windows service wrapper (rolling logs in the install directory) or `journalctl` on Linux
