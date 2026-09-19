@@ -2,6 +2,7 @@
     import { createEventDispatcher, onMount, onDestroy, tick } from "svelte";
     import Icon from "@iconify/svelte";
     import { DefaultService, OpenAPI } from "../api";
+    import { portal } from "../lib/portal";
 
     const dispatch = createEventDispatcher();
 
@@ -145,12 +146,26 @@
     function close() {
         dispatch("close");
     }
+
+    function onWindowKeydown(e: KeyboardEvent) {
+        if (e.key !== "Escape") return;
+        e.preventDefault();
+        close();
+    }
 </script>
 
-<div class="modal modal-open">
-    <div class="modal-box max-w-4xl h-[80vh] flex flex-col">
+<svelte:window on:keydown={onWindowKeydown} />
+
+<div class="modal modal-open" use:portal>
+    <div
+        class="modal-box max-w-4xl h-[80vh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logs-modal-title"
+        tabindex="-1"
+    >
         <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-lg">Service Logs</h3>
+            <h3 id="logs-modal-title" class="font-bold text-lg">Service Logs</h3>
             <button
                 class="btn btn-sm btn-ghost btn-circle"
                 on:click={close}
@@ -222,6 +237,10 @@
             <button class="btn btn-sm" on:click={close}>Close</button>
         </div>
     </div>
-    <button class="modal-backdrop" on:click={close} aria-label="Close logs"
+    <button
+        class="modal-backdrop"
+        tabindex="-1"
+        on:click={close}
+        aria-label="Close logs"
     ></button>
 </div>

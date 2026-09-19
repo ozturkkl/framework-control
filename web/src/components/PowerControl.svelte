@@ -22,7 +22,7 @@
     const POWER_INFO_CONTAINER_CLASS =
         "flex flex-col h-44 my-0.5 px-6 justify-center gap-2";
     const POWER_CONTROLS_GRID_CLASS =
-        "grid flex-1 min-h-0 gap-3 pb-1 auto-rows-[minmax(min-content,1fr)] [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]";
+        "grid flex-1 min-h-0 gap-3 pb-1 auto-rows-[minmax(min-content,1fr)] [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]";
     const POWER_CONTROL_WRAP_CLASS =
         "h-full min-h-0 transition-transform duration-100";
     const isWindows = getIsWindows();

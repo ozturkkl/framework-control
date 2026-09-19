@@ -204,7 +204,7 @@
             </div>
         {:else}
             <div
-                class="relative flex items-center w-full"
+                class="relative isolate flex items-center w-full"
                 class:flex-1={!showFillReadout}
                 class:max-w-md={showFillReadout}
             >
