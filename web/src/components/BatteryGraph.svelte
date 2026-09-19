@@ -7,7 +7,7 @@
 	import { tooltip } from '../lib/tooltip';
 	import { followConfig, patch } from '../lib/config';
 	import { measureSize, type MeasuredSize } from '../lib/measureSize';
-	import { bracketByTime, pointerToDomainX } from '../lib/plot';
+	import { bracketByTime, pointerToDomainX, wattsScale, wattYToPx } from '../lib/plot';
 
 	const WINDOW_KEY = 'fc.battery.window';
 	const WINDOW_SINCE_CHARGE = 'Since last charge';
@@ -25,7 +25,8 @@
 	const GAP_MS = 2.1 * MAX_POLL_SECS * 1000;
 	const DEFAULT_POLL_SECS = 15;
 	const CHARGE_COLOR = '#22c55e';
-	const POWER_COLOR = '#3b82f6';
+	const POWER_CHARGE_COLOR = '#3b82f6';
+	const POWER_DISCHARGE_COLOR = '#f97316';
 	let pollSecs = DEFAULT_POLL_SECS;
 	let windowChoice = WINDOW_SINCE_CHARGE;
 	let historyTimer: ReturnType<typeof setInterval> | null = null;
@@ -72,13 +73,11 @@
 	$: wattSegs = splitByTime(wattRaw, GAP_MS).map((seg) => decimate(seg, 400));
 	$: chargeGaps = connectors(chargeSegs);
 	$: wattScale = wattsScale(wattRaw.map((p) => p[1]));
+	$: wattPosSegs = splitByWattSign(wattSegs, 1);
+	$: wattNegSegs = splitByWattSign(wattSegs, -1);
 	$: last = windowed.length ? windowed[windowed.length - 1] : undefined;
 	$: hoverSamples = chargePrior ? [chargePrior, ...windowed] : windowed;
-	$: plotSeries = [
-		{ key: 'charge', color: CHARGE_COLOR, segs: chargeSegs, gaps: chargeGaps, yToPx: yToPxPct },
-		// Power is instantaneous — leave sampling gaps empty rather than inventing values.
-		{ key: 'power', color: POWER_COLOR, segs: wattSegs, gaps: [], yToPx: yToPxWatts },
-	];
+	$: plotSeries = [{ key: 'charge', color: CHARGE_COLOR, segs: chargeSegs, gaps: chargeGaps, yToPx: yToPxPct }];
 
 	function pickStep(candidates: number[], approx: number): number {
 		for (const c of candidates) {
@@ -153,10 +152,7 @@
 		return padding.top + (1 - y / 100) * h;
 	}
 	function yToPxWatts(y: number, height = svgHeight) {
-		const h = height - padding.top - padding.bottom;
-		const { min, max } = wattScale;
-		if (max === min) return padding.top + h / 2;
-		return padding.top + (1 - (y - min) / (max - min)) * h;
+		return wattYToPx(y, wattScale, height, padding);
 	}
 
 	function buildPath(
@@ -170,6 +166,68 @@
 			.join(' ');
 	}
 
+	function buildAreaPath(
+		points: Pt[],
+		yToPx: (y: number, height?: number) => number,
+		width = svgWidth,
+		height = svgHeight,
+	) {
+		if (points.length < 2) return '';
+		const y0 = yToPx(0, height);
+		const last = points[points.length - 1];
+		const first = points[0];
+		return `${buildPath(points, yToPx, width, height)} L${xToPx(last[0], width)},${y0} L${xToPx(first[0], width)},${y0} Z`;
+	}
+
+	function zeroCrossing(a: Pt, b: Pt): Pt {
+		const dy = b[1] - a[1];
+		const t = dy === 0 ? 0 : (0 - a[1]) / dy;
+		return [a[0] + t * (b[0] - a[0]), 0];
+	}
+
+	function wattSign(y: number): 1 | -1 | 0 {
+		if (y > 0) return 1;
+		if (y < 0) return -1;
+		return 0;
+	}
+
+	/** Keep runs on one side of 0W, inserting interpolated crossings so fills meet the baseline. */
+	function splitByWattSign(segs: Pt[][], sign: 1 | -1): Pt[][] {
+		const out: Pt[][] = [];
+		for (const points of segs) {
+			let cur: Pt[] = [];
+			const flush = () => {
+				if (cur.length >= 2 && cur.some((p) => p[1] !== 0)) out.push(cur);
+				cur = [];
+			};
+			for (let i = 0; i < points.length; i++) {
+				const p = points[i];
+				const s = wattSign(p[1]);
+				if (i > 0) {
+					const prev = points[i - 1];
+					const ps = wattSign(prev[1]);
+					if (ps !== 0 && s !== 0 && ps !== s) {
+						const z = zeroCrossing(prev, p);
+						if (ps === sign) {
+							cur.push(z);
+							flush();
+						} else {
+							cur = [z];
+						}
+					}
+				}
+				if (s === sign || s === 0) cur.push(p);
+				else flush();
+			}
+			flush();
+		}
+		return out;
+	}
+
+	function powerColor(watts?: number): string {
+		return watts != null && watts < 0 ? POWER_DISCHARGE_COLOR : POWER_CHARGE_COLOR;
+	}
+
 	function connectors(segs: Pt[][]): Array<[Pt, Pt]> {
 		const out: Array<[Pt, Pt]> = [];
 		for (let i = 0; i < segs.length - 1; i++) {
@@ -178,30 +236,6 @@
 			if (a && b) out.push([a, b]);
 		}
 		return out;
-	}
-
-	function wattsScale(values: number[]): { min: number; max: number; ticks: number[] } {
-		let lo = 0;
-		let hi = 0;
-		for (const v of values) {
-			if (Number.isFinite(v)) {
-				lo = Math.min(lo, v);
-				hi = Math.max(hi, v);
-			}
-		}
-		const pad = Math.max(4, (hi - lo) * 0.15);
-		if (lo < 0) lo -= pad;
-		if (hi > 0) hi += pad;
-		lo = Math.min(0, lo);
-		hi = Math.max(0, hi);
-		if (lo === 0 && hi === 0) hi = 8;
-		const span = Math.max(8, hi - lo);
-		const step = pickStep([1, 2, 5, 10, 15, 20, 25, 50], span / 4);
-		const min = Math.floor(lo / step) * step;
-		const max = Math.ceil(hi / step) * step;
-		const ticks: number[] = [];
-		for (let t = min; t <= max + 1e-6; t += step) ticks.push(t);
-		return { min, max, ticks };
 	}
 
 	function formatClock(ts: number, dateOnly = false) {
@@ -376,7 +410,10 @@
 				{/if}
 			</span>
 			<span class="inline-flex items-center gap-1">
-				<span class="w-2.5 h-2.5 rounded-sm" style={`background:${POWER_COLOR}`}></span>
+				<span class="inline-flex overflow-hidden rounded-sm">
+					<span class="w-2.5 h-2.5" style={`background:${POWER_CHARGE_COLOR}`}></span>
+					<span class="w-2.5 h-2.5" style={`background:${POWER_DISCHARGE_COLOR}`}></span>
+				</span>
 				<span class="opacity-80">Power</span>
 				{#if last?.watts != null}
 					<span class="tabular-nums font-medium">{formatWatts(last.watts)}</span>
@@ -415,6 +452,18 @@
 							height={svgHeight - padding.top - padding.bottom}
 						/>
 					</clipPath>
+					{#if wattScale.max > 0}
+						<linearGradient id="battery-power-pos-fill" x1="0" y1="0" x2="0" y2="1">
+							<stop offset="0%" stop-color={POWER_CHARGE_COLOR} stop-opacity="0.9" />
+							<stop offset="100%" stop-color={POWER_CHARGE_COLOR} stop-opacity="0.22" />
+						</linearGradient>
+					{/if}
+					{#if wattScale.min < 0}
+						<linearGradient id="battery-power-neg-fill" x1="0" y1="0" x2="0" y2="1">
+							<stop offset="0%" stop-color={POWER_DISCHARGE_COLOR} stop-opacity="0.22" />
+							<stop offset="100%" stop-color={POWER_DISCHARGE_COLOR} stop-opacity="0.9" />
+						</linearGradient>
+					{/if}
 				</defs>
 
 				<g stroke="currentColor" class="opacity-30">
@@ -457,18 +506,6 @@
 					</g>
 				{/each}
 
-				{#if wattScale.min < 0 && wattScale.max > 0}
-					<line
-						x1={padding.left}
-						y1={yToPxWatts(0, svgHeight)}
-						x2={svgWidth - padding.right}
-						y2={yToPxWatts(0, svgHeight)}
-						stroke="currentColor"
-						stroke-width="1"
-						class="opacity-30"
-					/>
-				{/if}
-
 				{#each timeAxis.ticks as t (t)}
 					<g>
 						<line
@@ -484,6 +521,41 @@
 						>
 					</g>
 				{/each}
+
+				<g clip-path="url(#battery-plot-clip)">
+					{#each wattPosSegs as seg, i (`pos-${i}-${seg[0]?.[0]}`)}
+						<path d={buildAreaPath(seg, yToPxWatts, svgWidth, svgHeight)} fill="url(#battery-power-pos-fill)" stroke="none" />
+						<path
+							d={buildPath(seg, yToPxWatts, svgWidth, svgHeight)}
+							fill="none"
+							stroke={POWER_CHARGE_COLOR}
+							stroke-width="1.5"
+							stroke-linejoin="round"
+							stroke-linecap="round"
+						/>
+					{/each}
+					{#each wattNegSegs as seg, i (`neg-${i}-${seg[0]?.[0]}`)}
+						<path d={buildAreaPath(seg, yToPxWatts, svgWidth, svgHeight)} fill="url(#battery-power-neg-fill)" stroke="none" />
+						<path
+							d={buildPath(seg, yToPxWatts, svgWidth, svgHeight)}
+							fill="none"
+							stroke={POWER_DISCHARGE_COLOR}
+							stroke-width="1.5"
+							stroke-linejoin="round"
+							stroke-linecap="round"
+						/>
+					{/each}
+				</g>
+
+				<line
+					x1={padding.left}
+					y1={yToPxWatts(0, svgHeight)}
+					x2={svgWidth - padding.right}
+					y2={yToPxWatts(0, svgHeight)}
+					stroke="currentColor"
+					stroke-width="1.5"
+					class="opacity-70"
+				/>
 
 				<g clip-path="url(#battery-plot-clip)">
 					{#each plotSeries as series (series.key)}
@@ -527,7 +599,7 @@
 						cx={xToPx(hover.ts, svgWidth)}
 						cy={hover.anchorY}
 						r="3.5"
-						fill={hover.anchor === 'charge' ? CHARGE_COLOR : POWER_COLOR}
+						fill={hover.anchor === 'charge' ? CHARGE_COLOR : powerColor(hover.watts)}
 						stroke="white"
 						stroke-width="1.5"
 					/>
@@ -567,7 +639,7 @@
 					{/if}
 					{#if hover.watts != null}
 						<div class="flex items-center gap-2">
-							<span class="inline-block w-2.5 h-2.5 rounded-sm" style={`background:${POWER_COLOR}`}></span>
+							<span class="inline-block w-2.5 h-2.5 rounded-sm" style={`background:${powerColor(hover.watts)}`}></span>
 							<span class="opacity-80">Power</span>
 							<span class="tabular-nums font-medium">{formatWatts(hover.watts)}</span>
 						</div>

@@ -65,3 +65,54 @@ export function findNearestByTime<T>(
 	const { left, right } = bracket;
 	return Math.abs(getTime(right) - target) < Math.abs(getTime(left) - target) ? right : left;
 }
+
+export type WattScale = { min: number; max: number; ticks: number[] };
+
+const WATT_EXPECTED = 20;
+const WATT_PAD_BOTTOM = 10;
+const WATT_PAD_TOP = 30;
+const WATT_ZERO_CHARGE_PCT = 40;
+
+function pickWattStep(approx: number): number {
+	const candidates = [1, 2, 5, 10, 15, 20, 25, 50];
+	for (const c of candidates) {
+		if (c >= approx) return c;
+	}
+	return candidates[candidates.length - 1];
+}
+
+/** Bipolar W scale: 0W stays put, ±20 expected, then +30W top / −10W bottom padding. */
+export function wattsScale(values: number[]): WattScale {
+	let dataMin = 0;
+	let dataMax = 0;
+	for (const v of values) {
+		if (Number.isFinite(v)) {
+			dataMin = Math.min(dataMin, v);
+			dataMax = Math.max(dataMax, v);
+		}
+	}
+	const min = Math.min(-WATT_EXPECTED, dataMin) - WATT_PAD_BOTTOM;
+	const max = Math.max(WATT_EXPECTED, dataMax) + WATT_PAD_TOP;
+	const step = pickWattStep((max - min) / 4);
+	const ticks = [0];
+	for (let t = step; t <= max + 1e-6; t += step) ticks.push(t);
+	for (let t = -step; t >= min - 1e-6; t -= step) ticks.push(t);
+	ticks.sort((a, b) => a - b);
+	return { min, max, ticks };
+}
+
+export function wattYToPx(
+	watts: number,
+	scale: Pick<WattScale, 'min' | 'max'>,
+	height: number,
+	padding: Pick<PlotPadding, 'top' | 'bottom'>,
+): number {
+	const h = height - padding.top - padding.bottom;
+	const zeroY = padding.top + (1 - WATT_ZERO_CHARGE_PCT / 100) * h;
+	if (watts >= 0) {
+		if (scale.max === 0) return zeroY;
+		return zeroY + (watts / scale.max) * (padding.top - zeroY);
+	}
+	if (scale.min === 0) return zeroY;
+	return zeroY + (watts / scale.min) * (height - padding.bottom - zeroY);
+}
