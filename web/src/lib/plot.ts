@@ -66,8 +66,10 @@ export type WattScale = { min: number; max: number; ticks: number[] };
 
 const WATT_EXPECTED = 20;
 const WATT_PAD_BOTTOM = 10;
-const WATT_PAD_TOP = 30;
+const WATT_PAD_TOP = 20;
 const WATT_ZERO_CHARGE_PCT = 40;
+const WATT_POS_FRAC = 1 - WATT_ZERO_CHARGE_PCT / 100;
+const WATT_NEG_FRAC = WATT_ZERO_CHARGE_PCT / 100;
 
 function pickWattStep(approx: number): number {
 	const candidates = [1, 2, 5, 10, 15, 20, 25];
@@ -77,7 +79,7 @@ function pickWattStep(approx: number): number {
 	return candidates[candidates.length - 1];
 }
 
-/** Bipolar W scale: 0W stays put, ±20 expected, then +30W top / −10W bottom padding. */
+/** 0W stays at 40% charge. Same W/px above and below; quiet side grows to match. */
 export function wattsScale(values: number[]): WattScale {
 	let dataMin = 0;
 	let dataMax = 0;
@@ -87,8 +89,12 @@ export function wattsScale(values: number[]): WattScale {
 			dataMax = Math.max(dataMax, v);
 		}
 	}
-	const min = Math.min(-WATT_EXPECTED, dataMin) - WATT_PAD_BOTTOM;
-	const max = Math.max(WATT_EXPECTED, dataMax) + WATT_PAD_TOP;
+	const density = Math.max(
+		(Math.max(WATT_EXPECTED, dataMax) + WATT_PAD_TOP) / WATT_POS_FRAC,
+		(Math.max(WATT_EXPECTED, -dataMin) + WATT_PAD_BOTTOM) / WATT_NEG_FRAC,
+	);
+	const max = density * WATT_POS_FRAC;
+	const min = -density * WATT_NEG_FRAC;
 	const step = pickWattStep((max - min) / 4);
 	const ticks = [0];
 	for (let t = step; t <= max + 1e-6; t += step) ticks.push(t);
@@ -99,16 +105,11 @@ export function wattsScale(values: number[]): WattScale {
 
 export function wattYToPx(
 	watts: number,
-	scale: Pick<WattScale, 'min' | 'max'>,
+	scale: Pick<WattScale, 'max'>,
 	height: number,
 	padding: Pick<PlotPadding, 'top' | 'bottom'>,
 ): number {
 	const h = height - padding.top - padding.bottom;
-	const zeroY = padding.top + (1 - WATT_ZERO_CHARGE_PCT / 100) * h;
-	if (watts >= 0) {
-		if (scale.max === 0) return zeroY;
-		return zeroY + (watts / scale.max) * (padding.top - zeroY);
-	}
-	if (scale.min === 0) return zeroY;
-	return zeroY + (watts / scale.min) * (height - padding.bottom - zeroY);
+	const zeroY = padding.top + WATT_POS_FRAC * h;
+	return zeroY - (watts / scale.max) * (zeroY - padding.top);
 }
