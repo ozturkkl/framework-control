@@ -4,6 +4,7 @@
 - **NEW: Battery history graph** (#72): Background poll keeps up to 7 days of charge % and signed pack watts. `/api/battery/history` added. Window presets include 1 hour through 7 days and **Since last charge**. History sample interval is `battery.poll_ms` (5s–1min, default 15s).
 - **Per-Fan calibration and improvements to the calibration process**: Per-fan duty-to-RPM mapping. One run commands all fans together, waits until each is stable, and stores a curve per fan (`fan.calibration.fans[]`). Live RPM overlay uses that fan's curve. The shared `points` field is removed — existing calibrations are treated as missing and need a re-run. Sampling waits for settle and a longer stable window so a slow fan response is not recorded as the next step. NOTE: Fan calibrations will have to be re-recorded.
 - **Config sync**: One UI config store plus SSE on config writes so open tabs stay in sync without polling.
+- **Linux/AUR**: PKGBUILD makedepends are now `cargo`, `nodejs`, and `npm` (replacing `rust`) so AUR builds can compile the web UI and service.
 - **Other UI Fixes/Improvements**: Made some UI changes to improve coherence and the way everything sits/aligns. Minor improvements to graphs including bug fixes. Fixed a bug where Settings and Logs modals hide behind the header. Escape closes them. Better accessibility and tab control for modals.
 
 ## 0.5.4 - 2026-07-03

@@ -25,10 +25,7 @@ pub async fn run(framework_tool_lock: Arc<tokio::sync::RwLock<Option<FrameworkTo
         // Clone required shared state each tick
         let (cfg_bat, battery_enabled): (BatteryConfig, bool) = {
             let cfg = cfg.read().await;
-            (
-                cfg.battery.clone(),
-                cfg.ui.is_panel_enabled(DashboardPanelId::Battery),
-            )
+            (cfg.battery.clone(), cfg.ui.is_panel_enabled(DashboardPanelId::Battery))
         };
 
         if !battery_enabled {

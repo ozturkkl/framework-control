@@ -55,11 +55,7 @@ export function bracketByTime<T>(
 	return { left, right };
 }
 
-export function findNearestByTime<T>(
-	items: T[],
-	target: number,
-	getTime: (item: T) => number,
-): T | null {
+export function findNearestByTime<T>(items: T[], target: number, getTime: (item: T) => number): T | null {
 	const bracket = bracketByTime(items, target, getTime);
 	if (!bracket) return null;
 	const { left, right } = bracket;
