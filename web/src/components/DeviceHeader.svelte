@@ -1,6 +1,7 @@
 <script lang="ts">
     export let healthy = false;
     export let cliPresent: boolean = true;
+    export let editing = false;
 
     const repoLink = "https://github.com/ozturkkl/framework-control/tree/main";
     const MAIN_PAGE = `${import.meta.env.BASE_URL}assets/main-page.jpg`;
@@ -14,6 +15,7 @@
     import Icon from "@iconify/svelte";
     import SettingsModal from "./SettingsModal.svelte";
     import LogsModal from "./LogsModal.svelte";
+    import DashboardLayoutMenu from "./DashboardLayoutMenu.svelte";
     import { gtSemver } from "../lib/semver";
     import { tooltip } from "../lib/tooltip";
     import { isLinux } from "../lib/platform";
@@ -165,7 +167,7 @@
             : false;
 </script>
 
-<div class="card bg-base-100 shadow overflow-hidden">
+<div class="card bg-base-100 shadow relative z-20">
     <div class="card-body p-4">
         <div
             class={healthy
@@ -266,6 +268,7 @@
                                     framework_tool missing — Reinstall
                                 {/if}
                             </div>
+                            <DashboardLayoutMenu {editing} on:toggleEdit />
                             <button
                                 class="btn btn-ghost btn-sm mr-0 relative"
                                 aria-label="Open settings"

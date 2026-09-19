@@ -18,18 +18,21 @@
   }
 </script>
 
-<div class="card bg-base-200 p-3">
+<div class="card bg-base-200 p-3 h-full min-h-0 flex flex-col flex-1 w-full">
   {#if !showSettings}
-    <div use:measureHeight={{ onChange: setMeasuredHeight }}>
-      <div class="flex items-center justify-between mb-2 gap-2">
+    <div
+      class="h-full min-h-0 flex flex-col flex-1"
+      use:measureHeight={{ onChange: setMeasuredHeight }}
+    >
+      <div class="flex items-center justify-between mb-2 gap-2 shrink-0">
         <slot name="top" {openSettings} {closeSettings} />
       </div>
-      <div class="relative">
-        <div class="w-full relative">
+      <div class="relative flex-1 min-h-0 flex flex-col">
+        <div class="relative w-full flex-1 min-h-[220px]">
           <slot name="graph" />
         </div>
         {#if $$slots.bottom}
-          <div class="mt-2">
+          <div class="mt-2 shrink-0">
             <slot name="bottom" />
           </div>
         {/if}
@@ -37,8 +40,8 @@
     </div>
   {:else}
     <div
-      class="h-full overflow-y-auto overflow-x-hidden"
-      style={`height:${contentHeight ? contentHeight + "px" : "auto"}`}
+      class="h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+      style={contentHeight ? `min-height:${contentHeight}px` : undefined}
     >
       <div class="min-h-full flex flex-col">
         <div

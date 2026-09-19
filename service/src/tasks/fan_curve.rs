@@ -6,7 +6,7 @@ use tracing::{debug, info, warn};
 
 use crate::cli::FrameworkTool;
 use crate::config::LiveConfig;
-use crate::types::{CurveConfig, FanControlMode};
+use crate::types::{CurveConfig, DashboardPanelId, FanControlMode};
 
 /// Main fan control task that runs continuously based on config
 pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: LiveConfig) {
@@ -22,7 +22,10 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
 
     loop {
         let loop_started = std::time::Instant::now();
-        let config = cfg.read().await.fan.clone();
+        let (config, fan_enabled) = {
+            let cfg = cfg.read().await;
+            (cfg.fan.clone(), cfg.ui.is_panel_enabled(DashboardPanelId::Fan))
+        };
         let mode = config.mode.unwrap_or(FanControlMode::Disabled);
 
         let overrides = config.overrides.clone().unwrap_or_default();
@@ -32,6 +35,21 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
             FanControlMode::Curve => config.curve.as_ref().map(|c| c.poll_ms).unwrap_or(500),
             _ => 500,
         });
+
+        if !fan_enabled {
+            if last_mode.take().is_some() {
+                global.reset();
+                per_fan_curve_steppers.clear();
+                last_manual_duty.clear();
+                last_per_fan_active = false;
+                fan_count = None;
+                if let Some(cli) = { cli_lock.read().await.clone() } {
+                    let _ = cli.autofanctrl().await;
+                }
+            }
+            sleep(poll_interval).await;
+            continue;
+        }
 
         // Obtain current FrameworkTool from shared state; if missing, reset and retry.
         let maybe_cli = { cli_lock.read().await.clone() };

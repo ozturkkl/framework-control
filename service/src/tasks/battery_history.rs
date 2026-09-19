@@ -10,7 +10,7 @@ use tracing::{info, warn};
 use crate::cli::framework_tool_parser::PowerBatteryInfo;
 use crate::cli::FrameworkTool;
 use crate::config::LiveConfig;
-use crate::types::BatterySample;
+use crate::types::{BatterySample, DashboardPanelId};
 use crate::utils::time::unix_time_ms;
 
 const RETAIN_SECONDS: u64 = 7 * 24 * 3600;
@@ -31,8 +31,19 @@ pub async fn run(
     let mut last_save: Option<Instant> = None;
 
     loop {
-        let poll_ms = cfg_lock.read().await.battery.history_poll_ms();
+        let (poll_ms, battery_enabled) = {
+            let cfg = cfg_lock.read().await;
+            (
+                cfg.battery.history_poll_ms(),
+                cfg.ui.is_panel_enabled(DashboardPanelId::Battery),
+            )
+        };
         let poll_interval = Duration::from_millis(poll_ms);
+
+        if !battery_enabled {
+            sleep(poll_interval).await;
+            continue;
+        }
 
         let maybe_cli = { cli_lock.read().await.clone() };
         let Some(cli) = maybe_cli else {

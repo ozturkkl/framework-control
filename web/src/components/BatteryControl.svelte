@@ -250,10 +250,10 @@
     }
 </script>
 
-<div class="my-auto">
+<div class="h-full min-h-0 flex flex-col flex-1">
     <!-- Overlay summary (matches PowerControl height/spacing) -->
     <div
-        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
+        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs shrink-0"
     >
         <div
             class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
@@ -363,7 +363,7 @@
     </div>
 
     <div
-        class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
+        class="grid gap-3 shrink-0 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
     >
         <div
             class="transition-transform duration-100"
@@ -466,7 +466,7 @@
         </div>
     </div>
 
-    <div class="mt-3">
+    <div class="mt-3 flex-1 min-h-0 flex flex-col">
         <BatteryGraph />
     </div>
 
