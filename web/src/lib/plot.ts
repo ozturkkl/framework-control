@@ -70,7 +70,7 @@ const WATT_PAD_TOP = 30;
 const WATT_ZERO_CHARGE_PCT = 40;
 
 function pickWattStep(approx: number): number {
-	const candidates = [1, 2, 5, 10, 15, 20, 25, 50];
+	const candidates = [1, 2, 5, 10, 15, 20, 25];
 	for (const c of candidates) {
 		if (c >= approx) return c;
 	}
