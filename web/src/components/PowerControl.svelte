@@ -392,132 +392,129 @@
 </div>
 
 <div class="[container-type:inline-size] min-h-0 flex flex-col flex-1">
-    <div
-        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex flex-wrap items-center gap-2 text-xs shrink-0"
-    >
-        <div
-            class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
-        >
-            {#each statusMetrics as metric, i (metric.id)}
-                {#if i > 0}
-                    <span class="opacity-60">•</span>
-                {/if}
-                <span
-                    class="inline-flex items-center gap-1 whitespace-nowrap"
-                >
-                    {#if metric.icon}
-                        <Icon icon={metric.icon} class={metric.iconClass} />
-                    {/if}
-                    {#if metric.label}
-                        <span class="text-xs opacity-70">{metric.label}</span>
-                    {/if}
-                    {#if metric.value}
-                        <span class="tabular-nums text-xs">{metric.value}</span>
-                    {/if}
+    <div class="panel-status-strip">
+        <div class="panel-status-metrics">
+            {#each statusMetrics as metric (metric.id)}
+                <span class="panel-status-item">
+                    <span class="panel-status-item-body">
+                        {#if metric.icon}
+                            <Icon icon={metric.icon} class={metric.iconClass} />
+                        {/if}
+                        {#if metric.label}
+                            <span class="text-xs opacity-70">{metric.label}</span>
+                        {/if}
+                        {#if metric.value}
+                            <span class="tabular-nums text-xs"
+                                >{metric.value}</span
+                            >
+                        {/if}
+                    </span>
                 </span>
             {/each}
         </div>
-        {#if showControls && (hasFreqLimitsMismatchWarning || capabilities?.supports_tdp)}
-            <div class="flex items-center">
-                {#if hasFreqLimitsMismatchWarning}
-                    <div class="relative">
-                        <button
-                            class="btn btn-ghost btn-xs text-warning"
-                            aria-label="Frequency limits warning"
-                            bind:this={freqWarningBtn}
-                            on:mouseenter={() =>
-                                (freqWarningTipVisible = true)}
-                            on:mouseleave={() =>
-                                (freqWarningTipVisible = false)}
-                            on:focus={() => (freqWarningTipVisible = true)}
-                            on:blur={() => (freqWarningTipVisible = false)}
-                        >
-                            <Icon icon="mdi:alert-outline" class="w-4 h-4" />
-                        </button>
+        <div class="panel-status-trailing">
+            {#if showControls && (hasFreqLimitsMismatchWarning || capabilities?.supports_tdp)}
+                <div class="flex items-center">
+                    {#if hasFreqLimitsMismatchWarning}
+                        <div class="relative">
+                            <button
+                                class="btn btn-ghost btn-xs text-warning"
+                                aria-label="Frequency limits warning"
+                                bind:this={freqWarningBtn}
+                                on:mouseenter={() =>
+                                    (freqWarningTipVisible = true)}
+                                on:mouseleave={() =>
+                                    (freqWarningTipVisible = false)}
+                                on:focus={() => (freqWarningTipVisible = true)}
+                                on:blur={() => (freqWarningTipVisible = false)}
+                            >
+                                <Icon icon="mdi:alert-outline" class="w-4 h-4" />
+                            </button>
 
-                        <div
-                            use:tooltip={{
-                                anchor: freqWarningBtn,
-                                visible: freqWarningTipVisible,
-                                attachGlobalDismiss: false,
-                            }}
-                            class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-64 text-center"
-                        >
-                            One profile applies CPU frequency limits, but the
-                            other profile has them disabled. When switching to
-                            the disabled profile, Framework Control won’t reset
-                            touch the limits, so they may remain active until
-                            something else changes them (reboot/OS power
-                            daemon/etc).
+                            <div
+                                use:tooltip={{
+                                    anchor: freqWarningBtn,
+                                    visible: freqWarningTipVisible,
+                                    attachGlobalDismiss: false,
+                                }}
+                                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-64 text-center"
+                            >
+                                One profile applies CPU frequency limits, but
+                                the other profile has them disabled. When
+                                switching to the disabled profile, Framework
+                                Control won’t reset touch the limits, so they
+                                may remain active until something else changes
+                                them (reboot/OS power daemon/etc).
+                            </div>
                         </div>
-                    </div>
-                {/if}
-                {#if capabilities?.supports_tdp}
-                    <button
-                        class="btn btn-ghost btn-xs"
-                        aria-label={highTdpUnlocked
-                            ? "Disable high TDP values"
-                            : "Unlock higher TDP values"}
-                        bind:this={unlockBtn}
-                        on:mouseenter={() => (unlockTipVisible = true)}
-                        on:mouseleave={() => (unlockTipVisible = false)}
-                        on:focus={() => (unlockTipVisible = true)}
-                        on:blur={() => (unlockTipVisible = false)}
-                        on:click={() => (highTdpUnlocked = !highTdpUnlocked)}
-                    >
-                        <Icon
-                            icon={highTdpUnlocked
-                                ? "mdi:lock-open-variant-outline"
-                                : "mdi:lock-outline"}
-                            class="w-3.5 h-3.5"
-                        />
-                    </button>
-                    {#if isWindows}
+                    {/if}
+                    {#if capabilities?.supports_tdp}
                         <button
                             class="btn btn-ghost btn-xs"
-                            aria-label="Remove helper"
-                            bind:this={removeBtn}
-                            on:mouseenter={() => (removeTipVisible = true)}
-                            on:mouseleave={() => (removeTipVisible = false)}
-                            on:focus={() => (removeTipVisible = true)}
-                            on:blur={() => (removeTipVisible = false)}
-                            on:click={uninstallRyzenAdj}
-                            disabled={uninstallingRyzenAdj}
+                            aria-label={highTdpUnlocked
+                                ? "Disable high TDP values"
+                                : "Unlock higher TDP values"}
+                            bind:this={unlockBtn}
+                            on:mouseenter={() => (unlockTipVisible = true)}
+                            on:mouseleave={() => (unlockTipVisible = false)}
+                            on:focus={() => (unlockTipVisible = true)}
+                            on:blur={() => (unlockTipVisible = false)}
+                            on:click={() =>
+                                (highTdpUnlocked = !highTdpUnlocked)}
                         >
-                            {#if uninstallingRyzenAdj}
-                                <Icon
-                                    icon="mdi:loading"
-                                    class="w-3.5 h-3.5 animate-spin"
-                                />
-                            {:else}
-                                <Icon
-                                    icon="mdi:trash-can-outline"
-                                    class="w-3.5 h-3.5"
-                                />
-                            {/if}
+                            <Icon
+                                icon={highTdpUnlocked
+                                    ? "mdi:lock-open-variant-outline"
+                                    : "mdi:lock-outline"}
+                                class="w-3.5 h-3.5"
+                            />
                         </button>
+                        {#if isWindows}
+                            <button
+                                class="btn btn-ghost btn-xs"
+                                aria-label="Remove helper"
+                                bind:this={removeBtn}
+                                on:mouseenter={() => (removeTipVisible = true)}
+                                on:mouseleave={() =>
+                                    (removeTipVisible = false)}
+                                on:focus={() => (removeTipVisible = true)}
+                                on:blur={() => (removeTipVisible = false)}
+                                on:click={uninstallRyzenAdj}
+                                disabled={uninstallingRyzenAdj}
+                            >
+                                {#if uninstallingRyzenAdj}
+                                    <Icon
+                                        icon="mdi:loading"
+                                        class="w-3.5 h-3.5 animate-spin"
+                                    />
+                                {:else}
+                                    <Icon
+                                        icon="mdi:trash-can-outline"
+                                        class="w-3.5 h-3.5"
+                                    />
+                                {/if}
+                            </button>
+                        {/if}
                     {/if}
-                {/if}
+                </div>
+            {/if}
+            <div class="flex gap-x-2 items-center whitespace-nowrap">
+                {#each batterySummary as item, i (item.id)}
+                    {#if i > 0}
+                        <span class="opacity-60">•</span>
+                    {/if}
+                    {#if item.icon}
+                        <span
+                            class="inline-flex items-center gap-1 whitespace-nowrap"
+                        >
+                            <Icon icon={item.icon} class={item.iconClass} />
+                            <span class="tabular-nums text-xs">{item.value}</span>
+                        </span>
+                    {:else}
+                        <span class={item.textClass}>{item.text}</span>
+                    {/if}
+                {/each}
             </div>
-        {/if}
-        <div
-            class="flex gap-x-2 gap-y-1 justify-end whitespace-nowrap ml-auto"
-        >
-            {#each batterySummary as item, i (item.id)}
-                {#if i > 0}
-                    <span class="opacity-60">•</span>
-                {/if}
-                {#if item.icon}
-                    <span
-                        class="inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                        <Icon icon={item.icon} class={item.iconClass} />
-                        <span class="tabular-nums text-xs">{item.value}</span>
-                    </span>
-                {:else}
-                    <span class={item.textClass}>{item.text}</span>
-                {/if}
-            {/each}
         </div>
     </div>
     {#if showControls && capabilities?.supports_tdp}

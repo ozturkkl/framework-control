@@ -250,48 +250,45 @@
     }
 </script>
 
-<div class="h-full min-h-0 flex flex-col flex-1">
-    <!-- Overlay summary (matches PowerControl height/spacing) -->
-    <div
-        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs shrink-0"
-    >
-        <div
-            class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
-        >
-            <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                <Icon
-                    icon={isCharging
-                        ? "mdi:battery-charging"
-                        : "mdi:flash-outline"}
-                    class={`w-4 h-4 ${isCharging ? "text-success" : "text-secondary"}`}
-                />
-                <span class="tabular-nums text-xs"
-                    >{isCharging ? "+" : "-"}{presentWatts != null
-                        ? (Math.round(presentWatts * 100) / 100).toFixed(2)
-                        : "—"} W</span
-                >
-                <span class="opacity-60"
-                    >{isCharging ? "charge" : "discharge"}</span
-                >
+<div class="h-full min-h-0 flex flex-col flex-1 [container-type:inline-size]">
+    <div class="panel-status-strip">
+        <div class="panel-status-metrics">
+            <span class="panel-status-item">
+                <span class="panel-status-item-body">
+                    <Icon
+                        icon={isCharging
+                            ? "mdi:battery-charging"
+                            : "mdi:flash-outline"}
+                        class={`w-4 h-4 ${isCharging ? "text-success" : "text-secondary"}`}
+                    />
+                    <span class="tabular-nums text-xs"
+                        >{isCharging ? "+" : "-"}{presentWatts != null
+                            ? (Math.round(presentWatts * 100) / 100).toFixed(2)
+                            : "—"} W</span
+                    >
+                    <span class="opacity-60"
+                        >{isCharging ? "charge" : "discharge"}</span
+                    >
+                </span>
             </span>
             {#if acPresent}
-                <span class="opacity-60">•</span>
-                <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                    <Icon icon="mdi:speedometer" class="w-4 h-4" />
-                    <span class="tabular-nums text-xs">{cRate ?? "—"} C</span>
+                <span class="panel-status-item">
+                    <span class="panel-status-item-body">
+                        <Icon icon="mdi:speedometer" class="w-4 h-4" />
+                        <span class="tabular-nums text-xs">{cRate ?? "—"} C</span>
+                    </span>
                 </span>
             {/if}
-            <span
-                class="inline-flex items-center gap-1 whitespace-nowrap relative pr-3.5"
-            >
-                <span class="opacity-60">•</span>
-                <Icon icon="mdi:battery-heart" class="w-4 h-4" />
-                <span class="tabular-nums text-xs">
-                    {#if healthCapacityPct != null}
-                        {healthCapacityPct}% health
-                    {:else}
-                        — health
-                    {/if}
+            <span class="panel-status-item relative pr-3.5">
+                <span class="panel-status-item-body">
+                    <Icon icon="mdi:battery-heart" class="w-4 h-4" />
+                    <span class="tabular-nums text-xs">
+                        {#if healthCapacityPct != null}
+                            {healthCapacityPct}% health
+                        {:else}
+                            — health
+                        {/if}
+                    </span>
                 </span>
                 <button
                     class="absolute right-1 translate-x-1/2 btn btn-ghost btn-xs p-1 min-h-0 h-auto"
@@ -309,15 +306,16 @@
                     />
                 </button>
             </span>
-            <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                <span class="opacity-60">•</span>
-                <Icon icon="mdi:battery-charging-90" class="w-4 h-4" />
-                <span class="tabular-nums text-xs"
-                    >{clMax != null ? clMax : "—"}% max</span
-                >
+            <span class="panel-status-item">
+                <span class="panel-status-item-body">
+                    <Icon icon="mdi:battery-charging-90" class="w-4 h-4" />
+                    <span class="tabular-nums text-xs"
+                        >{clMax != null ? clMax : "—"}% max</span
+                    >
+                </span>
             </span>
         </div>
-        <div class="flex gap-x-1 gap-y-1 justify-end whitespace-nowrap">
+        <div class="panel-status-trailing whitespace-nowrap">
             {#if acPresent && isCharging && etaToTargetMinutes != null}
                 <Icon icon="mdi:clock-outline" class="w-4 h-4" />
                 <span class="tabular-nums whitespace-nowrap"
@@ -338,7 +336,7 @@
                     )}</span
                 >
                 <span class="opacity-60">to {clMax}%</span>
-            {:else}<div></div>{/if}
+            {/if}
         </div>
     </div>
 
@@ -362,11 +360,9 @@
         </div>
     </div>
 
-    <div
-        class="grid gap-3 shrink-0 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
-    >
+    <div class="battery-controls-grid grid gap-3 shrink-0 grid-cols-1">
         <div
-            class="transition-transform duration-100"
+            class="transition-transform duration-100 min-w-0"
             class:scale-[0.985]={!clEnabled}
         >
             <UiControlCard
@@ -384,7 +380,7 @@
         </div>
 
         <div
-            class="transition-transform duration-100"
+            class="transition-transform duration-100 min-w-0"
             class:scale-[0.985]={!rateEnabled}
         >
             <UiControlCard
@@ -478,5 +474,11 @@
 <style>
     .tabular-nums {
         font-variant-numeric: tabular-nums;
+    }
+
+    @container (min-width: 47rem) {
+        .battery-controls-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
     }
 </style>

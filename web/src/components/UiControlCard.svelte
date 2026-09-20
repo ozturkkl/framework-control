@@ -125,18 +125,18 @@
     class="flex flex-col rounded-xl bg-base-200 min-w-0 h-full min-h-0 gap-2 py-2 px-3"
     use:measureSize={{ onChange: onCardSize }}
 >
-    <div class="flex items-center justify-between shrink-0">
+    <div class="flex items-center justify-between gap-2 shrink-0">
         <div
-            class="flex items-center gap-1.5"
+            class="flex items-center gap-1.5 min-w-0"
             class:opacity-60={hasEnabled && !enabled}
         >
             {#if icon}
                 <Icon {icon} class="w-4 h-4 text-primary/80" />
             {/if}
-            <h3 class="card-title text-sm">{label}</h3>
+            <h3 class="card-title text-sm min-w-0">{label}</h3>
             <slot name="label-trailing" />
         </div>
-        <div class="flex items-center gap-2 text-xs min-w-0">
+        <div class="flex items-center gap-2 text-xs">
             <!-- Optional trailing content area for chips/menus placed by parent -->
             <slot name="header-trailing" />
             {#if variant !== "select" && !showFillReadout}
