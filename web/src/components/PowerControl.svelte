@@ -22,7 +22,7 @@
     const POWER_INFO_CONTAINER_CLASS =
         "flex flex-col h-44 my-0.5 px-6 justify-center gap-2";
     const POWER_CONTROLS_GRID_CLASS =
-        "grid flex-1 min-h-0 gap-3 pb-1 auto-rows-[minmax(min-content,1fr)] [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]";
+        "power-controls-grid grid flex-1 min-h-0 gap-3 pb-1 grid-cols-1 auto-rows-[minmax(min-content,1fr)]";
     const POWER_CONTROL_WRAP_CLASS =
         "h-full min-h-0 transition-transform duration-100";
     const isWindows = getIsWindows();
@@ -391,7 +391,7 @@
     <Icon icon="mdi:battery-outline" class="w-3.5 h-3.5" />
 </div>
 
-<div class="min-h-0 flex flex-col flex-1">
+<div class="[container-type:inline-size] min-h-0 flex flex-col flex-1">
     <div
         class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex flex-wrap items-center gap-2 text-xs shrink-0"
     >
@@ -815,3 +815,11 @@
         <div class="text-xs text-error mt-2">{errorMessage}</div>
     {/if}
 </div>
+
+<style>
+    @container (min-width: 47rem) {
+        .power-controls-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>
