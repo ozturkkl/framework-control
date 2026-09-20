@@ -350,6 +350,7 @@
                             size={panel.size}
                             canMovePrev={canMove(panel.id, -1)}
                             canMoveNext={canMove(panel.id, 1)}
+                            {live}
                             on:disable={() => setPanelEnabled(panel.id, false)}
                             on:enable={() => setPanelEnabled(panel.id, true)}
                             on:toggleSize={() => toggleSize(panel.id)}
