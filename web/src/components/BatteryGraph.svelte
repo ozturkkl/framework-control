@@ -434,7 +434,7 @@
 		>
 			<svg
 				bind:this={svgEl}
-				class="absolute inset-0 w-full h-full bg-base-100 rounded border border-base-300"
+				class="absolute inset-0 w-full h-full"
 				viewBox={`0 0 ${svgWidth} ${svgHeight}`}
 				preserveAspectRatio="none"
 				role="img"

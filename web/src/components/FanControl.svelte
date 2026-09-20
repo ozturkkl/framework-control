@@ -1058,7 +1058,7 @@
                 >
                 <svg
                     bind:this={svgEl}
-                    class="absolute inset-0 w-full h-full touch-none select-none bg-base-100 rounded border border-base-300"
+                    class="absolute inset-0 w-full h-full touch-none select-none"
                     viewBox={`0 0 ${svgWidth} ${svgHeight}`}
                     preserveAspectRatio="none"
                     on:dblclick|preventDefault={addPointAt}
