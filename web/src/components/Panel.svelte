@@ -42,7 +42,8 @@
   const enabledCardClass = "bg-base-100 shadow";
   const disabledCardClass =
     "bg-base-200/40 shadow-none border border-dashed border-base-content/20";
-  const expandedCardClass = "fixed z-50 inset-[5vh_5vw] flex flex-col";
+  const expandedCardClass =
+    "panel-expanded fixed z-50 inset-0 m-auto flex flex-col";
 
   function playFlip(from: DOMRect) {
     if (!cardEl || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
@@ -117,7 +118,7 @@
         </button>
       </div>
     {/if}
-    <div class={bodyClass}>
+    <div class="{bodyClass} {isExpanded ? 'min-h-0' : ''}">
       <div class="{headerRowClass} {editing ? 'pr-1' : 'pl-3'}">
         <div
           use:dragHandle
@@ -208,13 +209,28 @@
         {/if}
       </div>
       {#if enabled}
-        <slot />
+        <div
+          class="flex flex-col flex-1 min-h-0 {isExpanded
+            ? 'overflow-y-auto'
+            : ''}"
+        >
+          <slot />
+        </div>
       {/if}
     </div>
   </div>
 </div>
 
 <style>
+  .panel-expanded {
+    width: min(90vw, calc(90vh * 16 / 9));
+    height: min(90vh, calc(90vw * 6 / 5));
+  }
+
+  :global(html:has(.panel-expanded)) {
+    overflow: hidden;
+  }
+
   .panel-editing :global(.panel-header-overlay) {
     display: none;
   }

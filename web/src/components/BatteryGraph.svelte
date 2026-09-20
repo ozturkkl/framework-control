@@ -429,7 +429,7 @@
 
 	<svelte:fragment slot="graph">
 		<div
-			class="relative h-full min-h-0"
+			class="relative h-full min-h-[220px]"
 			use:measureSize={{ onChange: applyGraphSize }}
 		>
 			<svg

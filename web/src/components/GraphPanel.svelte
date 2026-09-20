@@ -11,13 +11,13 @@
   }
 </script>
 
-<div class="card bg-base-200 p-3 h-full min-h-0 flex flex-col flex-1 w-full">
+<div class="card bg-base-200 p-3 flex flex-col grow min-h-full w-full">
   {#if !showSettings}
-    <div class="h-full min-h-0 flex flex-col flex-1">
+    <div class="flex flex-col flex-1">
       <div class="flex items-center justify-between mb-2 gap-2 shrink-0">
         <slot name="top" {openSettings} {closeSettings} />
       </div>
-      <div class="relative flex-1 min-h-0 flex flex-col">
+      <div class="relative flex-1 flex flex-col">
         <div class="relative w-full flex-1 min-h-[220px]">
           <slot name="graph" />
         </div>

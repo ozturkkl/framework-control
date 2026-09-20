@@ -466,7 +466,7 @@
         </div>
     </div>
 
-    <div class="mt-3 flex-1 min-h-0 flex flex-col">
+    <div class="mt-3 flex-1 flex flex-col">
         <BatteryGraph />
     </div>
 
