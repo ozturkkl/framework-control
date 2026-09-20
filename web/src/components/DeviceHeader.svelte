@@ -196,7 +196,7 @@
 
             <div class="flex flex-col justify-evenly flex-1 min-w-0 w-full">
                 {#if healthy}
-                    <div class="flex items-center gap-3 justify-between">
+                    <div class="flex items-center gap-3">
                         <div
                             class="lg:hidden rounded-lg overflow-hidden shadow relative w-20 h-14 shrink-0 bg-base-200"
                         >
@@ -209,10 +209,10 @@
                         <h2 class="text-xl lg:text-2xl font-semibold">
                             {displayTitle}
                         </h2>
-                        <div class="flex items-center gap-0">
+                        <div class="flex items-center gap-0 ml-auto">
                             {#if cliPresent}
                                 <button
-                                    class="btn btn-success btn-xs mx-3 p-2 rounded-full h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
+                                    class="btn btn-success btn-xs mx-3 p-[.4rem] rounded-full h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
                                     aria-label="Connected"
                                     bind:this={statusBtn}
                                     on:mouseenter={() =>
@@ -228,7 +228,7 @@
                                 </button>
                             {:else}
                                 <a
-                                    class="btn btn-error btn-xs mx-3 p-2 rounded-full h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
+                                    class="btn btn-error btn-xs mx-3 p-[.4rem] rounded-full h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
                                     href={platformInstallerUrl}
                                     aria-label="framework_tool missing — Reinstall"
                                     bind:this={statusBtn}
