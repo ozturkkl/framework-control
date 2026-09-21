@@ -4,14 +4,14 @@
     import UiControlCard from "./UiControlCard.svelte";
     import { tooltip } from "../lib/tooltip";
     import {
+        type BatteryConfig,
         type BatteryInfo,
         DefaultService,
-        OpenAPI,
         type PowerResponse,
-        type PartialConfig,
-        type Config,
     } from "../api";
     import { throttleDebounce } from "../lib/utils";
+    import { followConfig, patch } from "../lib/config";
+    import BatteryGraph from "./BatteryGraph.svelte";
 
     // Polling
     let poll: ReturnType<typeof setInterval> | null = null;
@@ -168,15 +168,14 @@
 
     async function applyChargeLimitConfig() {
         try {
-            const patch: PartialConfig = {
+            await patch({
                 battery: {
                     charge_limit_max_pct: {
                         enabled: !!clEnabled,
                         value: Math.max(CL_MIN, Math.min(CL_MAX, clValue)),
                     },
                 },
-            };
-            await DefaultService.setConfig(patch);
+            });
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
@@ -187,7 +186,7 @@
             const value = rateEnabled
                 ? Math.max(0.05, Math.min(1.0, Math.round(rateC * 20) / 20))
                 : 1.0;
-            const patch: PartialConfig = {
+            await patch({
                 battery: {
                     charge_rate_c: {
                         enabled: !!rateEnabled,
@@ -195,8 +194,7 @@
                     },
                     charge_rate_soc_threshold_pct: socThresholdPct,
                 },
-            };
-            await DefaultService.setConfig(patch);
+            });
         } catch (e) {
             errorMessage = e instanceof Error ? e.message : String(e);
         }
@@ -215,24 +213,21 @@
         true,
     );
 
+    function applyBatConfig(bat: BatteryConfig) {
+        if (bat.charge_limit_max_pct) {
+            clEnabled = !!bat.charge_limit_max_pct.enabled;
+            clValue = bat.charge_limit_max_pct.value ?? clValue;
+        }
+        if (bat.charge_rate_c) {
+            rateEnabled = !!bat.charge_rate_c.enabled;
+            rateC = bat.charge_rate_c.value ?? rateC;
+        }
+        socThresholdPct = bat.charge_rate_soc_threshold_pct ?? undefined;
+    }
+
+    onDestroy(followConfig({ select: (c) => c.battery, apply: applyBatConfig }));
+
     onMount(async () => {
-        // Seed from config
-        try {
-            const cfg: Config = await DefaultService.getConfig();
-            const bat = cfg.battery;
-            if (bat) {
-                if (bat.charge_limit_max_pct) {
-                    clEnabled = !!bat.charge_limit_max_pct.enabled;
-                    clValue = bat.charge_limit_max_pct.value ?? clValue;
-                }
-                if (bat.charge_rate_c) {
-                    rateEnabled = !!bat.charge_rate_c.enabled;
-                    rateC = bat.charge_rate_c.value ?? rateC;
-                }
-                socThresholdPct =
-                    bat.charge_rate_soc_threshold_pct ?? undefined;
-            }
-        } catch (_) {}
         await pollOnce();
         poll = setInterval(pollOnce, 2000);
     });
@@ -255,48 +250,45 @@
     }
 </script>
 
-<div class="my-auto">
-    <!-- Overlay summary (matches PowerControl height/spacing) -->
-    <div
-        class="bg-base-200 min-w-0 rounded-xl mb-2 py-2 px-3 flex items-center gap-2 text-xs"
-    >
-        <div
-            class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 justify-center mr-auto"
-        >
-            <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                <Icon
-                    icon={isCharging
-                        ? "mdi:battery-charging"
-                        : "mdi:flash-outline"}
-                    class={`w-4 h-4 ${isCharging ? "text-success" : "text-secondary"}`}
-                />
-                <span class="tabular-nums text-xs"
-                    >{isCharging ? "+" : "-"}{presentWatts != null
-                        ? (Math.round(presentWatts * 100) / 100).toFixed(2)
-                        : "—"} W</span
-                >
-                <span class="opacity-60"
-                    >{isCharging ? "charge" : "discharge"}</span
-                >
+<div class="h-full min-h-0 flex flex-col flex-1 [container-type:inline-size]">
+    <div class="panel-status-strip">
+        <div class="panel-status-metrics">
+            <span class="panel-status-item">
+                <span class="panel-status-item-body">
+                    <Icon
+                        icon={isCharging
+                            ? "mdi:battery-charging"
+                            : "mdi:flash-outline"}
+                        class={`w-4 h-4 ${isCharging ? "text-success" : "text-secondary"}`}
+                    />
+                    <span class="tabular-nums text-xs"
+                        >{isCharging ? "+" : "-"}{presentWatts != null
+                            ? (Math.round(presentWatts * 100) / 100).toFixed(2)
+                            : "—"} W</span
+                    >
+                    <span class="opacity-60"
+                        >{isCharging ? "charge" : "discharge"}</span
+                    >
+                </span>
             </span>
             {#if acPresent}
-                <span class="opacity-60">•</span>
-                <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                    <Icon icon="mdi:speedometer" class="w-4 h-4" />
-                    <span class="tabular-nums text-xs">{cRate ?? "—"} C</span>
+                <span class="panel-status-item">
+                    <span class="panel-status-item-body">
+                        <Icon icon="mdi:speedometer" class="w-4 h-4" />
+                        <span class="tabular-nums text-xs">{cRate ?? "—"} C</span>
+                    </span>
                 </span>
             {/if}
-            <span
-                class="inline-flex items-center gap-1 whitespace-nowrap relative pr-3.5"
-            >
-                <span class="opacity-60">•</span>
-                <Icon icon="mdi:battery-heart" class="w-4 h-4" />
-                <span class="tabular-nums text-xs">
-                    {#if healthCapacityPct != null}
-                        {healthCapacityPct}% health
-                    {:else}
-                        — health
-                    {/if}
+            <span class="panel-status-item relative pr-3.5">
+                <span class="panel-status-item-body">
+                    <Icon icon="mdi:battery-heart" class="w-4 h-4" />
+                    <span class="tabular-nums text-xs">
+                        {#if healthCapacityPct != null}
+                            {healthCapacityPct}% health
+                        {:else}
+                            — health
+                        {/if}
+                    </span>
                 </span>
                 <button
                     class="absolute right-1 translate-x-1/2 btn btn-ghost btn-xs p-1 min-h-0 h-auto"
@@ -314,15 +306,16 @@
                     />
                 </button>
             </span>
-            <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                <span class="opacity-60">•</span>
-                <Icon icon="mdi:battery-charging-90" class="w-4 h-4" />
-                <span class="tabular-nums text-xs"
-                    >{clMax != null ? clMax : "—"}% max</span
-                >
+            <span class="panel-status-item">
+                <span class="panel-status-item-body">
+                    <Icon icon="mdi:battery-charging-90" class="w-4 h-4" />
+                    <span class="tabular-nums text-xs"
+                        >{clMax != null ? clMax : "—"}% max</span
+                    >
+                </span>
             </span>
         </div>
-        <div class="flex gap-x-1 gap-y-1 justify-end whitespace-nowrap">
+        <div class="panel-status-trailing whitespace-nowrap">
             {#if acPresent && isCharging && etaToTargetMinutes != null}
                 <Icon icon="mdi:clock-outline" class="w-4 h-4" />
                 <span class="tabular-nums whitespace-nowrap"
@@ -343,7 +336,7 @@
                     )}</span
                 >
                 <span class="opacity-60">to {clMax}%</span>
-            {:else}<div></div>{/if}
+            {/if}
         </div>
     </div>
 
@@ -353,7 +346,7 @@
             visible: healthTipVisible,
             attachGlobalDismiss: false,
         }}
-        class="pointer-events-none bg-base-100 px-2 py-1 rounded-xl border border-base-300 shadow text-xs w-58"
+        class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs w-58"
     >
         {#if cycleCount != null}
             <div class="tabular-nums">{cycleCount} cycles recorded.</div>
@@ -367,11 +360,9 @@
         </div>
     </div>
 
-    <div
-        class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]"
-    >
+    <div class="battery-controls-grid grid gap-3 shrink-0 grid-cols-1">
         <div
-            class="transition-transform duration-100"
+            class="transition-transform duration-100 min-w-0"
             class:scale-[0.985]={!clEnabled}
         >
             <UiControlCard
@@ -389,7 +380,7 @@
         </div>
 
         <div
-            class="transition-transform duration-100"
+            class="transition-transform duration-100 min-w-0"
             class:scale-[0.985]={!rateEnabled}
         >
             <UiControlCard
@@ -429,7 +420,7 @@
                     visible: socPopoverVisible,
                     onDismiss: () => (socPopoverVisible = false),
                 }}
-                class="bg-base-100 border border-base-300 rounded shadow p-2 py-1 text-xs space-y-1"
+                class="bg-base-100 border surface-border rounded-box shadow p-2 py-1 text-xs space-y-1"
                 role="dialog"
                 aria-label="Set SoC threshold"
                 tabindex="-1"
@@ -471,6 +462,10 @@
         </div>
     </div>
 
+    <div class="mt-3 flex-1 flex flex-col">
+        <BatteryGraph />
+    </div>
+
     {#if errorMessage}
         <div class="text-[10px] text-error mt-2">{errorMessage}</div>
     {/if}
@@ -479,5 +474,11 @@
 <style>
     .tabular-nums {
         font-variant-numeric: tabular-nums;
+    }
+
+    @container (min-width: 47rem) {
+        .battery-controls-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
     }
 </style>

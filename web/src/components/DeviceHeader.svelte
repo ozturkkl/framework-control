@@ -1,6 +1,7 @@
 <script lang="ts">
     export let healthy = false;
     export let cliPresent: boolean = true;
+    export let editing = false;
 
     const repoLink = "https://github.com/ozturkkl/framework-control/tree/main";
     const MAIN_PAGE = `${import.meta.env.BASE_URL}assets/main-page.jpg`;
@@ -14,6 +15,7 @@
     import Icon from "@iconify/svelte";
     import SettingsModal from "./SettingsModal.svelte";
     import LogsModal from "./LogsModal.svelte";
+    import DashboardLayoutMenu from "./DashboardLayoutMenu.svelte";
     import { gtSemver } from "../lib/semver";
     import { tooltip } from "../lib/tooltip";
     import { isLinux } from "../lib/platform";
@@ -117,8 +119,8 @@
     }
 
     let infoCardClass =
-        "inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 transition-colors rounded-lg px-3 py-1.5  text-xs md:text-sm border border-primary/20 ";
-    let infoCardIconClass = "w-4 h-4 md:w-5 md:h-5";
+        "inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 transition-colors rounded-box px-3 py-1.5 text-xs lg:text-sm border surface-border";
+    let infoCardIconClass = "w-4 h-4 lg:w-5 lg:h-5";
     let showSettings = false;
     let showLogs = false;
     let statusBtn: HTMLElement;
@@ -165,16 +167,16 @@
             : false;
 </script>
 
-<div class="card bg-base-100 shadow overflow-hidden">
+<div class="card bg-base-100 shadow relative z-20">
     <div class="card-body p-4">
         <div
             class={healthy
-                ? "flex flex-col md:flex-row gap-6"
-                : "flex flex-col md:flex-row gap-8 items-center"}
+                ? "flex flex-col lg:flex-row gap-6"
+                : "flex flex-col lg:flex-row gap-8 items-center"}
         >
             <div
                 class="rounded-box overflow-hidden shadow relative {healthy
-                    ? 'hidden md:block w-56 shrink-0'
+                    ? 'hidden lg:block w-56 shrink-0'
                     : 'w-1/2'}"
                 style="aspect-ratio: 3 / 2;"
             >
@@ -194,9 +196,9 @@
 
             <div class="flex flex-col justify-evenly flex-1 min-w-0 w-full">
                 {#if healthy}
-                    <div class="flex items-center gap-3 justify-between">
+                    <div class="flex items-center gap-3">
                         <div
-                            class="md:hidden rounded-lg overflow-hidden shadow relative w-20 h-14 shrink-0 bg-base-200"
+                            class="lg:hidden rounded-box overflow-hidden shadow relative w-20 h-14 shrink-0 bg-base-200"
                         >
                             <img
                                 src={openImage}
@@ -204,13 +206,13 @@
                                 class="absolute inset-0 w-full h-full object-cover"
                             />
                         </div>
-                        <h2 class="text-xl md:text-2xl font-semibold">
+                        <h2 class="text-xl lg:text-2xl font-semibold">
                             {displayTitle}
                         </h2>
-                        <div class="flex items-center gap-0">
+                        <div class="flex items-center gap-0 ml-auto">
                             {#if cliPresent}
                                 <button
-                                    class="btn btn-success btn-xs mx-3 p-2 rounded-full h-0 w-0 min-h-0 md:w-auto md:h-auto md:py-1 md:mx-2"
+                                    class="btn btn-success btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
                                     aria-label="Connected"
                                     bind:this={statusBtn}
                                     on:mouseenter={() =>
@@ -220,13 +222,13 @@
                                     on:focus={() => (statusTipVisible = true)}
                                     on:blur={() => (statusTipVisible = false)}
                                 >
-                                    <span class="hidden md:inline"
+                                    <span class="hidden lg:inline"
                                         >Connected</span
                                     >
                                 </button>
                             {:else}
                                 <a
-                                    class="btn btn-error btn-xs mx-3 p-2 rounded-full h-0 w-0 min-h-0 md:w-auto md:h-auto md:py-1 md:mx-2"
+                                    class="btn btn-error btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
                                     href={platformInstallerUrl}
                                     aria-label="framework_tool missing — Reinstall"
                                     bind:this={statusBtn}
@@ -237,7 +239,7 @@
                                     on:focus={() => (statusTipVisible = true)}
                                     on:blur={() => (statusTipVisible = false)}
                                 >
-                                    <span class="hidden md:inline"
+                                    <span class="hidden lg:inline"
                                         >framework_tool missing — Reinstall</span
                                     >
                                 </a>
@@ -258,7 +260,7 @@
                                     visible: statusTipVisible,
                                     attachGlobalDismiss: false,
                                 }}
-                                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs text-center md:!hidden"
+                                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs text-center lg:!hidden"
                             >
                                 {#if cliPresent}
                                     Connected
@@ -266,6 +268,7 @@
                                     framework_tool missing — Reinstall
                                 {/if}
                             </div>
+                            <DashboardLayoutMenu {editing} on:toggleEdit />
                             <button
                                 class="btn btn-ghost btn-sm mr-0 relative"
                                 aria-label="Open settings"
@@ -300,7 +303,7 @@
                     {#if showLogs}
                         <LogsModal on:close={() => (showLogs = false)} />
                     {/if}
-                    <hr class="my-2 border border-primary/15" />
+                    <hr class="my-2 border surface-border" />
                     {#if sys}
                         <div class="flex flex-wrap gap-2">
                             <div class={infoCardClass}>
@@ -390,7 +393,7 @@
                 {:else}
                     <div class="space-y-4 lg:space-y-6">
                         <h1
-                            class="text-3xl md:text-5xl font-extrabold leading-tight tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent animate-gradient"
+                            class="text-3xl lg:text-5xl font-extrabold leading-tight tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent animate-gradient"
                         >
                             Make your Framework come alive
                         </h1>
@@ -415,7 +418,7 @@
                             <div class="space-y-3">
                                 <div class="flex gap-2 items-center">
                                     <div
-                                        class="flex-1 bg-base-200 rounded-lg px-4 py-3 font-mono text-sm flex items-center overflow-x-auto"
+                                        class="flex-1 bg-base-200 rounded-box px-4 py-3 font-mono text-sm flex items-center overflow-x-auto"
                                     >
                                         <code class="whitespace-nowrap"
                                             >{INSTALL_COMMAND}</code

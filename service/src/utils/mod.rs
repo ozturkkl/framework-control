@@ -4,4 +4,5 @@ pub mod fs;
 pub mod github;
 pub mod global_cache;
 pub mod reconciler;
+pub mod time;
 pub mod wget;

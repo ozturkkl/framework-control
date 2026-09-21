@@ -1,13 +1,15 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
     import Icon from "@iconify/svelte";
-    import { DefaultService, type TelemetryConfig } from "../api";
-    import { OpenAPI } from "../api";
+    import { DefaultService } from "../api";
     import MultiSelect from "./MultiSelect.svelte";
     import UiControlCard from "./UiControlCard.svelte";
     import { hashColor } from "../lib/seriesColors";
     import GraphPanel from "./GraphPanel.svelte";
     import { tooltip } from "../lib/tooltip";
+    import { followConfig, patch } from "../lib/config";
+    import { measureSize, type MeasuredSize } from "../lib/measureSize";
+    import { findNearestByTime, pointerToDomainX } from "../lib/plot";
 
     // No power bar here anymore; moved to PowerControl
 
@@ -38,26 +40,34 @@
     $: tMin = allTimes.length ? Math.min(...allTimes) : null;
     $: tMax = allTimes.length ? Math.max(...allTimes) : null;
 
-    // SVG and layout
+    // SVG and layout — viewBox tracks CSS pixels so labels stay ~10px
     const padding = { left: 36, right: 12, top: 12, bottom: 22 };
     let svgWidth = 400;
     let svgHeight = 220;
     let svgEl: SVGSVGElement;
+    function applyGraphSize(size: MeasuredSize) {
+        svgWidth = size.width;
+        svgHeight = size.height;
+    }
 
-    function xToPx(x: number) {
+    function xToPx(x: number, width = svgWidth) {
         if (tMin == null || tMax == null || tMax === tMin) return padding.left;
-        const w = svgWidth - padding.left - padding.right;
+        const w = width - padding.left - padding.right;
         return padding.left + ((x - tMin) / (tMax - tMin)) * w;
     }
-    function yToPx(y: number) {
-        const h = svgHeight - padding.top - padding.bottom;
+    function yToPx(y: number, height = svgHeight) {
+        const h = height - padding.top - padding.bottom;
         return padding.top + (1 - (y - yMin) / (yMax - yMin)) * h;
     }
 
-    function buildPath(points: Array<[number, number]>) {
+    function buildPath(
+        points: Array<[number, number]>,
+        width = svgWidth,
+        height = svgHeight,
+    ) {
         if (!points.length) return "";
         return points
-      .map((p, i) => `${i === 0 ? "M" : "L"}${xToPx(p[0])},${yToPx(p[1])}`)
+      .map((p, i) => `${i === 0 ? "M" : "L"}${xToPx(p[0], width)},${yToPx(p[1], height)}`)
             .join(" ");
     }
 
@@ -68,37 +78,13 @@
     let hoverCssY = 0;
     let hoverCircleEl: SVGCircleElement | null = null;
 
-    function findNearestPoint(
-        pts: Array<[number, number]>,
-    targetTs: number
-    ): [number, number] | null {
-        if (!pts.length) return null;
-        let lo = 0;
-        let hi = pts.length - 1;
-        while (lo < hi) {
-            const mid = Math.floor((lo + hi) / 2);
-            if (pts[mid][0] < targetTs) lo = mid + 1;
-            else hi = mid;
-        }
-        const i2 = lo;
-        const i1 = Math.max(0, lo - 1);
-        const p1 = pts[i1];
-        const p2 = pts[i2] ?? pts[pts.length - 1];
-    return Math.abs(p2[0] - targetTs) < Math.abs(p1[0] - targetTs) ? p2 : p1;
-    }
-
     function onMouseMove(e: MouseEvent) {
         if (!svgEl || tMin == null || tMax == null) return;
+        const targetTs = pointerToDomainX(e.clientX, svgEl, svgWidth, padding, tMin, tMax);
+        if (targetTs == null) return;
+
         const rect = svgEl.getBoundingClientRect();
-        const relX = e.clientX - rect.left;
         const relY = e.clientY - rect.top;
-        const fracX = Math.max(0, Math.min(1, relX / Math.max(1, rect.width)));
-        const xView = fracX * svgWidth;
-
-        const w = svgWidth - padding.left - padding.right;
-        if (w <= 0) return;
-        const targetTs = tMin + ((xView - padding.left) / w) * (tMax - tMin);
-
         const scaleX = rect.width / svgWidth;
         const scaleY = rect.height / svgHeight;
 
@@ -112,7 +98,7 @@
         } | null = null;
         for (const [name, pts] of Object.entries(series)) {
             if (!pts?.length) continue;
-            const p = findNearestPoint(pts, targetTs);
+            const p = findNearestByTime(pts, targetTs, (pt) => pt[0]);
             if (!p) continue;
             const yPx = yToPx(p[1]) * scaleY;
             const vDist = Math.abs(yPx - relY);
@@ -131,7 +117,6 @@
         }
         hover = { ts: best.ts, name: best.name, value: best.value };
 
-        // Compute CSS pixel position for tooltip
         hoverCssX = xToPx(best.ts) * scaleX;
         hoverCssY = yToPx(best.value) * scaleY;
     }
@@ -164,25 +149,35 @@
         for (let t = first; t <= tMax; t += step) ticks.push(t);
         return ticks;
     })();
-    async function loadTelemetryConfig() {
+    function startHistoryTimer(pollMs: number) {
+        const interval = Math.max(1000, Math.floor(pollMs || 2000));
+        if (historyTimer) clearInterval(historyTimer);
+        historyTimer = setInterval(fetchHistory, interval);
+    }
+
+    function applyTelemetryConfig(pollMs: number) {
+        telemetryPollMs = pollMs;
+        if (historyTimer) startHistoryTimer(pollMs);
+    }
+
+    onDestroy(followConfig({ select: (c) => c.telemetry.poll_ms, apply: applyTelemetryConfig }));
+
+    onMount(async () => {
         try {
-            const cfg = await DefaultService.getConfig();
-            const tel = cfg.telemetry;
-            telemetryPollMs = Number(tel.poll_ms ?? 2000);
-            // Restore saved window or default
-            try {
-                const saved = localStorage.getItem(WINDOW_KEY);
-                const parsed = saved ? parseInt(saved, 10) : NaN;
-                if (!Number.isNaN(parsed)) {
-          windowSeconds = Math.min(Math.max(30, parsed), RETAIN_MAX_SECONDS);
-                } else {
-                    windowSeconds = 300;
-                }
-            } catch {
+            const saved = localStorage.getItem(WINDOW_KEY);
+            const parsed = saved ? parseInt(saved, 10) : NaN;
+            if (!Number.isNaN(parsed)) {
+                windowSeconds = Math.min(Math.max(30, parsed), RETAIN_MAX_SECONDS);
+            } else {
                 windowSeconds = 300;
             }
-        } catch {}
-    }
+        } catch {
+            windowSeconds = 300;
+        }
+        await fetchSensors();
+        await fetchHistory();
+        startHistoryTimer(telemetryPollMs);
+    });
 
     async function fetchSensors() {
         try {
@@ -236,30 +231,13 @@
 
     async function saveTelemetryConfig() {
         try {
-            const patch: TelemetryConfig = {
-                poll_ms: telemetryPollMs,
-                // For now, hardcode the retain seconds to 1800 to test.
-                retain_seconds: 1800,
-            };
-            await DefaultService.setConfig({
-                telemetry: patch,
+            await patch({
+                telemetry: { poll_ms: telemetryPollMs },
             });
-
-            // Tie history refresh to the configured interval
-            const interval = Math.max(1000, Math.floor(telemetryPollMs || 2000));
-            if (historyTimer) clearInterval(historyTimer);
-            historyTimer = setInterval(fetchHistory, interval);
+            startHistoryTimer(telemetryPollMs);
         } catch {}
     }
 
-    onMount(async () => {
-        await loadTelemetryConfig();
-        await fetchSensors();
-        await fetchHistory();
-        // Initialize history refresh based on configured polling interval
-        const interval = Math.max(1000, Math.floor(telemetryPollMs || 2000));
-        historyTimer = setInterval(fetchHistory, interval);
-    });
     onDestroy(() => {
         if (historyTimer) clearInterval(historyTimer);
     });
@@ -269,10 +247,10 @@
     <svelte:fragment slot="top" let:openSettings>
         <!-- Inline legend on the left -->
         <div class="flex flex-wrap items-center gap-2 text-xs gap-y-1 pl-[2px]">
-            {#each selectedSensors as name}
+            {#each selectedSensors as name (name)}
                 <span class="inline-flex items-center gap-1">
                     <span
-                        class="w-2.5 h-2.5 rounded-sm"
+                        class="w-2.5 h-2.5 rounded-badge"
                         style={`background:${hashColor(name)}`}
                     ></span>
                     <span class="opacity-80">{name}</span>
@@ -291,23 +269,27 @@
     </svelte:fragment>
 
     <svelte:fragment slot="graph">
-        <div class="relative">
+        <div
+            class="relative h-full min-h-0"
+            use:measureSize={{ onChange: applyGraphSize }}
+        >
             <svg
                 bind:this={svgEl}
-                class="w-full bg-base-100 rounded border border-base-300"
+                class="absolute inset-0 w-full h-full"
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                preserveAspectRatio="none"
                 role="img"
                 aria-label="Temperature sensors graph"
                 on:mousemove={onMouseMove}
                 on:mouseleave={onMouseLeave}
             >
                 <!-- axes -->
-                <g stroke="currentColor" class="opacity-30">
+                <g stroke="currentColor" class="chart-axis">
                     <line
                         x1={padding.left}
-                        y1={yToPx(yMin)}
+                        y1={yToPx(yMin, svgHeight)}
                         x2={svgWidth - padding.right}
-                        y2={yToPx(yMin)}
+                        y2={yToPx(yMin, svgHeight)}
                         stroke-width="1"
                     />
                     <line
@@ -320,50 +302,50 @@
                 </g>
 
                 <!-- horizontal gridlines and labels -->
-                {#each [0, 20, 40, 60, 80, 100] as d}
+                {#each [0, 20, 40, 60, 80, 100] as d (d)}
                     <g>
                         <line
                             x1={padding.left}
-                            y1={yToPx(d)}
+                            y1={yToPx(d, svgHeight)}
                             x2={svgWidth - padding.right}
-                            y2={yToPx(d)}
+                            y2={yToPx(d, svgHeight)}
                             stroke="currentColor"
-                            class="opacity-10"
+                            class="chart-grid"
                         />
                         <text
                             x={padding.left - 6}
-                            y={yToPx(d) + 4}
+                            y={yToPx(d, svgHeight) + 4}
                             text-anchor="end"
-              class="fill-current opacity-60 text-[10px]">{d}°C</text
+              class="chart-label text-[10px]">{d}°C</text
                         >
                     </g>
                 {/each}
 
                 <!-- vertical time gridlines -->
-                {#each timeTicks as t}
+                {#each timeTicks as t (t)}
                     <g>
                         <line
-                            x1={xToPx(t)}
+                            x1={xToPx(t, svgWidth)}
                             y1={padding.top}
-                            x2={xToPx(t)}
+                            x2={xToPx(t, svgWidth)}
                             y2={svgHeight - padding.bottom}
                             stroke="currentColor"
-                            class="opacity-10"
+                            class="chart-grid"
                         />
                         <text
-                            x={xToPx(t)}
+                            x={xToPx(t, svgWidth)}
                             y={svgHeight - padding.bottom + 16}
                             text-anchor="middle"
-                            class="fill-current opacity-60 text-[10px]"
+                            class="chart-label text-[10px]"
                             >{formatTick(t - (tMin ?? 0))}</text
                         >
                     </g>
                 {/each}
 
                 <!-- series lines -->
-                {#each Object.entries(series) as [name, pts]}
+                {#each Object.entries(series) as [name, pts] (name)}
                     <path
-                        d={buildPath(pts)}
+                        d={buildPath(pts, svgWidth, svgHeight)}
                         fill="none"
                         stroke={hashColor(name)}
                         stroke-width="2"
@@ -373,9 +355,9 @@
                 <!-- crosshair + marker -->
                 {#if hover}
                     <line
-                        x1={xToPx(hover.ts)}
+                        x1={xToPx(hover.ts, svgWidth)}
                         y1={padding.top}
-                        x2={xToPx(hover.ts)}
+                        x2={xToPx(hover.ts, svgWidth)}
                         y2={svgHeight - padding.bottom}
                         stroke="currentColor"
                         class="opacity-40"
@@ -383,11 +365,11 @@
                     />
                     <circle
                         bind:this={hoverCircleEl}
-                        cx={xToPx(hover.ts)}
-                        cy={yToPx(hover.value)}
+                        cx={xToPx(hover.ts, svgWidth)}
+                        cy={yToPx(hover.value, svgHeight)}
                         r="3.5"
                         fill={hashColor(hover.name)}
-                        stroke="white"
+                        stroke="oklch(var(--b1))"
                         stroke-width="1.5"
                     />
                 {/if}
@@ -400,11 +382,11 @@
                     visible: !!hover,
                     attachGlobalDismiss: false,
                 }}
-                class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs flex items-center gap-2"
+                class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs flex items-center gap-2"
             >
                 {#if hover}
                     <span
-                        class="inline-block w-2.5 h-2.5 rounded-sm"
+                        class="inline-block w-2.5 h-2.5 rounded-badge"
                         style={`background:${hashColor(hover.name)}`}
                     ></span>
                     <span class="opacity-80">{hover.name}</span>

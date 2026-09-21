@@ -11,3 +11,60 @@ html,
 body {
 	overflow-x: hidden;
 }
+
+body {
+	font-family: var(--theme-font-family);
+}
+
+@layer components {
+	.panel-status-strip {
+		@apply bg-base-200 min-w-0 rounded-box mb-2 py-2 px-3 flex items-center gap-2 text-xs shrink-0;
+	}
+
+	.panel-status-metrics {
+		@apply flex flex-1 flex-wrap items-center gap-y-1 min-w-0 overflow-hidden;
+	}
+
+	.panel-status-item {
+		@apply inline-flex items-center whitespace-nowrap mr-3;
+	}
+
+	/* Hanging bullet; overflow on .panel-status-metrics clips it at the start of each row. */
+	.panel-status-item::before {
+		content: "•";
+		display: inline-block;
+		width: 0.75rem;
+		margin-left: -0.75rem;
+		text-align: center;
+		opacity: 0.6;
+		flex-shrink: 0;
+	}
+
+	.panel-status-item-body {
+		@apply inline-flex items-center gap-1;
+	}
+
+	.panel-status-trailing {
+		@apply flex items-center shrink-0 gap-2;
+	}
+
+	.chart-axis {
+		@apply opacity-30;
+	}
+
+	.chart-grid {
+		@apply opacity-10;
+	}
+
+	.chart-label {
+		@apply fill-current opacity-60;
+	}
+
+	.surface-border {
+		border-color: oklch(var(--bc) / 0.12);
+	}
+
+	.surface-border-strong {
+		border-color: oklch(var(--bc) / 0.3);
+	}
+}

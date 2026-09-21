@@ -392,6 +392,7 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
  "which",
@@ -1951,6 +1952,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
