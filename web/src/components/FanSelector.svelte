@@ -88,7 +88,7 @@
 <div class="relative shrink-0" class:z-50={isOpen} bind:this={rootEl}>
     <button
         bind:this={buttonEl}
-        class="btn btn-xs btn-ghost gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-base-content/80 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 focus-visible:bg-base-200"
+        class="btn btn-xs btn-ghost gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 focus-visible:bg-base-200"
         type="button"
         id={buttonId}
         aria-haspopup="menu"
@@ -122,7 +122,7 @@
     {#if isOpen}
         <div
             bind:this={menuEl}
-            class="absolute left-0 top-full mt-1 p-0.5 bg-base-100 rounded-md w-max min-w-full border border-base-content/35 shadow-lg"
+            class="absolute left-0 top-full mt-1 p-0.5 bg-base-100 rounded-box w-max min-w-full border surface-border-strong shadow-lg"
             role="menu"
             aria-labelledby={buttonId}
             id={menuId}
@@ -131,16 +131,14 @@
                 type="button"
                 role="menuitemradio"
                 aria-checked={activeFan === "all"}
-                class="flex items-center w-full h-6 px-2 rounded-sm text-xs text-left hover:bg-base-200"
-                class:bg-base-200={activeFan === "all"}
+                class={`flex items-center w-full h-6 px-2 rounded-btn text-xs text-left ${activeFan === "all" ? "bg-neutral text-neutral-content" : "hover:bg-base-content/10"}`}
                 on:click={() => choose("all")}
             >
                 All fans
             </button>
             {#each fanLabels as label, i (i)}
                 <div
-                    class="flex items-center h-6 rounded-sm hover:bg-base-200"
-                    class:bg-base-200={activeFan === i}
+                    class={`flex items-center h-6 rounded-btn ${activeFan === i ? "bg-neutral text-neutral-content" : "hover:bg-base-content/10"}`}
                     role="none"
                 >
                     <button
@@ -159,7 +157,7 @@
                             <button
                                 type="button"
                                 role="menuitem"
-                                class="w-5 h-5 inline-flex items-center justify-center rounded-sm hover:bg-base-300"
+                                class="w-5 h-5 inline-flex items-center justify-center rounded-btn hover:bg-base-300"
                                 aria-label="Follow all fans for {label}"
                                 title="Follow all fans"
                                 on:click={() => dispatch("clear", i)}

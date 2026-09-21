@@ -191,7 +191,7 @@
 </script>
 
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-  <div class="card bg-base-200 p-5 w-[460px] shadow-xl">
+  <div class="card bg-base-100 p-5 w-[460px] shadow-xl">
     {#if !hasStarted}
       <div class="space-y-3">
         <div class="font-semibold">Calibrate to enable Live RPM</div>

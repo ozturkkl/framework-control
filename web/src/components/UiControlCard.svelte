@@ -122,7 +122,7 @@
 </script>
 
 <div
-    class="flex flex-col rounded-xl bg-base-200 min-w-0 h-full min-h-0 gap-2 py-2 px-3"
+    class="flex flex-col rounded-box bg-base-200 min-w-0 h-full min-h-0 gap-2 py-2 px-3"
     use:measureSize={{ onChange: onCardSize }}
 >
     <div class="flex items-center justify-between gap-2 shrink-0">

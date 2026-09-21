@@ -104,7 +104,7 @@
     let downRateDisableTipVisible = false;
 
     function probeColor(custom: boolean) {
-        return custom ? "oklch(var(--a))" : "oklch(var(--p))";
+        return custom ? "oklch(var(--a))" : "oklch(var(--s))";
     }
 
     const SHOW_LIVE_KEY = "framework:showLiveRpm";
@@ -1086,7 +1086,7 @@
                         </filter>
                     </defs>
                     <!-- axes -->
-                    <g stroke="currentColor" class="opacity-30">
+                    <g stroke="currentColor" class="chart-axis">
                         <line
                             x1={padding.left}
                             y1={yToPx(0, svgHeight)}
@@ -1112,13 +1112,13 @@
                                 x2={svgWidth - padding.right}
                                 y2={yToPx(d, svgHeight)}
                                 stroke="currentColor"
-                                class="opacity-10"
+                                class="chart-grid"
                             />
                             <text
                                 x={padding.left - 6}
                                 y={yToPx(d, svgHeight) + 4}
                                 text-anchor="end"
-                                class="fill-current opacity-60 text-[10px]"
+                                class="chart-label text-[10px]"
                                 >{d}%</text
                             >
                         </g>
@@ -1131,13 +1131,13 @@
                                 x2={xToPx(t, svgWidth)}
                                 y2={svgHeight - padding.bottom}
                                 stroke="currentColor"
-                                class="opacity-10"
+                                class="chart-grid"
                             />
                             <text
                                 x={xToPx(t, svgWidth)}
                                 y={svgHeight - padding.bottom + 16}
                                 text-anchor="middle"
-                                class="fill-current opacity-60 text-[10px]"
+                                class="chart-label text-[10px]"
                                 >{t}°C</text
                             >
                         </g>
@@ -1146,8 +1146,8 @@
                     <!-- filled area under curve -->
                     <path
                         d={pathArea}
-                        fill="oklch(var(--p))"
-                        opacity="0.15"
+                        fill="oklch(var(--s))"
+                        opacity="0.1"
                         stroke="none"
                     />
 
@@ -1155,7 +1155,7 @@
                     <path
                         d={pathLine}
                         fill="none"
-                        stroke="oklch(var(--p))"
+                        stroke="oklch(var(--s))"
                         stroke-width="2.25"
                     />
 
@@ -1184,14 +1184,10 @@
                                 cx={xToPx(p[0], svgWidth)}
                                 cy={yToPx(p[1], svgHeight)}
                                 r={selectedIdx === i ? 6.5 : 5.5}
-                                fill={isDragging && selectedIdx === i
-                                    ? "oklch(var(--p))"
-                                    : selectedIdx === i
-                                      ? "oklch(var(--p))"
-                                      : "#ffffff"}
-                                stroke={isDragging && selectedIdx === i
-                                    ? "oklch(var(--pc))"
-                                    : "oklch(var(--p))"}
+                                fill={selectedIdx === i
+                                    ? "oklch(var(--s))"
+                                    : "oklch(var(--b1))"}
+                                stroke="oklch(var(--s))"
                                 stroke-width={selectedIdx === i ? 2.25 : 1.5}
                             />
                         </g>
@@ -1253,7 +1249,7 @@
 
                     {#if liveProbes.length > 0}
                         <!-- One probe per fan: custom fans (accent) sit off the
-                             shared curve, fans following the global curve (primary)
+                             shared curve, fans following the global curve (secondary)
                              land on the line. -->
                         <g pointer-events="none">
                             {#each liveProbes as probe (probe.i)}
@@ -1284,7 +1280,7 @@
                         visible: selectedIdx !== null,
                         onDismiss: () => (selectedIdx = null),
                     }}
-                    class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+                    class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs"
                 >
                     {#if selectedIdx !== null}
                         {points[selectedIdx][0]}°C · {points[selectedIdx][1]}%
@@ -1311,7 +1307,7 @@
                         <svelte:fragment slot="itemRight" let:item>
                             {#if latestTemps?.[item] !== undefined}
                                 <span
-                                    class={`tabular-nums px-1.5 py-0.5 rounded-full border ${item === selectedMaxSensor ? "border-base-content/50 border-2" : "border-2 border-transparent"} ${tempClass(latestTemps[item], selectedSensors.includes(item))}`}
+                                    class={`tabular-nums px-1.5 py-0.5 rounded-badge border ${item === selectedMaxSensor ? "border-primary border-2" : "border-2 border-transparent"} ${tempClass(latestTemps[item], selectedSensors.includes(item))}`}
                                 >
                                     {Math.round(latestTemps[item])} °C
                                 </span>
@@ -1366,7 +1362,7 @@
                             followMouse: true,
                             attachGlobalDismiss: false,
                         }}
-                        class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+                        class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs"
                     >
                         Poll interval can’t be set per fan — it’s shared by all
                         fans.
@@ -1431,7 +1427,7 @@
                                     visible: downRateEnableTipVisible,
                                     attachGlobalDismiss: false,
                                 }}
-                                class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+                                class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs"
                             >
                                 Separate spin-down rate
                             </div>
@@ -1478,7 +1474,7 @@
                                         visible: downRateDisableTipVisible,
                                         attachGlobalDismiss: false,
                                     }}
-                                    class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+                                    class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs"
                                 >
                                     One rate for both directions
                                 </div>

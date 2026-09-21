@@ -8,7 +8,7 @@
         type FrameworkToolVersions,
     } from "../api";
     import { gtSemver } from "../lib/semver";
-    import { listAvailableDaisyUIThemes } from "../lib/themes";
+    import { themes } from "../lib/themes";
     import { isLinux } from "../lib/platform";
     import { configStore, followConfig, patch } from "../lib/config";
     import { portal } from "../lib/portal";
@@ -39,13 +39,11 @@
     let updatesEnabled = true;
 
     // Theme handling (DaisyUI)
-    let themeOptions: string[] = listAvailableDaisyUIThemes();
-    let theme: string = localStorage?.getItem("fc_theme") ?? "light";
+    let theme: string = themes.current;
     async function onThemeChange(event: Event) {
         const target = event.currentTarget as HTMLSelectElement;
-        theme = target?.value ?? theme;
+        theme = themes.apply(target?.value ?? theme);
         localStorage.setItem("fc_theme", theme);
-        document.documentElement.setAttribute("data-theme", theme);
         // Persist to backend for cross-client consistency
         try {
             await patch({
@@ -226,7 +224,7 @@
             }),
             apply: (s) => {
                 autoInstall = s.auto_install;
-                if (s.theme) theme = s.theme;
+                if (s.theme) theme = themes.normalize(s.theme);
                 onLatest = s.latest;
             },
         }),
@@ -407,11 +405,8 @@
                         on:change={onThemeChange}
                         aria-label="Select theme"
                     >
-                        {#each themeOptions as t (t)}
-                            <option value={t}
-                                >{t.charAt(0).toUpperCase() +
-                                    t.slice(1)}</option
-                            >
+                        {#each themes.options as option (option.value)}
+                            <option value={option.value}>{option.label}</option>
                         {/each}
                     </select>
                 </div>

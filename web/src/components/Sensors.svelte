@@ -250,7 +250,7 @@
             {#each selectedSensors as name (name)}
                 <span class="inline-flex items-center gap-1">
                     <span
-                        class="w-2.5 h-2.5 rounded-sm"
+                        class="w-2.5 h-2.5 rounded-badge"
                         style={`background:${hashColor(name)}`}
                     ></span>
                     <span class="opacity-80">{name}</span>
@@ -284,7 +284,7 @@
                 on:mouseleave={onMouseLeave}
             >
                 <!-- axes -->
-                <g stroke="currentColor" class="opacity-30">
+                <g stroke="currentColor" class="chart-axis">
                     <line
                         x1={padding.left}
                         y1={yToPx(yMin, svgHeight)}
@@ -310,13 +310,13 @@
                             x2={svgWidth - padding.right}
                             y2={yToPx(d, svgHeight)}
                             stroke="currentColor"
-                            class="opacity-10"
+                            class="chart-grid"
                         />
                         <text
                             x={padding.left - 6}
                             y={yToPx(d, svgHeight) + 4}
                             text-anchor="end"
-              class="fill-current opacity-60 text-[10px]">{d}°C</text
+              class="chart-label text-[10px]">{d}°C</text
                         >
                     </g>
                 {/each}
@@ -330,13 +330,13 @@
                             x2={xToPx(t, svgWidth)}
                             y2={svgHeight - padding.bottom}
                             stroke="currentColor"
-                            class="opacity-10"
+                            class="chart-grid"
                         />
                         <text
                             x={xToPx(t, svgWidth)}
                             y={svgHeight - padding.bottom + 16}
                             text-anchor="middle"
-                            class="fill-current opacity-60 text-[10px]"
+                            class="chart-label text-[10px]"
                             >{formatTick(t - (tMin ?? 0))}</text
                         >
                     </g>
@@ -369,7 +369,7 @@
                         cy={yToPx(hover.value, svgHeight)}
                         r="3.5"
                         fill={hashColor(hover.name)}
-                        stroke="white"
+                        stroke="oklch(var(--b1))"
                         stroke-width="1.5"
                     />
                 {/if}
@@ -382,11 +382,11 @@
                     visible: !!hover,
                     attachGlobalDismiss: false,
                 }}
-                class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs flex items-center gap-2"
+                class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs flex items-center gap-2"
             >
                 {#if hover}
                     <span
-                        class="inline-block w-2.5 h-2.5 rounded-sm"
+                        class="inline-block w-2.5 h-2.5 rounded-badge"
                         style={`background:${hashColor(hover.name)}`}
                     ></span>
                     <span class="opacity-80">{hover.name}</span>

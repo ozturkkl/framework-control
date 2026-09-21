@@ -24,9 +24,9 @@
 	const MAX_POLL_SECS = 60;
 	const GAP_MS = 2.1 * MAX_POLL_SECS * 1000;
 	const DEFAULT_POLL_SECS = 15;
-	const CHARGE_COLOR = '#22c55e';
-	const POWER_CHARGE_COLOR = '#3b82f6';
-	const POWER_DISCHARGE_COLOR = '#f97316';
+	const CHARGE_COLOR = 'var(--sensor-green)';
+	const POWER_CHARGE_COLOR = 'var(--sensor-blue)';
+	const POWER_DISCHARGE_COLOR = 'var(--sensor-orange)';
 	let pollSecs = DEFAULT_POLL_SECS;
 	let windowChoice = WINDOW_SINCE_CHARGE;
 	let historyTimer: ReturnType<typeof setInterval> | null = null;
@@ -403,14 +403,14 @@
 	<svelte:fragment slot="top" let:openSettings>
 		<div class="flex flex-wrap items-center gap-2 text-xs gap-y-1 pl-[2px]">
 			<span class="inline-flex items-center gap-1">
-				<span class="w-2.5 h-2.5 rounded-sm" style={`background:${CHARGE_COLOR}`}></span>
+				<span class="w-2.5 h-2.5 rounded-badge" style={`background:${CHARGE_COLOR}`}></span>
 				<span class="opacity-80">Charge</span>
 				{#if last?.charge_pct != null}
 					<span class="tabular-nums font-medium">{last.charge_pct.toFixed(0)}%</span>
 				{/if}
 			</span>
 			<span class="inline-flex items-center gap-1">
-				<span class="inline-flex overflow-hidden rounded-sm">
+				<span class="inline-flex overflow-hidden rounded-badge">
 					<span class="w-2.5 h-2.5" style={`background:${POWER_CHARGE_COLOR}`}></span>
 					<span class="w-2.5 h-2.5" style={`background:${POWER_DISCHARGE_COLOR}`}></span>
 				</span>
@@ -466,7 +466,7 @@
 					{/if}
 				</defs>
 
-				<g stroke="currentColor" class="opacity-30">
+				<g stroke="currentColor" class="chart-axis">
 					<line
 						x1={padding.left}
 						y1={yToPxPct(0, svgHeight)}
@@ -498,9 +498,9 @@
 							x2={svgWidth - padding.right}
 							y2={yToPxPct(d, svgHeight)}
 							stroke="currentColor"
-							class="opacity-10"
+							class="chart-grid"
 						/>
-						<text x={padding.left - 6} y={yToPxPct(d, svgHeight) + 4} text-anchor="end" class="fill-current opacity-60 text-[10px]"
+						<text x={padding.left - 6} y={yToPxPct(d, svgHeight) + 4} text-anchor="end" class="chart-label text-[10px]"
 							>{d}%</text
 						>
 					</g>
@@ -514,9 +514,9 @@
 							x2={xToPx(t, svgWidth)}
 							y2={svgHeight - padding.bottom}
 							stroke="currentColor"
-							class="opacity-10"
+							class="chart-grid"
 						/>
-						<text x={xToPx(t, svgWidth)} y={svgHeight - padding.bottom + 16} text-anchor="middle" class="fill-current opacity-60 text-[10px]"
+						<text x={xToPx(t, svgWidth)} y={svgHeight - padding.bottom + 16} text-anchor="middle" class="chart-label text-[10px]"
 							>{formatClock(t, timeAxis.step >= 86400 * 1000)}</text
 						>
 					</g>
@@ -580,7 +580,7 @@
 						x={svgWidth - padding.right + 6}
 						y={yToPxWatts(w, svgHeight) + 4}
 						text-anchor="start"
-						class="fill-current opacity-60 text-[10px]">{formatAxisWatts(w)}W</text
+						class="chart-label text-[10px]">{formatAxisWatts(w)}W</text
 					>
 				{/each}
 
@@ -600,7 +600,7 @@
 						cy={hover.anchorY}
 						r="3.5"
 						fill={hover.anchor === 'charge' ? CHARGE_COLOR : powerColor(hover.watts)}
-						stroke="white"
+						stroke="oklch(var(--b1))"
 						stroke-width="1.5"
 					/>
 				{/if}
@@ -626,20 +626,20 @@
 					visible: !!hover,
 					attachGlobalDismiss: false,
 				}}
-				class="pointer-events-none whitespace-nowrap bg-base-200 px-2 py-1 rounded border border-base-300 shadow text-xs"
+				class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs"
 			>
 				{#if hover}
 					<div class="opacity-60 mb-0.5">{formatClock(hover.ts)}</div>
 					{#if hover.chargePct != null}
 						<div class="flex items-center gap-2">
-							<span class="inline-block w-2.5 h-2.5 rounded-sm" style={`background:${CHARGE_COLOR}`}></span>
+							<span class="inline-block w-2.5 h-2.5 rounded-badge" style={`background:${CHARGE_COLOR}`}></span>
 							<span class="opacity-80">Charge</span>
 							<span class="tabular-nums font-medium">{hover.chargePct.toFixed(1)}%</span>
 						</div>
 					{/if}
 					{#if hover.watts != null}
 						<div class="flex items-center gap-2">
-							<span class="inline-block w-2.5 h-2.5 rounded-sm" style={`background:${powerColor(hover.watts)}`}></span>
+							<span class="inline-block w-2.5 h-2.5 rounded-badge" style={`background:${powerColor(hover.watts)}`}></span>
 							<span class="opacity-80">Power</span>
 							<span class="tabular-nums font-medium">{formatWatts(hover.watts)}</span>
 						</div>

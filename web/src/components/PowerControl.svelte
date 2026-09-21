@@ -437,7 +437,7 @@
                                     visible: freqWarningTipVisible,
                                     attachGlobalDismiss: false,
                                 }}
-                                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-64 text-center"
+                                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs w-64 text-center"
                             >
                                 One profile applies CPU frequency limits, but
                                 the other profile has them disabled. When
@@ -524,7 +524,7 @@
                 visible: unlockTipVisible,
                 attachGlobalDismiss: false,
             }}
-            class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs text-center"
+            class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs text-center"
         >
             Unlock higher values for TDP.<br />
             <span class="opacity-90 text-error">USE AT YOUR OWN RISK.</span>
@@ -536,7 +536,7 @@
                     visible: removeTipVisible,
                     attachGlobalDismiss: false,
                 }}
-                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs w-60 text-center"
+                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs w-60 text-center"
             >
                 Remove the RyzenAdj helper. You can reinstall later from
                 here.

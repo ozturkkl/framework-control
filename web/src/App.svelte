@@ -273,7 +273,7 @@
     }
 </script>
 
-<main class="min-h-screen flex items-center justify-center p-6">
+<main class="min-h-screen flex items-center justify-center bg-base-200 text-base-content p-6">
     <div
         class="w-full max-w-6xl mx-auto space-y-4"
         inert={showMismatchGate}

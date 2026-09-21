@@ -2,7 +2,7 @@
   export const PANEL_HEADER_OVERLAY_CLASS =
     "panel-header-overlay absolute top-[0.62rem] right-2 z-10 flex items-center justify-end gap-2 text-sm";
   export const PANEL_HEADER_TOGGLE_CLASS =
-    "join border border-primary/35 shrink-0 max-w-full whitespace-nowrap";
+    "join border surface-border shrink-0 max-w-full whitespace-nowrap";
 </script>
 
 <script lang="ts">
@@ -41,7 +41,7 @@
   const editBtnClass = "btn btn-ghost btn-xs";
   const enabledCardClass = "bg-base-100 shadow";
   const disabledCardClass =
-    "bg-base-200/40 shadow-none border border-dashed border-base-content/20";
+    "bg-base-200/40 shadow-none border border-dashed surface-border";
   const expandedCardClass =
     "panel-expanded fixed z-50 inset-0 m-auto flex flex-col";
 

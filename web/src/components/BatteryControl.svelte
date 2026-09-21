@@ -346,7 +346,7 @@
             visible: healthTipVisible,
             attachGlobalDismiss: false,
         }}
-        class="pointer-events-none bg-base-100 px-2 py-1 rounded-xl border border-base-300 shadow text-xs w-58"
+        class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs w-58"
     >
         {#if cycleCount != null}
             <div class="tabular-nums">{cycleCount} cycles recorded.</div>
@@ -420,7 +420,7 @@
                     visible: socPopoverVisible,
                     onDismiss: () => (socPopoverVisible = false),
                 }}
-                class="bg-base-100 border border-base-300 rounded shadow p-2 py-1 text-xs space-y-1"
+                class="bg-base-100 border surface-border rounded-box shadow p-2 py-1 text-xs space-y-1"
                 role="dialog"
                 aria-label="Set SoC threshold"
                 tabindex="-1"

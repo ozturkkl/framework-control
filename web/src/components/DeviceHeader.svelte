@@ -119,7 +119,7 @@
     }
 
     let infoCardClass =
-        "inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 transition-colors rounded-lg px-3 py-1.5  text-xs lg:text-sm border border-primary/20 ";
+        "inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 transition-colors rounded-box px-3 py-1.5 text-xs lg:text-sm border surface-border";
     let infoCardIconClass = "w-4 h-4 lg:w-5 lg:h-5";
     let showSettings = false;
     let showLogs = false;
@@ -198,7 +198,7 @@
                 {#if healthy}
                     <div class="flex items-center gap-3">
                         <div
-                            class="lg:hidden rounded-lg overflow-hidden shadow relative w-20 h-14 shrink-0 bg-base-200"
+                            class="lg:hidden rounded-box overflow-hidden shadow relative w-20 h-14 shrink-0 bg-base-200"
                         >
                             <img
                                 src={openImage}
@@ -212,7 +212,7 @@
                         <div class="flex items-center gap-0 ml-auto">
                             {#if cliPresent}
                                 <button
-                                    class="btn btn-success btn-xs mx-3 p-[.4rem] rounded-full h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
+                                    class="btn btn-success btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
                                     aria-label="Connected"
                                     bind:this={statusBtn}
                                     on:mouseenter={() =>
@@ -228,7 +228,7 @@
                                 </button>
                             {:else}
                                 <a
-                                    class="btn btn-error btn-xs mx-3 p-[.4rem] rounded-full h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
+                                    class="btn btn-error btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
                                     href={platformInstallerUrl}
                                     aria-label="framework_tool missing — Reinstall"
                                     bind:this={statusBtn}
@@ -260,7 +260,7 @@
                                     visible: statusTipVisible,
                                     attachGlobalDismiss: false,
                                 }}
-                                class="pointer-events-none bg-base-100 px-2 py-1 rounded border border-base-300 shadow text-xs text-center lg:!hidden"
+                                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs text-center lg:!hidden"
                             >
                                 {#if cliPresent}
                                     Connected
@@ -303,7 +303,7 @@
                     {#if showLogs}
                         <LogsModal on:close={() => (showLogs = false)} />
                     {/if}
-                    <hr class="my-2 border border-primary/15" />
+                    <hr class="my-2 border surface-border" />
                     {#if sys}
                         <div class="flex flex-wrap gap-2">
                             <div class={infoCardClass}>
@@ -418,7 +418,7 @@
                             <div class="space-y-3">
                                 <div class="flex gap-2 items-center">
                                     <div
-                                        class="flex-1 bg-base-200 rounded-lg px-4 py-3 font-mono text-sm flex items-center overflow-x-auto"
+                                        class="flex-1 bg-base-200 rounded-box px-4 py-3 font-mono text-sm flex items-center overflow-x-auto"
                                     >
                                         <code class="whitespace-nowrap"
                                             >{INSTALL_COMMAND}</code

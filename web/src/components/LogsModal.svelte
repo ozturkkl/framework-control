@@ -229,7 +229,7 @@
                     </div>
                 {/if}
                 <pre
-                    class="text-xs bg-base-300 p-4 rounded-lg font-mono whitespace-pre-wrap break-words">{@html processedLogs}</pre>
+                    class="text-xs bg-base-300 p-4 rounded-box font-mono whitespace-pre-wrap break-words">{@html processedLogs}</pre>
             </div>
         {/if}
 
