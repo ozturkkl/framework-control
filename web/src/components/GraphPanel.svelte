@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
+  import { measureHeight } from "../lib/measureHeight";
 
   // Internal settings state managed by wrapper; children open/close via slot props
   let showSettings = false;
@@ -9,11 +10,25 @@
   function closeSettings() {
     showSettings = false;
   }
+
+  // flex-basis locks settings to the graph height. flex-grow still fills a
+  // maximized card, which has a definite height. Skip measurements while
+  // maximized: that height is the viewport, and settings unmounts the graph,
+  // so the value would stay stuck after restore.
+  let contentHeight: number | null = null;
+  function measureGraphHeight(node: HTMLElement) {
+    return measureHeight(node, {
+      onChange(h) {
+        if (node.closest(".panel-expanded")) return;
+        contentHeight = h;
+      },
+    });
+  }
 </script>
 
 <div class="card bg-base-200 p-3 flex flex-col grow min-h-full w-full">
   {#if !showSettings}
-    <div class="flex flex-col flex-1">
+    <div class="flex flex-col flex-1" use:measureGraphHeight>
       <div class="flex items-center justify-between mb-2 gap-2 shrink-0">
         <slot name="top" {openSettings} {closeSettings} />
       </div>
@@ -29,7 +44,10 @@
       </div>
     </div>
   {:else}
-    <div class="h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+    <div
+      class="min-h-0 overflow-y-auto overflow-x-hidden"
+      style={contentHeight ? `flex:1 1 ${contentHeight}px` : undefined}
+    >
       <div class="graph-settings min-h-full flex flex-col">
         <div
           class="sticky top-0 z-10 bg-base-200 flex items-center justify-between pb-1 gap-2"
