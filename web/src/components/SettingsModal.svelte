@@ -255,7 +255,7 @@
 
 <div class="modal modal-open" use:portal>
     <div
-        class="modal-box max-w-2xl"
+        class="modal-box max-w-2xl bg-base-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
@@ -400,7 +400,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <select
-                        class="select select-sm"
+                        class="select select-sm border surface-border"
                         bind:value={theme}
                         on:change={onThemeChange}
                         aria-label="Select theme"
@@ -427,7 +427,7 @@
                     {/if}
                 </div>
                 <select
-                    class="select select-sm"
+                    class="select select-sm border surface-border"
                     bind:value={toolSelection}
                     on:change={onToolVersionChange}
                     disabled={!toolVersions || toolBusy}
@@ -468,7 +468,7 @@
                         View recent service logs for troubleshooting
                     </p>
                 </div>
-                <button class="btn btn-sm" on:click={() => (showLogs = true)}>
+                <button class="btn btn-sm bg-base-100 border surface-border" on:click={() => (showLogs = true)}>
                     <Icon icon="mdi:text-box-search-outline" class="w-4 h-4" />
                     View Logs
                 </button>

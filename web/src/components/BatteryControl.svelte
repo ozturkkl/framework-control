@@ -259,7 +259,7 @@
                         icon={isCharging
                             ? "mdi:battery-charging"
                             : "mdi:flash-outline"}
-                        class={`w-4 h-4 ${isCharging ? "text-success" : "text-secondary"}`}
+                        class={`w-4 h-4 ${isCharging ? "text-success" : "text-[var(--sensor-orange)]"}`}
                     />
                     <span class="tabular-nums text-xs"
                         >{isCharging ? "+" : "-"}{presentWatts != null

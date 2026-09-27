@@ -197,7 +197,7 @@
         {
             id: "status",
             text: acPresent ? "Plugged in" : "On battery",
-            textClass: `text-xs opacity-90 ${acPresent ? "text-success" : "text-secondary"}`,
+            textClass: "text-xs font-medium text-success",
         },
     ])();
 
@@ -442,7 +442,7 @@
                                 One profile applies CPU frequency limits, but
                                 the other profile has them disabled. When
                                 switching to the disabled profile, Framework
-                                Control won’t reset touch the limits, so they
+                                Control won’t touch the limits, so they
                                 may remain active until something else changes
                                 them (reboot/OS power daemon/etc).
                             </div>
@@ -498,7 +498,7 @@
                     {/if}
                 </div>
             {/if}
-            <div class="flex gap-x-2 items-center whitespace-nowrap">
+            <div class="flex gap-x-1 items-center whitespace-nowrap">
                 {#each batterySummary as item, i (item.id)}
                     {#if i > 0}
                         <span class="opacity-60">•</span>

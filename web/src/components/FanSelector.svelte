@@ -122,7 +122,7 @@
     {#if isOpen}
         <div
             bind:this={menuEl}
-            class="absolute left-0 top-full mt-1 p-0.5 bg-base-100 rounded-box w-max min-w-full border surface-border-strong shadow-lg"
+            class="absolute left-0 top-full mt-1 p-0.5 bg-base-100 rounded-box w-max min-w-full border surface-border shadow-lg"
             role="menu"
             aria-labelledby={buttonId}
             id={menuId}
@@ -157,7 +157,7 @@
                             <button
                                 type="button"
                                 role="menuitem"
-                                class="w-5 h-5 inline-flex items-center justify-center rounded-btn hover:bg-base-300"
+                                class="w-5 h-5 inline-flex items-center justify-center rounded-btn hover:bg-base-content/10"
                                 aria-label="Follow all fans for {label}"
                                 title="Follow all fans"
                                 on:click={() => dispatch("clear", i)}

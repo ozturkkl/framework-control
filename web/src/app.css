@@ -18,7 +18,8 @@ body {
 
 @layer components {
 	.panel-status-strip {
-		@apply bg-base-200 min-w-0 rounded-box mb-2 py-2 px-3 flex items-center gap-2 text-xs shrink-0;
+		@apply bg-base-200 min-w-0 rounded-box mb-2 py-2 px-3 flex items-center gap-2 text-xs shrink-0 border border-solid;
+		border-color: var(--surface-border, oklch(var(--bc) / 0.18));
 	}
 
 	.panel-status-metrics {
@@ -60,11 +61,39 @@ body {
 		@apply fill-current opacity-60;
 	}
 
-	.surface-border {
-		border-color: oklch(var(--bc) / 0.12);
+	.card,
+	.modal-box {
+		border-width: 1px;
+		border-style: solid;
+		border-color: var(--surface-border, oklch(var(--bc) / 0.18));
 	}
 
-	.surface-border-strong {
-		border-color: oklch(var(--bc) / 0.3);
+	.surface-border {
+		border-color: var(--surface-border, oklch(var(--bc) / 0.18));
 	}
+
+	.graph-settings .ui-control-card {
+		border-color: transparent;
+	}
+}
+
+/* DaisyUI's default --range-shdw is solid base-content, which is the filled bar.
+   Soften it to an opaque mix so light themes are less harsh. */
+.range {
+	--range-shdw: color-mix(in oklch, oklch(var(--bc)) 85%, oklch(var(--b2)));
+}
+
+/* Recolor only the resting ring; the fill still follows --range-shdw. */
+.range::-webkit-slider-thumb {
+	box-shadow:
+		0 0 0 3px var(--surface-border, oklch(var(--bc) / 0.18)) inset,
+		var(--focus-shadow, 0 0),
+		calc(var(--filler-size) * -1 - var(--filler-offset)) 0 0 var(--filler-size);
+}
+
+.range::-moz-range-thumb {
+	box-shadow:
+		0 0 0 3px var(--surface-border, oklch(var(--bc) / 0.18)) inset,
+		var(--focus-shadow, 0 0),
+		calc(var(--filler-size) * -1 - var(--filler-offset)) 0 0 var(--filler-size);
 }

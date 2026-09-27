@@ -136,7 +136,7 @@
   </button>
 
   <div
-    class="dropdown-content p-2 bg-base-100 rounded-box w-56 max-h-60 overflow-y-auto overflow-x-hidden flex flex-col gap-1 border surface-border-strong shadow-lg"
+    class="dropdown-content p-2 bg-base-100 rounded-box w-56 max-h-60 overflow-y-auto overflow-x-hidden flex flex-col gap-1 border surface-border shadow-lg"
     role="listbox"
     aria-multiselectable="true"
     aria-labelledby={buttonId}

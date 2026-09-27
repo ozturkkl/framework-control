@@ -119,7 +119,7 @@
     }
 
     let infoCardClass =
-        "inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 transition-colors rounded-box px-3 py-1.5 text-xs lg:text-sm border surface-border";
+        "inline-flex items-center gap-2 bg-base-200 hover:bg-base-content/10 transition-colors rounded-box px-3 py-1.5 text-xs lg:text-sm border surface-border";
     let infoCardIconClass = "w-4 h-4 lg:w-5 lg:h-5";
     let showSettings = false;
     let showLogs = false;
@@ -212,7 +212,7 @@
                         <div class="flex items-center gap-0 ml-auto">
                             {#if cliPresent}
                                 <button
-                                    class="btn btn-success btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
+                                    class="btn btn-success btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0"
                                     aria-label="Connected"
                                     bind:this={statusBtn}
                                     on:mouseenter={() =>
@@ -221,11 +221,7 @@
                                         (statusTipVisible = false)}
                                     on:focus={() => (statusTipVisible = true)}
                                     on:blur={() => (statusTipVisible = false)}
-                                >
-                                    <span class="hidden lg:inline"
-                                        >Connected</span
-                                    >
-                                </button>
+                                ></button>
                             {:else}
                                 <a
                                     class="btn btn-error btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
@@ -260,7 +256,9 @@
                                     visible: statusTipVisible,
                                     attachGlobalDismiss: false,
                                 }}
-                                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs text-center lg:!hidden"
+                                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs text-center {cliPresent
+                                    ? ''
+                                    : 'lg:!hidden'}"
                             >
                                 {#if cliPresent}
                                     Connected
@@ -393,7 +391,7 @@
                 {:else}
                     <div class="space-y-4 lg:space-y-6">
                         <h1
-                            class="text-3xl lg:text-5xl font-extrabold leading-tight tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent animate-gradient"
+                            class="text-3xl lg:text-5xl font-extrabold leading-tight tracking-tight bg-gradient-to-r from-primary to-primary/40 bg-clip-text text-transparent"
                         >
                             Make your Framework come alive
                         </h1>
@@ -507,17 +505,3 @@
         </div>
     </div>
 </div>
-
-<style>
-    @keyframes gradientShift {
-        0% {
-            filter: hue-rotate(0deg);
-        }
-        100% {
-            filter: hue-rotate(360deg);
-        }
-    }
-    .animate-gradient {
-        animation: gradientShift 8s linear infinite;
-    }
-</style>

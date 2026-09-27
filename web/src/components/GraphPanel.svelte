@@ -30,7 +30,7 @@
     </div>
   {:else}
     <div class="h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-      <div class="min-h-full flex flex-col">
+      <div class="graph-settings min-h-full flex flex-col">
         <div
           class="sticky top-0 z-10 bg-base-200 flex items-center justify-between pb-1 gap-2"
         >

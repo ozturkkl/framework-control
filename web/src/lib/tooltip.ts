@@ -16,7 +16,7 @@
 //   Hover me
 // </button>
 // <div use:tooltip={{ anchor: btn, visible: tipVisible }}
-//      class="rounded shadow px-2 py-1 bg-base-100 border border-base-300 text-sm">
+//      class="rounded shadow px-2 py-1 bg-base-100 border surface-border text-sm">
 //   Hello tooltip
 // </div>
 //

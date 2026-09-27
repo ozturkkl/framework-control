@@ -122,7 +122,7 @@
 </script>
 
 <div
-    class="flex flex-col rounded-box bg-base-200 min-w-0 h-full min-h-0 gap-2 py-2 px-3"
+    class="ui-control-card flex flex-col rounded-box bg-base-200 min-w-0 h-full min-h-0 gap-2 py-2 px-3 border surface-border"
     use:measureSize={{ onChange: onCardSize }}
 >
     <div class="flex items-center justify-between gap-2 shrink-0">
@@ -156,7 +156,6 @@
                     <input
                         type="checkbox"
                         class="checkbox checkbox-xs"
-                        class:checkbox-success={enabled}
                         bind:checked={enabled}
                         on:change={handleToggle}
                     />
@@ -166,7 +165,7 @@
         </div>
     </div>
     <div
-        class:opacity-60={(hasEnabled && !enabled) || disabled}
+        class:opacity-40={(hasEnabled && !enabled) || disabled}
         class={showFillReadout
             ? "flex-1 min-h-0 flex flex-col items-center justify-center px-2"
             : "flex-1 min-h-0 flex items-center gap-3"}
@@ -211,14 +210,14 @@
                 {#if capMinPct != null}
                     <div
                         aria-hidden="true"
-                        class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full pointer-events-none bg-secondary/50 z-10"
+                        class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full pointer-events-none bg-warning/50 z-10"
                         style={`left: 0; right: ${100 - capMinPct}%;`}
                     ></div>
                 {/if}
                 {#if capLeftPct != null}
                     <div
                         aria-hidden="true"
-                        class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full pointer-events-none bg-secondary/50 z-10"
+                        class="absolute top-1/2 -translate-y-1/2 h-1 rounded-full pointer-events-none bg-warning/50 z-10"
                         style={`left: ${capLeftPct}%; right: 0;`}
                     ></div>
                 {/if}
@@ -238,3 +237,12 @@
         {/if}
     </div>
 </div>
+
+<style>
+    /* DaisyUI sets a disabled select's style, which clashes our own opacity style. */
+    select:disabled {
+        border-color: var(--surface-border);
+        background-color: oklch(var(--b1));
+        color: inherit;
+    }
+</style>

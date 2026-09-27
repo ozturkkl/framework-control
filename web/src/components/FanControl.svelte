@@ -104,7 +104,7 @@
     let downRateDisableTipVisible = false;
 
     function probeColor(custom: boolean) {
-        return custom ? "oklch(var(--a))" : "oklch(var(--s))";
+        return custom ? "oklch(var(--su))" : "oklch(var(--p))";
     }
 
     const SHOW_LIVE_KEY = "framework:showLiveRpm";
@@ -1022,7 +1022,7 @@
                 </div>
                 <div class="flex gap-2">
                     <button
-                        class={`btn btn-xs btn-ghost opacity-90`}
+                        class={`btn btn-xs btn-ghost`}
                         on:click={toggleLive}
                         aria-label="Toggle live RPM overlay"
                         aria-pressed={showLive}
@@ -1146,7 +1146,7 @@
                     <!-- filled area under curve -->
                     <path
                         d={pathArea}
-                        fill="oklch(var(--s))"
+                        fill="oklch(var(--p))"
                         opacity="0.1"
                         stroke="none"
                     />
@@ -1155,7 +1155,7 @@
                     <path
                         d={pathLine}
                         fill="none"
-                        stroke="oklch(var(--s))"
+                        stroke="oklch(var(--p))"
                         stroke-width="2.25"
                     />
 
@@ -1185,9 +1185,9 @@
                                 cy={yToPx(p[1], svgHeight)}
                                 r={selectedIdx === i ? 6.5 : 5.5}
                                 fill={selectedIdx === i
-                                    ? "oklch(var(--s))"
+                                    ? "oklch(var(--p))"
                                     : "oklch(var(--b1))"}
-                                stroke="oklch(var(--s))"
+                                stroke="oklch(var(--p))"
                                 stroke-width={selectedIdx === i ? 2.25 : 1.5}
                             />
                         </g>
@@ -1212,7 +1212,7 @@
                                 y1={liveY}
                                 x2={svgWidth - padding.right}
                                 y2={liveY}
-                                stroke="oklch(var(--a))"
+                                stroke="oklch(var(--su))"
                                 stroke-width="1.25"
                                 stroke-dasharray="4 3"
                                 opacity="0.7"
@@ -1222,7 +1222,7 @@
                                 y1={padding.top}
                                 x2={liveX}
                                 y2={svgHeight - padding.bottom}
-                                stroke="oklch(var(--a))"
+                                stroke="oklch(var(--su))"
                                 stroke-width="1.25"
                                 stroke-dasharray="4 3"
                                 opacity="0.7"
@@ -1232,7 +1232,7 @@
                                 cx={liveX}
                                 cy={liveY}
                                 r="5"
-                                fill="oklch(var(--a))"
+                                fill="oklch(var(--su))"
                                 filter="url(#live-glow)"
                             />
                             <circle
@@ -1241,15 +1241,15 @@
                                 r="6"
                                 class="pulse-ring"
                                 fill="none"
-                                stroke="oklch(var(--a))"
+                                stroke="oklch(var(--su))"
                                 stroke-width="2"
                             />
                         </g>
                     {/if}
 
                     {#if liveProbes.length > 0}
-                        <!-- One probe per fan: custom fans (accent) sit off the
-                             shared curve, fans following the global curve (secondary)
+                        <!-- One probe per fan: custom fans (success) sit off the
+                             shared curve, fans following the global curve (primary)
                              land on the line. -->
                         <g pointer-events="none">
                             {#each liveProbes as probe (probe.i)}
@@ -1489,7 +1489,7 @@
                             Calibration aligns live RPM to duty curve.
                         </div>
                         <button
-                            class="btn btn-sm"
+                            class="btn btn-sm bg-base-100 border surface-border"
                             on:click={openCalibration}
                             aria-label="Recalibrate fans"
                         >

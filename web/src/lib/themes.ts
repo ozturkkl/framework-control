@@ -2,9 +2,9 @@ const SYSTEM_THEME = 'system' as const;
 
 const THEME_OPTIONS = [
 	{ value: SYSTEM_THEME, label: 'System' },
+	{ value: 'light', label: 'Light' },
 	{ value: 'dark', label: 'Dark' },
 	{ value: 'extra-dark', label: 'Extra Dark' },
-	{ value: 'light', label: 'Light' },
 	{ value: 'retro', label: 'Retro' },
 	{ value: 'synthwave', label: 'Synthwave' },
 	{ value: 'coffee', label: 'Coffee' },
