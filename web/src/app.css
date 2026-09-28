@@ -32,7 +32,7 @@ body {
 
 	/* Hanging bullet; overflow on .panel-status-metrics clips it at the start of each row. */
 	.panel-status-item::before {
-		content: "•";
+		content: '•';
 		display: inline-block;
 		width: 0.75rem;
 		margin-left: -0.75rem;
