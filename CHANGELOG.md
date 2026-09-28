@@ -1,5 +1,7 @@
 # Unreleased
 
+## 0.5.5 - 2026-09-27
+
 - **NEW: Dashboard layout customization** (#73): Drag panels around, make them full or half width, or hide the ones you don't need. Hiding a panel also disables the feature. Good for disabling sections of the app that don't play nicely with your workflow.
 - **NEW: Battery history graph** (#72): Background poll keeps up to 7 days of charge % and signed pack watts. `/api/battery/history` added. Window presets include 1 hour through 7 days and **Since last charge**. History sample interval is `battery.poll_ms` (5s–1min, default 15s).
 - **Per-Fan calibration and improvements to the calibration process**: Per-fan duty-to-RPM mapping. One run commands all fans together, waits until each is stable, and stores a curve per fan (`fan.calibration.fans[]`). Live RPM overlay uses that fan's curve. The shared `points` field is removed — existing calibrations are treated as missing and need a re-run. Sampling waits for settle and a longer stable window so a slow fan response is not recorded as the next step. NOTE: Fan calibrations will have to be re-recorded.

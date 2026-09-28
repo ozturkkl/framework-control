@@ -1,7 +1,7 @@
 {
   "name": "framework-control-web",
   "private": true,
-  "version": "0.5.4",
+  "version": "0.5.5",
   "type": "module",
   "scripts": {
     "bump-version": "node scripts/bump-version.mjs",
