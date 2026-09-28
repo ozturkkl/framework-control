@@ -9,7 +9,7 @@ A local lightweight Linux/Windows service with a Svelte web UI for Framework dev
 > Install the [latest BIOS](https://knowledgebase.frame.work/en_us/framework-laptop-16-bios-and-driver-releases-amd-ryzen-7040-series-BkeqkVovp) before using this tool or it won't work.
 <img width="0" height="0" alt="image" src="https://github.com/user-attachments/assets/61fe424b-1c2b-4897-987a-28042721726d" />
 
-https://github.com/user-attachments/assets/dc8f8d5b-6d7e-4bf8-9318-248bc0970ed2
+https://github.com/user-attachments/assets/0521570b-aed2-4438-9492-0e4bc1a8b051
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
