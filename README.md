@@ -9,7 +9,7 @@ A local lightweight Linux/Windows service with a Svelte web UI for Framework dev
 > Install the [latest BIOS](https://knowledgebase.frame.work/en_us/framework-laptop-16-bios-and-driver-releases-amd-ryzen-7040-series-BkeqkVovp) before using this tool or it won't work.
 <img width="0" height="0" alt="image" src="https://github.com/user-attachments/assets/61fe424b-1c2b-4897-987a-28042721726d" />
 
-https://github.com/user-attachments/assets/dc8f8d5b-6d7e-4bf8-9318-248bc0970ed2
+https://github.com/user-attachments/assets/0521570b-aed2-4438-9492-0e4bc1a8b051
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
@@ -48,7 +48,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Clean Architecture**: Minimal always-on local service with REST API on loopback
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode on Windows; Linux gets an application menu desktop entry (created on first run)
-- **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold.
+- **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold, plus a charge/power history graph.
 - **Power Controls**:
   - **Windows (RyzenAdj)**: TDP and thermal limit control for AMD Ryzen systems
   - **Linux (Native)**: Uses kernel interfaces (AMD P-State EPP, cpufreq governor)
@@ -163,10 +163,11 @@ VITE_API_BASE=http://127.0.0.1:8090
 
 ## API & Configuration
 
-The service provides a REST API for health and telemetry (`/api/health`, `/api/thermal`, `/api/thermal/history`, `/api/power`, `/api/versions`), system info (`/api/system`), update and helper management (`/api/update/*`, `/api/ryzenadj/*`), shortcut management (`/api/shortcuts/*`), and config management (`/api/config`).
+The service provides a REST API for health and telemetry (`/api/health`, `/api/thermal`, `/api/thermal/history`, `/api/battery/history`, `/api/power`, `/api/versions`), system info (`/api/system`), update and helper management (`/api/update/*`, `/api/ryzenadj/*`), shortcut management (`/api/shortcuts/*`), and config management (`/api/config`).
 
 - `/api/power`: combined battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`.
 - `/api/thermal/history`: recent temperature/RPM samples collected by the background telemetry task.
+- `/api/battery/history`: charge % and signed pack watts from the history task. Optional `since` (unix ms) returns only newer samples.
 
 Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.json` on Windows (overridable via `FRAMEWORK_CONTROL_CONFIG`) and `/etc/framework-control/config.json` on Linux. It includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters, power AC/Battery profiles, battery charge-limit/rate settings and SoC threshold, telemetry poll/retention, update preferences, and UI theme.
 

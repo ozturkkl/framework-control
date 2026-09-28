@@ -1,11 +1,12 @@
 [package]
 name = "framework-control-service"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2021"
 authors = ["Framework Control"]
 
 [dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"

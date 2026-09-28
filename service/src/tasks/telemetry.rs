@@ -5,22 +5,35 @@ use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::{Config, TelemetrySample};
+use crate::config::LiveConfig;
+use crate::types::{DashboardPanelId, TelemetrySample};
+use crate::utils::time::unix_time_ms;
+
+// 30 minutes
+const RETAIN_SECONDS: u64 = 1800;
 
 pub async fn run(
     cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
-    cfg_lock: Arc<tokio::sync::RwLock<Config>>,
+    cfg_lock: LiveConfig,
     samples_lock: Arc<tokio::sync::RwLock<VecDeque<TelemetrySample>>>,
 ) {
     info!("Telemetry task started");
 
     loop {
         // Snapshot config at loop start
-        let tel_cfg = {
+        let (tel_cfg, telemetry_enabled) = {
             let cfg = cfg_lock.read().await;
-            cfg.telemetry.clone()
+            (
+                cfg.telemetry.clone(),
+                cfg.ui.is_panel_enabled(DashboardPanelId::Telemetry),
+            )
         };
         let poll_interval = Duration::from_millis(tel_cfg.poll_ms.max(1000));
+
+        if !telemetry_enabled {
+            sleep(poll_interval).await;
+            continue;
+        }
 
         // Obtain CLI
         let maybe_cli = { cli_lock.read().await.clone() };
@@ -41,8 +54,7 @@ pub async fn run(
                 {
                     let mut w = samples_lock.write().await;
                     w.push_back(sample);
-                    // Trim by retain_seconds
-                    let cutoff_ms = now_ms - (tel_cfg.retain_seconds as i64 * 1000);
+                    let cutoff_ms = now_ms - (RETAIN_SECONDS as i64 * 1000);
                     while let Some(front) = w.front() {
                         if front.ts_ms < cutoff_ms {
                             w.pop_front();
@@ -59,10 +71,4 @@ pub async fn run(
 
         sleep(poll_interval).await;
     }
-}
-
-fn unix_time_ms() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let now = SystemTime::now();
-    now.duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as i64
 }

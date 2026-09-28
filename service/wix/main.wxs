@@ -212,6 +212,8 @@
                         <!-- Icon + config under %PROGRAMDATA%\FrameworkControl, then the now-empty dirs -->
                         <RemoveFile Id='RemoveIcon' Name='framework-control.ico' On='uninstall' Directory='ProgramDataAssetsDir'/>
                         <RemoveFile Id='RemoveConfig' Name='config.json' On='uninstall' Directory='ProgramDataFrameworkControlDir'/>
+                        <RemoveFile Id='RemoveBatteryHistory' Name='battery-history.json' On='uninstall' Directory='ProgramDataFrameworkControlDir'/>
+                        <RemoveFile Id='RemoveBatteryHistoryTmp' Name='battery-history.json.tmp' On='uninstall' Directory='ProgramDataFrameworkControlDir'/>
                         <RemoveFolder Id='RemoveProgramDataAssetsDir' Directory='ProgramDataAssetsDir' On='uninstall'/>
                         <RemoveFolder Id='RemoveProgramDataFrameworkControlDir' Directory='ProgramDataFrameworkControlDir' On='uninstall'/>
                     </Component>

@@ -13,6 +13,12 @@ module.exports = {
 
 	overrides: [
 		{
+			files: ['theme.config.js'],
+			options: {
+				quoteProps: 'preserve',
+			},
+		},
+		{
 			files: ['*.json', '*.yml', '*.yaml'],
 			options: {
 				tabWidth: 2,

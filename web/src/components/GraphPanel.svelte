@@ -11,34 +11,44 @@
     showSettings = false;
   }
 
-  // Keep settings view height equal to the graph content height
+  // flex-basis locks settings to the graph height. flex-grow still fills a
+  // maximized card, which has a definite height. Skip measurements while
+  // maximized: that height is the viewport, and settings unmounts the graph,
+  // so the value would stay stuck after restore.
   let contentHeight: number | null = null;
-  function setMeasuredHeight(h: number) {
-    contentHeight = h;
+  function measureGraphHeight(node: HTMLElement) {
+    return measureHeight(node, {
+      onChange(h) {
+        if (node.closest(".panel-expanded")) return;
+        contentHeight = h;
+      },
+    });
   }
 </script>
 
-<div class="card bg-base-200 p-3">
+<div class="card bg-base-200 p-3 flex flex-col grow min-h-full w-full">
   {#if !showSettings}
-    <div use:measureHeight={{ onChange: setMeasuredHeight }}>
-      <div class="flex items-center justify-between mb-2 gap-2">
+    <div class="flex flex-col flex-1" use:measureGraphHeight>
+      <div class="flex items-center justify-between mb-2 gap-2 shrink-0">
         <slot name="top" {openSettings} {closeSettings} />
       </div>
-      <div class="relative">
-        <div class="w-full relative">
+      <div class="relative flex-1 flex flex-col">
+        <div class="relative w-full flex-1 min-h-[220px]">
           <slot name="graph" />
         </div>
-        <div class="mt-2">
-          <slot name="bottom" />
-        </div>
+        {#if $$slots.bottom}
+          <div class="mt-2 shrink-0">
+            <slot name="bottom" />
+          </div>
+        {/if}
       </div>
     </div>
   {:else}
     <div
-      class="h-full overflow-y-auto overflow-x-hidden"
-      style={`height:${contentHeight ? contentHeight + "px" : "auto"}`}
+      class="min-h-0 overflow-y-auto overflow-x-hidden"
+      style={contentHeight ? `flex:1 1 ${contentHeight}px` : undefined}
     >
-      <div class="min-h-full flex flex-col">
+      <div class="graph-settings min-h-full flex flex-col">
         <div
           class="sticky top-0 z-10 bg-base-200 flex items-center justify-between pb-1 gap-2"
         >
