@@ -8,7 +8,7 @@
 - **Config sync**: One UI config store plus SSE on config writes so open tabs stay in sync without polling.
 - **Linux/AUR**: PKGBUILD makedepends are now `cargo`, `nodejs`, and `npm` (replacing `rust`) so AUR builds can compile the web UI and service.
 - **Themes**: Curated set (Light, Dark, Extra Dark, Retro, Synthwave, Coffee, Terminal, plus System) with updated colors. Graphs sit on the panel background.
-- **Other UI Fixes/Improvements**: Made some UI changes to improve coherence and the way everything sits/aligns. Minor improvements to graphs including bug fixes. Fixed a bug where Settings and Logs modals hide behind the header. Escape closes them. Better accessibility and tab control for modals. Narrow-screen overflow fixes for the header, power grid, battery panel, and sliders. Panel maximize animates cleanly.
+- **Other UI Fixes/Improvements**: Made some UI changes to improve coherence and the way everything sits/aligns. Minor improvements to graphs including bug fixes. Fixed a bug where Settings and Logs modals hide behind the header. Escape closes them. Better accessibility and tab control for modals. Narrow-screen overflow fixes for the header, power grid, battery panel, and sliders. Panel maximize animates cleanly. Added a Sponsor button in Settings linking to [GitHub Sponsors](https://github.com/sponsors/ozturkkl).
 
 ## 0.5.4 - 2026-07-03
 - **framework_tool version selection** (#68): New Settings dropdown showing the active `framework_tool` version. Selecting a release tag is a one-off attempt to download, validate, and switch to that version.

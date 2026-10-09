@@ -473,6 +473,25 @@
                     View Logs
                 </button>
             </section>
+            <div class="divider opacity-80"></div>
+            <section class="flex items-center justify-between gap-4">
+                <div>
+                    <h4 class="font-semibold">Support the Project</h4>
+                    <p class="text-xs opacity-70">
+                        Framework Control is free and open source. If it's useful
+                        to you, consider supporting its development
+                    </p>
+                </div>
+                <a
+                    class="btn btn-sm bg-base-100 border surface-border"
+                    href="https://github.com/sponsors/ozturkkl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <Icon icon="mdi:heart" class="w-4 h-4 text-error" />
+                    Sponsor
+                </a>
+            </section>
         </div>
         <div class="modal-action">
             <button class="btn" on:click={close}>Close</button>
