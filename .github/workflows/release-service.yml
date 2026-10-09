@@ -342,6 +342,18 @@ jobs:
           runuser -u builder -- updpkgsums
           runuser -u builder -- makepkg --printsrcinfo > .SRCINFO
 
+      - name: Build and install package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd aur
+          depsLine=$(source PKGBUILD && echo "${depends[@]}" "${makedepends[@]}")
+          read -ra deps <<< "$depsLine"
+          pacman -S --noconfirm --needed "${deps[@]}"
+          runuser -u builder -- makepkg --noconfirm
+          # Scriptlets call systemctl, which can't run in a container
+          pacman -U --noconfirm --noscriptlet ./*.pkg.tar.zst
+
       - name: Push to AUR
         shell: bash
         env:
@@ -422,6 +434,18 @@ jobs:
           chown -R builder .
           runuser -u builder -- updpkgsums
           runuser -u builder -- makepkg --printsrcinfo > .SRCINFO
+
+      - name: Build and install package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd aur-beta
+          depsLine=$(source PKGBUILD && echo "${depends[@]}" "${makedepends[@]}")
+          read -ra deps <<< "$depsLine"
+          pacman -S --noconfirm --needed "${deps[@]}"
+          runuser -u builder -- makepkg --noconfirm
+          # Scriptlets call systemctl, which can't run in a container
+          pacman -U --noconfirm --noscriptlet ./*.pkg.tar.zst
 
       - name: Push to AUR
         shell: bash

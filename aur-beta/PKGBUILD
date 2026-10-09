@@ -10,6 +10,8 @@ license=('MIT')
 depends=('xdg-utils' 'hicolor-icon-theme')
 optdepends=('framework-system: Framework CLI on PATH; otherwise auto-downloaded on first run')
 makedepends=('cargo' 'nodejs' 'npm')
+# ring's C/asm objects fail to link under makepkg's default LTO
+options=('!lto')
 conflicts=('framework-control')
 provides=('framework-control')
 install=framework-control-beta.install
