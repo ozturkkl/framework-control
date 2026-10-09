@@ -214,7 +214,7 @@
         if (selections && selections.length > 0) {
             for (const s of selections) {
                 const t = temps[s];
-                if (!Number.isNaN(t)) {
+                if (typeof t === "number" && !Number.isNaN(t)) {
                     best = Math.max(best ?? 0, t);
                 }
             }
@@ -421,13 +421,12 @@
                 });
             });
         }
-        if (
-            $configStore.loaded &&
-            selectedSensors.length === 0 &&
-            availableSensors.length > 0
-        ) {
-            selectedSensors = availableSensors.slice();
-            save();
+        if ($configStore.loaded && availableSensors.length > 0) {
+            const sensors = withFallbackSensors(selectedSensors);
+            if (sensors !== selectedSensors) {
+                selectedSensors = sensors;
+                save();
+            }
         }
         onMountComplete = true;
     });
@@ -453,7 +452,18 @@
         return { ...readEditorCurveConfig(), poll_ms: pollMs };
     }
 
-    function applyCurveConfig(c: CurveConfig, applySensors = true) {
+    // Sensor names changed in newer framework_tool/EC versions, so saved names may no longer exist.
+    function withFallbackSensors(sensors: string[]): string[] {
+        if (
+            availableSensors.length === 0 ||
+            sensors.some((s) => availableSensors.includes(s))
+        ) {
+            return sensors;
+        }
+        return availableSensors.slice();
+    }
+
+    function applyCurveConfig(c: CurveConfig) {
         points = c.points.map((p) => [p[0], p[1]]) as Point[];
         sortPointsInPlace();
         hysteresisC = c.hysteresis_c;
@@ -463,20 +473,17 @@
             1,
             c.rate_limit_down_pct_per_step ?? c.rate_limit_pct_per_step,
         );
-        if (applySensors) selectedSensors = c.sensors.slice();
+        selectedSensors = withFallbackSensors(c.sensors).slice();
     }
 
-    function applyGlobalCurveConfig(c: GlobalCurveConfig, applySensors = true) {
-        applyCurveConfig(c, applySensors);
+    function applyGlobalCurveConfig(c: GlobalCurveConfig) {
+        applyCurveConfig(c);
         pollMs = c.poll_ms;
     }
 
     function applyLoadedGlobalConfig(fan: FanControlConfig) {
         if (fan.curve) {
-            applyGlobalCurveConfig(
-                fan.curve,
-                fan.curve.sensors.length > 0,
-            );
+            applyGlobalCurveConfig(fan.curve);
         }
         if (fan.manual) manualDutyPct = fan.manual.duty_pct;
     }

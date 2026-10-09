@@ -136,7 +136,7 @@
   </button>
 
   <div
-    class="dropdown-content p-2 bg-base-100 rounded-box w-56 max-h-60 overflow-y-auto overflow-x-hidden flex flex-col gap-1 border surface-border shadow-lg"
+    class="dropdown-content p-2 bg-base-100 rounded-box w-64 max-h-60 overflow-y-auto overflow-x-hidden flex flex-col gap-1 border surface-border shadow-lg"
     role="listbox"
     aria-multiselectable="true"
     aria-labelledby={buttonId}
@@ -165,7 +165,7 @@
         class="label cursor-pointer items-center justify-between gap-2 w-full"
         for={`ms-${instanceId}-${i}`}
       >
-        <span class="inline-flex items-center gap-2">
+        <span class="inline-flex items-center gap-2 min-w-0">
           <input
             id={`ms-${instanceId}-${i}`}
             type="checkbox"
@@ -173,7 +173,7 @@
             checked={selectedSet.has(it)}
             on:change={(e) => onCheckboxChange(it, e)}
           />
-          <span class="text-xs">{it}</span>
+          <span class="text-xs truncate" title={it}>{it}</span>
         </span>
         <span class="ml-2 text-xs whitespace-nowrap">
           <slot name="itemRight" item={it} isSelected={selectedSet.has(it)} />

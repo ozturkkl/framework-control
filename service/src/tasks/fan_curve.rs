@@ -288,7 +288,10 @@ async fn ensure_fan_count(cli: &FrameworkTool, cached: &mut Option<u32>) -> Opti
 /// Read thermal and return the maximum temperature across the provided sensors.
 async fn get_max_sensor_temperature(cli: &FrameworkTool, sensors: &[String]) -> Option<i32> {
     let output = cli.thermal().await.ok()?;
-    let temps = &output.temps;
+    max_sensor_temperature(&output.temps, sensors)
+}
+
+fn max_sensor_temperature(temps: &std::collections::BTreeMap<String, i32>, sensors: &[String]) -> Option<i32> {
     let mut best: Option<i32> = None;
     for name in sensors {
         if let Some(&v) = temps.get(name) {
@@ -306,7 +309,8 @@ async fn get_max_sensor_temperature(cli: &FrameworkTool, sensors: &[String]) -> 
             });
         }
     }
-    best
+    // Sensor names changed in newer framework_tool/EC versions; don't leave the fan stuck on stale names.
+    best.or_else(|| temps.values().copied().max())
 }
 
 /// Calculate fan duty from temperature using the curve points
@@ -400,6 +404,15 @@ mod tests {
 
         // Test no limit (100%)
         assert_eq!(apply_rate_limit(30, 80, 100), 80);
+    }
+
+    #[test]
+    fn max_sensor_temperature_falls_back_only_when_no_sensor_matches() {
+        let temps = [("apu_f75303@4d".to_string(), 58), ("cpu@4c".to_string(), 62)].into();
+        // Names from framework_tool <= 0.6.5 no longer exist.
+        assert_eq!(max_sensor_temperature(&temps, &["APU".to_string()]), Some(62));
+        // A temporarily missing sensor (unpowered dGPU) shouldn't trigger the fallback.
+        assert_eq!(max_sensor_temperature(&temps, &["apu_f75303@4d".to_string(), "gpu_temp@40".to_string()]), Some(58));
     }
 
     fn curve(points: Vec<[u32; 2]>, hysteresis_c: u32, rate_limit_pct_per_step: u32) -> CurveConfig {
