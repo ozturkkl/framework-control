@@ -2,23 +2,30 @@
 
 Thanks for your interest in Framework Control!
 
-**This project is not currently accepting outside contributions.**
+This project is maintained by a single author, so contributions go through
+issues first to keep the codebase aligned with one vision and keep review
+manageable.
 
-It's maintained solely by the author as a personal project, with no additional
-collaborators at this time. To keep the codebase aligned with a single vision
-and avoid review overhead, I don't review, audit, or merge pull requests from
-outside contributors — including small fixes and features.
+## Pull requests
 
-Pull requests opened by non-collaborators are closed automatically. This is in
-no way a reflection of the quality of your work; it's simply the contribution
-model I've chosen for this project.
+Pull requests are welcome **only when they originate from an issue labeled
+`pr-welcome`**:
 
-## How you can still help
+1. [Open an issue](https://github.com/ozturkkl/framework-control/issues) (or
+   find an existing one) describing the bug or feature.
+2. Wait for the maintainer to add the `pr-welcome` label, and discuss the
+   approach there if it's non-trivial.
+3. Open a PR that links the issue in its description, e.g. `Fixes #123`.
 
-- **Found a bug or have an idea?** Open an
-  [issue](https://github.com/ozturkkl/framework-control/issues). I can't promise
-  a timeline, but I do read them and they help guide the roadmap.
-- **Want to build on it?** The project is open source — feel free to fork it and
+PRs that don't reference a `pr-welcome` issue, or that address something not
+agreed on in the issue, will be closed. This is in no way a reflection of the quality of your
+work.
+
+## Other ways to help
+
+- **Found a bug or have an idea?** Open an issue. I can't promise a timeline,
+  but I do read them and they help guide the roadmap.
+- **Want to build on it?** The project is open source, feel free to fork it and
   adapt it for your own needs, in accordance with the [LICENSE](LICENSE).
 
-Thanks for understanding, and thanks for using Framework Control!
+Thanks for using Framework Control!

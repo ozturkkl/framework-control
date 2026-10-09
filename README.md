@@ -89,7 +89,7 @@ Early iterations used the Rust `framework_lib` directly. On Windows that require
 
 ## Contributing
 
-This project is **not currently accepting outside contributions** and is maintained solely by the author. Pull requests from non-collaborators are closed automatically; please [open an issue](https://github.com/ozturkkl/framework-control/issues) instead. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Pull requests are welcome **only when they originate from an issue labeled `pr-welcome`**. Please [open an issue](https://github.com/ozturkkl/framework-control/issues) first, wait for the label, then link it in your PR (e.g. `Fixes #123`). PRs without a linked `pr-welcome` issue will be closed. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Developer Setup
 
