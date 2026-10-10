@@ -12,6 +12,8 @@
     import { isLinux } from "../lib/platform";
     import { configStore, followConfig, patch } from "../lib/config";
     import { portal } from "../lib/portal";
+    import AnnouncementModal from "./AnnouncementModal.svelte";
+    import { announcement } from "../lib/announcement";
     const dispatch = createEventDispatcher();
     function close() {
         dispatch("close");
@@ -53,6 +55,8 @@
             // non-fatal; leave localStorage applied
         }
     }
+
+    let showAnnouncement = false;
 
     async function checkUpdate() {
         try {
@@ -262,13 +266,11 @@
         tabindex="-1"
     >
         <h3 id="settings-modal-title" class="font-bold text-lg">Settings</h3>
-        <div class="divider my-2"></div>
+        <div class="divider mt-2 mb-4"></div>
         <div class="space-y-4">
-            <section
-                class="flex flex-col md:flex-row items-start justify-between gap-4"
-            >
-                <div class="flex-1 space-y-1">
-                    <div class="flex items-center gap-2">
+            <section class="flex flex-wrap items-center gap-4">
+                <div class="grow space-y-1">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <h4 class="font-semibold">Updates</h4>
                         {#if isPaused}
                             <div class="badge badge-neutral badge-sm gap-1">
@@ -286,20 +288,13 @@
                         {:else if newVersionAvailable}
                             <div class="badge badge-warning badge-sm gap-1">
                                 <Icon icon="mdi:package-up" class="w-3 h-3" />
-                                Available
+                                v{currentVersion} → v{latestVersion}
                             </div>
-
-                            <p class="text-xs opacity-70">
-                                Version {currentVersion} → {latestVersion}
-                            </p>
                         {:else if currentVersion && latestVersion}
                             <div class="badge badge-success badge-sm gap-1">
                                 <Icon icon="mdi:check-circle" class="w-3 h-3" />
-                                Up to date
+                                Up to date · v{currentVersion}
                             </div>
-                            <p class="text-xs opacity-70">
-                                Version {currentVersion}
-                            </p>
                         {:else}
                             <div class="badge badge-ghost badge-sm gap-1">
                                 <Icon
@@ -308,6 +303,15 @@
                                 />
                                 Checking...
                             </div>
+                        {/if}
+                        {#if $announcement}
+                            <button
+                                class="badge badge-info badge-sm gap-1 hover:brightness-110"
+                                on:click={() => (showAnnouncement = true)}
+                            >
+                                <Icon icon="mdi:bullhorn" class="w-3 h-3" />
+                                What's new
+                            </button>
                         {/if}
                     </div>
                     <div class="text-xs opacity-70 space-y-1 mt-1">
@@ -338,44 +342,47 @@
                         </div>
                     {/if}
                 </div>
-                <div class="flex flex-col items-end gap-2 md:w-auto">
-                    <div class="flex items-center gap-2">
-                        {#if isPaused}
-                            <button
-                                class="btn btn-sm btn-primary"
-                                on:click={unpauseUpdates}
-                            >
-                                Unpause
-                            </button>
-                        {:else if newVersionAvailable}
-                            <button
-                                class="btn btn-sm btn-ghost"
-                                on:click={pauseUpdates}
-                                disabled={applying}>Pause</button
-                            >
-                            <button
-                                class="btn btn-sm btn-primary"
-                                on:click={() => {
-                                    if (!applying) applyUpdate();
-                                }}
-                            >
-                                {#if applying}
-                                    <Icon
-                                        icon="mdi:loading"
-                                        class="w-4 h-4 animate-spin"
-                                    />
-                                    Installing
-                                {:else}
-                                    <Icon icon="mdi:download" class="w-4 h-4" />
-                                    Install
-                                {/if}
-                            </button>
-                        {/if}
-                    </div>
-                    <div class="text-right space-y-1">
-                        {#if updatesEnabled}
+                <div
+                    class="grow basis-[min-content] flex flex-row-reverse flex-wrap items-center gap-2"
+                >
+                    {#if isPaused || newVersionAvailable}
+                        <div class="flex items-center gap-2">
+                            {#if isPaused}
+                                <button
+                                    class="btn btn-sm btn-primary"
+                                    on:click={unpauseUpdates}
+                                >
+                                    Unpause
+                                </button>
+                            {:else if newVersionAvailable}
+                                <button
+                                    class="btn btn-sm btn-ghost"
+                                    on:click={pauseUpdates}
+                                    disabled={applying}>Pause</button
+                                >
+                                <button
+                                    class="btn btn-sm btn-primary"
+                                    on:click={() => {
+                                        if (!applying) applyUpdate();
+                                    }}
+                                >
+                                    {#if applying}
+                                        <Icon
+                                            icon="mdi:loading"
+                                            class="w-4 h-4 animate-spin"
+                                        />
+                                        Installing
+                                    {:else}
+                                        <Icon icon="mdi:download" class="w-4 h-4" />
+                                        Install
+                                    {/if}
+                                </button>
+                            {/if}
+                        </div>
+                    {/if}
+                    {#if updatesEnabled}
                         <label
-                            class="label cursor-pointer justify-start md:justify-end gap-2 text-xs"
+                            class="label p-0 cursor-pointer gap-2 text-xs whitespace-nowrap"
                         >
                             <span class="label-text" class:opacity-50={isPaused}
                                 >Automatically keep up to date</span
@@ -388,8 +395,7 @@
                                 on:change={onToggleAutoInstall}
                             />
                         </label>
-                        {/if}
-                    </div>
+                    {/if}
                 </div>
             </section>
             <div class="divider opacity-80"></div>
@@ -400,7 +406,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <select
-                        class="select select-sm border surface-border"
+                        class="select select-sm surface-border"
                         bind:value={theme}
                         on:change={onThemeChange}
                         aria-label="Select theme"
@@ -427,7 +433,7 @@
                     {/if}
                 </div>
                 <select
-                    class="select select-sm border surface-border"
+                    class="select select-sm surface-border"
                     bind:value={toolSelection}
                     on:change={onToolVersionChange}
                     disabled={!toolVersions || toolBusy}
@@ -468,7 +474,7 @@
                         View recent service logs for troubleshooting
                     </p>
                 </div>
-                <button class="btn btn-sm bg-base-100 border surface-border" on:click={() => (showLogs = true)}>
+                <button class="btn btn-sm bg-base-100 surface-border" on:click={() => (showLogs = true)}>
                     <Icon icon="mdi:text-box-search-outline" class="w-4 h-4" />
                     View Logs
                 </button>
@@ -483,7 +489,7 @@
                     </p>
                 </div>
                 <a
-                    class="btn btn-sm bg-base-100 border surface-border"
+                    class="btn btn-sm bg-base-100 surface-border"
                     href="https://github.com/sponsors/ozturkkl"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -493,8 +499,8 @@
                 </a>
             </section>
         </div>
-        <div class="modal-action">
-            <button class="btn" on:click={close}>Close</button>
+        <div class="modal-action sticky -bottom-6 z-10 bg-base-200 border-t surface-border mt-4 py-6 -mb-6">
+            <button class="btn btn-sm bg-base-100 surface-border" on:click={close}>Close</button>
         </div>
     </div>
     <button
@@ -507,4 +513,10 @@
 
 {#if showLogs}
     <LogsModal on:close={() => (showLogs = false)} />
+{/if}
+{#if showAnnouncement && $announcement}
+    <AnnouncementModal
+        announcement={$announcement}
+        on:close={() => (showAnnouncement = false)}
+    />
 {/if}

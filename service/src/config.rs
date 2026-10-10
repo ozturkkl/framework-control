@@ -149,6 +149,9 @@ fn apply_partial(merged: &mut Config, req: PartialConfig) {
         if let Some(panels) = ui.panels {
             new_ui.panels = Some(panels);
         }
+        if let Some(announcements) = ui.announcements {
+            new_ui.announcements = Some(announcements);
+        }
         merged.ui = new_ui;
     }
 }

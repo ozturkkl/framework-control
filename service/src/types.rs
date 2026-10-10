@@ -231,6 +231,16 @@ pub struct UiConfig {
     /// Absent layout or a missing id means that panel is enabled.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panels: Option<Vec<DashboardPanel>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announcements: Option<AnnouncementsConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct AnnouncementsConfig {
+    #[serde(default)]
+    pub disabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seen_date: Option<String>,
 }
 
 impl UiConfig {

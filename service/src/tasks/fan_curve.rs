@@ -412,7 +412,10 @@ mod tests {
         // Names from framework_tool <= 0.6.5 no longer exist.
         assert_eq!(max_sensor_temperature(&temps, &["APU".to_string()]), Some(62));
         // A temporarily missing sensor (unpowered dGPU) shouldn't trigger the fallback.
-        assert_eq!(max_sensor_temperature(&temps, &["apu_f75303@4d".to_string(), "gpu_temp@40".to_string()]), Some(58));
+        assert_eq!(
+            max_sensor_temperature(&temps, &["apu_f75303@4d".to_string(), "gpu_temp@40".to_string()]),
+            Some(58)
+        );
     }
 
     fn curve(points: Vec<[u32; 2]>, hysteresis_c: u32, rate_limit_pct_per_step: u32) -> CurveConfig {

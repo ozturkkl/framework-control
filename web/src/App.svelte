@@ -20,8 +20,10 @@
     import Sensors from "./components/Sensors.svelte";
     import Panel from "./components/Panel.svelte";
     import VersionMismatchModal from "./components/VersionMismatchModal.svelte";
+    import AnnouncementModal from "./components/AnnouncementModal.svelte";
     import { gtSemver } from "./lib/semver";
-    import { followConfig, patch } from "./lib/config";
+    import { configStore, followConfig, patch } from "./lib/config";
+    import { announcement } from "./lib/announcement";
     import Icon from "@iconify/svelte";
 
     let healthy = false;
@@ -103,6 +105,14 @@
     let serviceCurrentVersion: string | null = null;
     let serviceLatestVersion: string | null = null;
     let showMismatchGate = false;
+
+    $: announcementState = $configStore.config?.ui?.announcements;
+    $: showAnnouncement =
+        healthy &&
+        !!$configStore.config &&
+        !!$announcement &&
+        !announcementState?.disabled &&
+        $announcement.date > (announcementState?.seen_date ?? "");
 
     let editing = false;
     let dragActive = false;
@@ -407,5 +417,7 @@
             serviceLatest={serviceLatestVersion}
             {apiOrigin}
         />
+    {:else if showAnnouncement && $announcement}
+        <AnnouncementModal announcement={$announcement} />
     {/if}
 </main>

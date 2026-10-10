@@ -151,6 +151,8 @@ jobs:
           FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
           FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
           FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
+          # Pre-releases read the dev branch announcement; empty falls back to main.
+          VITE_ANNOUNCEMENT_URL: ${{ needs.read-version.outputs.is_prerelease == 'true' && 'https://raw.githubusercontent.com/ozturkkl/framework-control/dev/ANNOUNCEMENT.md' || '' }}
         working-directory: web
 
       - name: Locate MSI
@@ -238,6 +240,7 @@ jobs:
           FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
           FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
           FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
+          VITE_ANNOUNCEMENT_URL: ${{ needs.read-version.outputs.is_prerelease == 'true' && 'https://raw.githubusercontent.com/ozturkkl/framework-control/dev/ANNOUNCEMENT.md' || '' }}
         working-directory: web
 
       - name: Locate tarball

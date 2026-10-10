@@ -37,6 +37,7 @@ build() {
     cd web
     GITHUB_PAGES=false \
     VITE_BASE="/" \
+    VITE_ANNOUNCEMENT_URL="https://raw.githubusercontent.com/ozturkkl/framework-control/dev/ANNOUNCEMENT.md" \
         npm run build
 
     cd ../service

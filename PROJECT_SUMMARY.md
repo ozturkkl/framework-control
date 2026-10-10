@@ -97,6 +97,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Telemetry: `telemetry.poll_ms` (30-minute in-memory history for `/api/thermal/history`)
 - Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting), `battery.poll_ms` (5s–1min, default 15s) for history sampling
 - UI: `ui.theme` (DaisyUI theme name) and `ui.panels` (order/size/enabled; a missing id is treated as enabled)
+- Announcements: `ui.announcements` (`disabled`, `seen_date`). Content is `ANNOUNCEMENT.md` on the `main` branch (fetched by the UI from raw.githubusercontent.com, override with `VITE_ANNOUNCEMENT_URL`; pre-release builds and the AUR beta package point it at `dev`), so it can change without a release. Its frontmatter `date:` is compared against `seen_date`; bump it to show the announcement again. Rendered with marked + DOMPurify (YouTube iframes, video, images allowed); raw `<input required>` checkboxes block dismissal until ticked. Tailwind never scans it, so it can only use classes from the `safelist` in `web/tailwind.config.js` or already used in `web/src/` (older installs fetch the same file with their own CSS). An empty file shows nothing.
 - Updates: `FRAMEWORK_CONTROL_UPDATE_REPO` used by update endpoints
 
 ### Developer Quick Start
