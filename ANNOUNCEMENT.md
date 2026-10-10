@@ -4,7 +4,7 @@ date: 2026-10-10
 
 # What's new in 0.5.5
 
-<div><video class="block mx-auto my-0" width=400 height=372 src="https://github.com/user-attachments/assets/0521570b-aed2-4438-9492-0e4bc1a8b051" autoplay loop muted playsinline></video></div>
+<div><video class="block mx-auto my-0" width=400 height=372 src="https://github.com/user-attachments/assets/ab34d70f-e233-4dd1-a1d2-8f2d921e3ef6" autoplay loop muted playsinline></video></div>
 
 - **Customizable dashboard:** Drag panels into a different order, switch between full and half width, maximize, or hide them. Hiding a panel also disables its background feature.
 - **Battery history:** Up to seven days of battery percentage and charge/discharge power, including a "Since last charge" view.
