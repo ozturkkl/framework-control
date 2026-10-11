@@ -174,47 +174,5 @@ fn signed_watts_and_charging(info: &PowerBatteryInfo) -> Option<f32> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn info() -> PowerBatteryInfo {
-        PowerBatteryInfo {
-            remaining_capacity_mah: Some(40000),
-            last_full_charge_capacity_mah: Some(50000),
-            present_rate_ma: Some(2000),
-            present_voltage_mv: Some(15000),
-            charging: Some(true),
-            ac_present: Some(true),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn discharging_flag_signs_negative() {
-        let mut i = info();
-        i.charging = None;
-        i.discharging = Some(true);
-        let s = sample_from(&i, 1_000).unwrap();
-        assert!((s.watts.unwrap() + 30.0).abs() < 0.01);
-    }
-
-    #[test]
-    fn missing_direction_does_not_invent_discharge() {
-        let mut i = info();
-        i.charging = None;
-        i.discharging = None;
-        let s = sample_from(&i, 1_000).unwrap();
-        assert_eq!(s.watts, None);
-        assert!(s.charge_pct.is_some());
-    }
-
-    #[test]
-    fn zero_rate_is_zero_watts() {
-        let mut i = info();
-        i.present_rate_ma = Some(0);
-        i.charging = None;
-        i.discharging = None;
-        let s = sample_from(&i, 1_000).unwrap();
-        assert_eq!(s.watts, Some(0.0));
-    }
-}
+#[path = "battery_history_tests.rs"]
+mod tests;

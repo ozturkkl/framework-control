@@ -55,3 +55,7 @@ pub fn parse_info(text: &str) -> RyzenAdjInfo {
     }
     info
 }
+
+#[cfg(test)]
+#[path = "ryzen_adj_parser_tests.rs"]
+mod tests;

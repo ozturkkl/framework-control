@@ -59,7 +59,7 @@ jobs:
 
           if [ -f "$changelogPath" ]; then
             # Extract version section from changelog
-            section=$(awk "/^## $VERSION(\$| )/{flag=1; next} /^## /{flag=0} flag" "$changelogPath" || echo "")
+            section=$(awk "/^## $VERSION(\$| )/{flag=1; next} /^## /{flag=0} flag" "$changelogPath")
             if [ -n "$section" ]; then
               body="$section"
             fi
@@ -312,8 +312,8 @@ jobs:
           gh release upload "$tag" "$RUNNER_TEMP/SHA256SUMS" --clobber -R "$REPO"
 
           # Clean up individual SHA files from release
-          gh release delete-asset "$tag" msi.sha256 --yes -R "$REPO" || true
-          gh release delete-asset "$tag" tarball.sha256 --yes -R "$REPO" || true
+          gh release delete-asset "$tag" msi.sha256 --yes -R "$REPO"
+          gh release delete-asset "$tag" tarball.sha256 --yes -R "$REPO"
 
           echo "Created SHA256SUMS with all hashes"
 

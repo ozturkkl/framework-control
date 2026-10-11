@@ -57,7 +57,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Updates & Shortcuts**: In-app update checks and optional auto-install, Start Menu/Desktop shortcut management, and `framework_tool` version selection from the Settings modal
 - **Themes**: DaisyUI theme picker persisted in config and applied across clients
 - **Linux Support**: 
-  - systemd unit with udev rules for input modules
+  - systemd service unit
   - Native power management via kernel interfaces (no external dependencies)
   - Install script, [AUR package](https://aur.archlinux.org/packages/framework-control), and [nixpkgs](https://github.com/NixOS/nixpkgs/tree/master/pkgs/by-name/fr/framework-control) / NixOS module
 
@@ -109,15 +109,17 @@ cargo run
 cd framework-control/web
 npm i
 npm run dev
+
+# Tests
+cd framework-control/service && cargo test --no-default-features
+cd framework-control/web && npm test
 ```
 
 ### Frontend API Usage Policy (Important)
 
 - Always use the generated client in `web/src/api` (`DefaultService`, `OpenAPI`) for all calls to the local service.
 - Do NOT use `fetch` directly for service endpoints anywhere in the UI.
-- After changing backend routes or models, regenerate the client:
-  1. Build the service to refresh `web/openapi.json`
-  2. From `framework-control/web`, run: `npm run gen:api`
+- After changing backend routes or models, regenerate the client: from `framework-control/web`, run `npm run gen:api` (it runs the service to refresh `web/openapi.json`, then regenerates `web/src/api`)
 
 ### Backend Environment Variables Policy (Important)
 
@@ -153,7 +155,7 @@ Web UI `.env.local` file (`framework-control/web/.env.local`):
 ```
 # Local service URL (optional; auto-detects from current origin if omitted)
 # Set this to match your FRAMEWORK_CONTROL_PORT in the service
-VITE_API_BASE=http://127.0.0.1:8090
+VITE_API_BASE=http://127.0.0.1:8090/api
 ```
 
 ## Updates & Caching
@@ -163,13 +165,13 @@ VITE_API_BASE=http://127.0.0.1:8090
 
 ## API & Configuration
 
-The service provides a REST API for health and telemetry (`/api/health`, `/api/thermal`, `/api/thermal/history`, `/api/battery/history`, `/api/power`, `/api/versions`), system info (`/api/system`), update and helper management (`/api/update/*`, `/api/ryzenadj/*`), shortcut management (`/api/shortcuts/*`), and config management (`/api/config`).
+The service provides a REST API for health and telemetry (`/api/health`, `/api/thermal`, `/api/thermal/history`, `/api/battery/history`, `/api/power`, `/api/versions`), system info (`/api/system`), update and helper management (`/api/update/*`, `/api/ryzenadj/*`), shortcut management (`/api/shortcuts/*`), service logs (`/api/logs`), and config management (`/api/config`, `/api/config/events`).
 
 - `/api/power`: combined battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`.
 - `/api/thermal/history`: recent temperature/RPM samples collected by the background telemetry task.
 - `/api/battery/history`: charge % and signed pack watts from the history task. Optional `since` (unix ms) returns only newer samples.
 
-Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.json` on Windows (overridable via `FRAMEWORK_CONTROL_CONFIG`) and `/etc/framework-control/config.json` on Linux. It includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters, power AC/Battery profiles, battery charge-limit/rate settings and SoC threshold, telemetry poll/retention, update preferences, and UI theme.
+Configuration is stored (by default) in `C:\ProgramData\FrameworkControl\config.json` on Windows and `/etc/framework-control/config.json` on Linux (overridable via `FRAMEWORK_CONTROL_CONFIG`). It includes fan mode settings, curve points, calibration data, hysteresis, and rate limiting parameters, power AC/Battery profiles, battery charge-limit/rate settings and SoC threshold, telemetry poll/retention, update preferences, and UI theme.
 
 ## UI Features
 

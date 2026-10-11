@@ -487,3 +487,7 @@ pub struct SetRateLimitRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub battery_soc_threshold_pct: Option<u8>,
 }
+
+#[cfg(test)]
+#[path = "types_tests.rs"]
+mod tests;

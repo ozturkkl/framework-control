@@ -263,8 +263,9 @@ impl CpufreqBackend {
     }
 
     async fn set_frequency_limits(&self, min_mhz: u32, max_mhz: u32) -> Result<(), String> {
-        let min_khz = min_mhz * 1000;
-        let max_khz = max_mhz * 1000;
+        // An unknown hardware max arrives as u32::MAX; saturating lets the kernel clamp it.
+        let min_khz = min_mhz.saturating_mul(1000);
+        let max_khz = max_mhz.saturating_mul(1000);
 
         for cpu_path in &self.cpu_paths {
             let min_path = cpu_path.join("cpufreq/scaling_min_freq");

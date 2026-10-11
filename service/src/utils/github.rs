@@ -36,7 +36,11 @@ pub async fn list_release_tags(
     let releases = parsed
         .as_array()
         .ok_or_else(|| "unexpected releases response".to_string())?;
-    Ok(releases
+    Ok(tags_with_asset(releases, required_asset, stable_only))
+}
+
+fn tags_with_asset(releases: &[Value], required_asset: &str, stable_only: bool) -> Vec<String> {
+    releases
         .iter()
         .filter(|r| {
             if stable_only {
@@ -54,7 +58,7 @@ pub async fn list_release_tags(
             })
         })
         .filter_map(|r| r.get("tag_name").and_then(|v| v.as_str()).map(|s| s.to_string()))
-        .collect())
+        .collect()
 }
 
 fn extract_latest_version_tag(parsed: &Value) -> Option<String> {
@@ -68,7 +72,7 @@ fn extract_latest_version_tag(parsed: &Value) -> Option<String> {
 }
 
 fn find_asset_url_ending_with(parsed: &Value, preferred_suffixes: &[&str]) -> Option<String> {
-    let assets = parsed.get("assets")?.as_array()?.clone();
+    let assets = parsed.get("assets")?.as_array()?;
     assets.iter().find_map(|a| {
         let name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
         let name_lc = name.to_ascii_lowercase();
@@ -125,3 +129,7 @@ pub async fn get_release(
     }
     Ok(None)
 }
+
+#[cfg(test)]
+#[path = "github_tests.rs"]
+mod tests;

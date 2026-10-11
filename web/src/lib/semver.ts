@@ -1,4 +1,4 @@
-export function parseSemver(versionText: string): number[] {
+function parseSemver(versionText: string): number[] {
 	return versionText
 		.trim()
 		.split('.')

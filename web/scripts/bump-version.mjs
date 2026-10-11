@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,15 +25,6 @@ const cargoToml = readFileSync(cargoTomlPath, 'utf8');
 const updatedCargoToml = cargoToml.replace(/^version = ".*"/m, `version = "${newVersion}"`);
 writeFileSync(cargoTomlPath, updatedCargoToml);
 console.log(`Updated service/Cargo.toml`);
-
-// Update nix/package.nix if it exists
-const nixPackagePath = resolve(repoRoot, 'nix', 'package.nix');
-if (existsSync(nixPackagePath)) {
-	const nixPackage = readFileSync(nixPackagePath, 'utf8');
-	const updatedNixPackage = nixPackage.replace(/^(\s*version = )".*";/m, `$1"${newVersion}";`);
-	writeFileSync(nixPackagePath, updatedNixPackage);
-	console.log(`Updated nix/package.nix`);
-}
 
 // Sync lock files
 console.log(`Syncing web/package-lock.json...`);

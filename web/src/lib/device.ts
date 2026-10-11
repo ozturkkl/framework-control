@@ -1,11 +1,3 @@
-export type BrowserInfo = {
-	platform: string;
-	userAgent: string;
-	language: string;
-	timezone: string;
-	screen: { width: number; height: number; pixelRatio: number };
-};
-
 export function getScreenResolution() {
 	const dpr = window.devicePixelRatio || 1;
 	// Common Windows/Linux scaling factors

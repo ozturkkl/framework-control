@@ -1,5 +1,5 @@
 // Stable hue order backed by the active theme's sensor palette.
-export const SERIES_PALETTE = [
+const SERIES_PALETTE = [
 	'var(--sensor-green)',
 	'var(--sensor-blue)',
 	'var(--sensor-red)',

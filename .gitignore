@@ -15,14 +15,12 @@ web/public/assets/generated/
 
 # Service build/cache
 service/target
-service/target/wix/
 
-# Env files (keep example if present)
+# Env files
 web/.env
 web/.env.*
 service/.env
 service/.env.*
-!web/.env.example
 
 # OS junk
 .DS_Store

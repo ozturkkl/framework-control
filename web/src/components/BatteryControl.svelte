@@ -11,6 +11,12 @@
     } from "../api";
     import { throttleDebounce } from "../lib/utils";
     import { followConfig, patch } from "../lib/config";
+    import {
+        formatEtaMinutes,
+        minutesToChargeTarget,
+        minutesToDrainTarget,
+        minutesToEmpty,
+    } from "../lib/batteryEta";
     import BatteryGraph from "./BatteryGraph.svelte";
 
     // Polling
@@ -55,86 +61,14 @@
     })();
     $: cycleCount = batteryInfo?.cycle_count ?? undefined;
 
-    function formatEtaMinutes(totalMinutes: number): string {
-        if (!isFinite(totalMinutes) || totalMinutes <= 0) return "—";
-        const m = Math.round(totalMinutes);
-        const days = Math.floor(m / 1440);
-        const hours = Math.floor((m % 1440) / 60);
-        const mins = m % 60;
-        if (days > 0) {
-            // cap to two units
-            return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
-        }
-        if (hours > 0) {
-            return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-        }
-        return `${mins}m`;
-    }
-
     // ETA (right side): to target when charging, to empty when discharging
     $: targetPct = clMax ?? 100;
-    $: etaToTargetMinutes = (() => {
-        if (!batteryInfo?.present_rate_ma || batteryInfo.present_rate_ma <= 0) {
-            return undefined;
-        }
-        if (!isCharging) return undefined;
-        const lfcc = batteryInfo.last_full_charge_capacity_mah;
-        const currentPct = batteryInfo.percentage;
-        const remainingMah = batteryInfo.remaining_capacity_mah;
-        if (lfcc != null && currentPct != null) {
-            const deltaPct = Math.max(0, targetPct - currentPct);
-            const deltaMah = (lfcc * deltaPct) / 100;
-            if (deltaMah <= 0) return 0;
-            const hours = deltaMah / batteryInfo.present_rate_ma;
-            return hours * 60;
-        }
-        if (lfcc != null && remainingMah != null) {
-            const targetMah = Math.max(0, Math.floor((lfcc * targetPct) / 100));
-            const deltaMah = Math.max(0, targetMah - remainingMah);
-            if (deltaMah <= 0) return 0;
-            const hours = deltaMah / batteryInfo.present_rate_ma;
-            return hours * 60;
-        }
-        return undefined;
-    })();
-    $: etaToTargetWhileDischargingMinutes = (() => {
-        if (!batteryInfo?.present_rate_ma || batteryInfo.present_rate_ma <= 0) {
-            return undefined;
-        }
-        if (isCharging) return undefined;
-        const lfcc = batteryInfo.last_full_charge_capacity_mah;
-        const currentPct = batteryInfo.percentage;
-        const remainingMah = batteryInfo.remaining_capacity_mah;
-        if (lfcc != null && currentPct != null && currentPct > targetPct) {
-            const deltaPct = currentPct - targetPct;
-            const deltaMah = (lfcc * deltaPct) / 100;
-            if (deltaMah <= 0) return 0;
-            const hours = deltaMah / batteryInfo.present_rate_ma;
-            return hours * 60;
-        }
-        if (
-            lfcc != null &&
-            remainingMah != null &&
-            Math.round((remainingMah * 100) / lfcc) > targetPct
-        ) {
-            const targetMah = Math.max(0, Math.floor((lfcc * targetPct) / 100));
-            const deltaMah = Math.max(0, remainingMah - targetMah);
-            if (deltaMah <= 0) return 0;
-            const hours = deltaMah / batteryInfo.present_rate_ma;
-            return hours * 60;
-        }
-        return undefined;
-    })();
-    $: etaToEmptyMinutes = (() => {
-        if (!batteryInfo?.present_rate_ma || batteryInfo.present_rate_ma <= 0) {
-            return undefined;
-        }
-        if (isCharging) return undefined;
-        const remainingMah = batteryInfo.remaining_capacity_mah;
-        if (remainingMah == null) return undefined;
-        const hours = remainingMah / batteryInfo.present_rate_ma;
-        return hours * 60;
-    })();
+    $: etaToTargetMinutes = minutesToChargeTarget(batteryInfo, targetPct);
+    $: etaToTargetWhileDischargingMinutes = minutesToDrainTarget(
+        batteryInfo,
+        targetPct,
+    );
+    $: etaToEmptyMinutes = minutesToEmpty(batteryInfo);
 
     // UI controls
     let clEnabled = false;

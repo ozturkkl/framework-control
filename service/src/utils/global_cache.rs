@@ -127,6 +127,8 @@ where
     }
 }
 
+// Only RyzenAdj (Windows) needs to drop entries after applying settings.
+#[cfg(target_os = "windows")]
 pub async fn invalidate(key: &str) {
     let st = state();
     {
@@ -138,3 +140,7 @@ pub async fn invalidate(key: &str) {
         error_values.remove(key);
     }
 }
+
+#[cfg(test)]
+#[path = "global_cache_tests.rs"]
+mod tests;

@@ -77,3 +77,7 @@ pub fn serve_static(req: &poem::Request) -> Response {
         .body(())
         .into_response()
 }
+
+#[cfg(test)]
+#[path = "static_tests.rs"]
+mod tests;

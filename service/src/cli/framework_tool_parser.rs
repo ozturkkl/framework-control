@@ -13,7 +13,7 @@ pub struct FanReading {
     pub rpm: u32,
 }
 
-// EC fan-speed sentinels: 0xFFFE = stalled (printed as a bogus 65534), 0xFFFF =
+// EC fan-speed sentinels: 0xFFFE = stalled (printed as a bogus 65534), 0xFFFF = not present.
 const EC_FAN_SENTINEL_MIN: u32 = 0xFFFE;
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct PowerBatteryInfo {
@@ -89,42 +89,26 @@ fn parse_fan_line(line: &str, position: usize) -> Option<FanReading> {
 /// Parse output of `framework_tool --charge-limit` which prints: "Minimum X%, Maximum Y%"
 pub fn parse_charge_limit(stdout: &str) -> BatteryChargeLimitInfo {
     let mut info = BatteryChargeLimitInfo::default();
-    for line in stdout.lines() {
-        let l = line.trim().to_ascii_lowercase();
-        if l.contains("minimum") {
-            if let Some(p) = l.split_whitespace().find(|t| t.ends_with('%')) {
-                let n = p.trim_end_matches('%').parse::<u8>().ok();
-                if let Some(v) = n {
-                    info.charge_limit_min_pct = Some(v);
-                }
-            } else {
-                // fallback: scan digits
-                if let Some(tok) = l
-                    .split(|c: char| !c.is_ascii_alphanumeric())
-                    .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-                {
-                    info.charge_limit_min_pct = tok.parse::<u8>().ok();
-                }
-            }
-        }
-        if l.contains("maximum") {
-            if let Some(p) = l.split_whitespace().find(|t| t.ends_with('%')) {
-                let n = p.trim_end_matches('%').parse::<u8>().ok();
-                if let Some(v) = n {
-                    info.charge_limit_max_pct = Some(v);
-                }
-            } else {
-                if let Some(tok) = l
-                    .split(|c: char| !c.is_ascii_alphanumeric())
-                    .find(|t| t.chars().all(|c| c.is_ascii_digit()))
-                {
-                    info.charge_limit_max_pct = tok.parse::<u8>().ok();
-                }
-            }
+    let lower = stdout.to_ascii_lowercase();
+    let mut tokens = lower
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|t| !t.is_empty());
+    while let Some(token) = tokens.next() {
+        match token {
+            "minimum" => info.charge_limit_min_pct = tokens.next().and_then(|t| t.parse().ok()),
+            "maximum" => info.charge_limit_max_pct = tokens.next().and_then(|t| t.parse().ok()),
+            _ => {}
         }
     }
     info
 }
+
+// framework_tool prints volts as `{mv / 1000}.{mv % 1000}` without zero-padding the remainder.
+fn parse_volts_as_mv(rest: &str) -> Option<u32> {
+    let (volts, millivolts) = rest.split_whitespace().next()?.split_once('.')?;
+    Some(volts.parse::<u32>().ok()? * 1000 + millivolts.parse::<u32>().ok()?)
+}
+
 pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
     let mut ac_present: Option<bool> = None;
     let mut battery_present: Option<bool> = None;
@@ -190,15 +174,7 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
             continue;
         }
         if let Some(pos) = l.find("Present Voltage:") {
-            let rest = &l[pos + "Present Voltage:".len()..];
-            if let Some(tok) = rest
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit() || c == '.'))
-            {
-                if let Ok(v) = tok.parse::<f32>() {
-                    present_voltage_mv = Some((v * 1000.0) as u32);
-                }
-            }
+            present_voltage_mv = parse_volts_as_mv(&l[pos + "Present Voltage:".len()..]);
             continue;
         }
         if let Some(pos) = l.find("Charger Voltage:") {
@@ -246,15 +222,7 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
             continue;
         }
         if let Some(pos) = l.find("Design Voltage:") {
-            let rest = &l[pos + "Design Voltage:".len()..];
-            if let Some(tok) = rest
-                .split_whitespace()
-                .find(|t| t.chars().all(|c| c.is_ascii_digit() || c == '.'))
-            {
-                if let Ok(v) = tok.parse::<f32>() {
-                    design_voltage_mv = Some((v * 1000.0) as u32);
-                }
-            }
+            design_voltage_mv = parse_volts_as_mv(&l[pos + "Design Voltage:".len()..]);
             continue;
         }
         if l.starts_with("Cycle Count:") {
@@ -361,147 +329,5 @@ pub fn parse_versions(text: &str) -> VersionsParsed {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn rpms(t: &ThermalParsed) -> Vec<u32> {
-        t.fans.iter().map(|f| f.rpm).collect()
-    }
-
-    #[test]
-    fn parse_thermal_basic() {
-        let s = r#"
-  F75303_Local:   45 C
-  F75303_CPU:     55 C
-  APU:            62 C
-  Fan Speed:    3171 RPM
-"#;
-        let t = parse_thermal(s);
-        assert_eq!(t.temps.get("APU").copied(), Some(62));
-        assert_eq!(t.temps.get("F75303_CPU").copied(), Some(55));
-        assert_eq!(rpms(&t), vec![3171]);
-    }
-    #[test]
-    fn parse_thermal_framework16_sample() {
-        // Real Framework 16 output: both fans labelled "Fan Speed", and a
-        // "NotPowered" dGPU sensor that has no numeric reading.
-        let s = r#"
-  F75303_Local: 40 C
-  F75303_CPU:   38 C
-  F75303_DDR:   38 C
-  APU:          39 C
-  dGPU VR:      0 C
-  dGPU VRAM:    0 C
-  dGPU AMB:     0 C
-  dGPU temp:    NotPowered
-  Fan Speed:  2165 RPM
-  Fan Speed:  2035 RPM
-"#;
-        let t = parse_thermal(s);
-        assert_eq!(t.temps.get("APU").copied(), Some(39));
-        assert_eq!(t.temps.get("dGPU VR").copied(), Some(0));
-        assert_eq!(t.temps.get("dGPU temp"), None);
-        assert_eq!(rpms(&t), vec![2165, 2035]);
-        let names: Vec<&str> = t.fans.iter().map(|f| f.name.as_str()).collect();
-        assert_eq!(names, vec!["Fan Speed", "Fan Speed"]);
-    }
-    #[test]
-    fn parse_thermal_multi_fan_keeps_position() {
-        let s = r#"
-  APU:          50 C
-  Fan Speed:     0 RPM
-  Fan Speed:  2917 RPM
-"#;
-        let t = parse_thermal(s);
-        assert_eq!(rpms(&t), vec![0, 2917]);
-    }
-    #[test]
-    fn parse_thermal_named_fans() {
-        let s = r#"
-  APU:          50 C
-  Left Fan:   1200 RPM
-  Right Fan:  1300 RPM
-"#;
-        let t = parse_thermal(s);
-        assert_eq!(rpms(&t), vec![1200, 1300]);
-        let names: Vec<&str> = t.fans.iter().map(|f| f.name.as_str()).collect();
-        assert_eq!(names, vec!["Left Fan", "Right Fan"]);
-    }
-    #[test]
-    fn parse_thermal_stalled_fan_is_zero_not_sentinel() {
-        // Stalled fan (0xFFFE/65534) reads as 0 but keeps its slot.
-        let s = r#"
-  Left Fan:  65534 RPM (Stalled)
-  Right Fan:  1300 RPM
-"#;
-        let t = parse_thermal(s);
-        assert_eq!(rpms(&t), vec![0, 1300]);
-        assert_eq!(t.fans[0].name, "Left Fan");
-    }
-    #[test]
-    fn parse_thermal_ignores_non_fan_rpm_lines() {
-        // A line mentioning RPM without a numeric reading before it is not a fan.
-        let s = r#"
-  Note: fans report in RPM
-  Left Fan:  1200 RPM
-"#;
-        let t = parse_thermal(s);
-        assert_eq!(rpms(&t), vec![1200]);
-    }
-    #[test]
-    fn parse_versions_tool_version() {
-        let s = r#"
-Tool Version:     0.6.4
-OS Version:       Linux 7.1.1 x86_64
-Mainboard Hardware
-  Type:           Laptop 13 (AMD Ryzen 7040Series)
-  Revision:       MassProduction
-"#;
-        let v = parse_versions(s);
-        assert_eq!(v.tool_version.as_deref(), Some("0.6.4"));
-        assert_eq!(v.mainboard_type.as_deref(), Some("Laptop 13 (AMD Ryzen 7040Series)"));
-    }
-    #[test]
-    fn parse_power_verbose_sample() {
-        let s = r#"
-Charger Status
-  AC is:            connected
-  Charger Voltage:  17800mV
-  Charger Current:  3568mA
-  Chg Input Current:4400mA
-  Battery SoC:      52%
-Battery Status
-  AC is:            connected
-  Battery is:       connected
-  Battery LFCC:     5182 mAh (Last Full Charge Capacity)
-  Battery Capacity: 2685 mAh
-  Charge level:     51%
-  Manufacturer:     NVT
-  Model Number:     FRANDBA
-  Serial Number:    0204
-  Battery Type:     LION
-  Present Voltage:  16.591 V
-  Present Rate:     3221 mA
-  Design Capacity:  5491 mAh
-  Design Voltage:   15.480 V
-  Cycle Count:      58
-  Battery charging
-        "#;
-        let p = parse_power(s);
-        assert_eq!(p.ac_present, Some(true));
-        assert_eq!(p.battery_present, Some(true));
-        assert_eq!(p.last_full_charge_capacity_mah, Some(5182));
-        assert_eq!(p.remaining_capacity_mah, Some(2685));
-        assert_eq!(p.percentage, Some(51));
-        assert_eq!(p.soc_pct, Some(52));
-        assert_eq!(p.present_voltage_mv, Some(16591));
-        assert_eq!(p.present_rate_ma, Some(3221));
-        assert_eq!(p.charger_voltage_mv, Some(17800));
-        assert_eq!(p.charger_current_ma, Some(3568));
-        assert_eq!(p.charge_input_current_ma, Some(4400));
-        assert_eq!(p.design_capacity_mah, Some(5491));
-        assert_eq!(p.design_voltage_mv, Some(15480));
-        assert_eq!(p.cycle_count, Some(58));
-        assert_eq!(p.charging, Some(true));
-    }
-}
+#[path = "framework_tool_parser_tests.rs"]
+mod tests;

@@ -4,7 +4,7 @@ pub mod framework_tool_parser;
 #[cfg(target_os = "windows")]
 pub mod ryzen_adj;
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", test))]
 pub mod ryzen_adj_parser;
 
 #[cfg(target_os = "linux")]

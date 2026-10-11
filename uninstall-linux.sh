@@ -16,7 +16,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-trap 'echo -e "${RED}Uninstallation failed at line $LINENO${NC}" >&2' ERR
+trap 'echo -e "${RED}Uninstallation failed at line $LINENO: $BASH_COMMAND${NC}" >&2' ERR
 
 info() {
     echo -e "${GREEN}[INFO]${NC} $*" >&2

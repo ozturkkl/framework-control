@@ -152,10 +152,6 @@
     let pointCssY = 0;
     let selectedAnchorEl: SVGCircleElement | null = null;
 
-    // --- Live telemetry helpers moved to lib/thermal ---
-
-    // --- Spline helpers moved to lib/spline ---
-
     function pointsForFan(fanIndex: number | null): [number, number][] | null {
         if (fanIndex == null) return null;
         return calibrationByFan.get(fanIndex) ?? null;

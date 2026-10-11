@@ -1,5 +1,5 @@
 use crate::cli::ryzen_adj_parser::{self, RyzenAdjInfo};
-use crate::types::{PowerCapabilities, PowerProfile, PowerState};
+use crate::types::{PowerCapabilities, PowerState};
 use crate::utils::global_cache;
 use crate::utils::{download as dl, github as gh};
 use std::time::Duration;
@@ -86,23 +86,6 @@ impl RyzenAdj {
             min_freq_mhz: None,
             max_freq_mhz: None,
         })
-    }
-
-    /// Apply a power profile (uses TDP and thermal fields, ignores Linux-specific fields)
-    pub async fn apply_profile(&self, profile: &PowerProfile) -> Result<(), String> {
-        if let Some(tdp) = &profile.tdp_watts {
-            if tdp.enabled && tdp.value > 0 {
-                self.set_tdp_watts(tdp.value).await?;
-            }
-        }
-
-        if let Some(thermal) = &profile.thermal_limit_c {
-            if thermal.enabled && thermal.value > 0 {
-                self.set_thermal_limit_c(thermal.value).await?;
-            }
-        }
-
-        Ok(())
     }
 
     async fn run(&self, args: &[&str]) -> Result<String, String> {

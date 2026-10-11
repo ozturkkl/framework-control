@@ -153,7 +153,6 @@ struct CurveStepper {
     last_duty: Option<u32>,
     active_target: Option<u32>,
     transition_start_temp: i32,
-    anchored: bool,
 }
 
 impl CurveStepper {
@@ -162,14 +161,12 @@ impl CurveStepper {
             last_duty: None,
             active_target: None,
             transition_start_temp: 0,
-            anchored: false,
         }
     }
 
     fn reset(&mut self) {
         self.last_duty = None;
         self.active_target = None;
-        self.anchored = false;
     }
 
     fn note_applied(&mut self, duty: u32) {
@@ -178,16 +175,10 @@ impl CurveStepper {
 
     /// Advance the state machine for the given temperature and return the duty to apply, or `None` when the current duty should be held.
     fn next(&mut self, temp: i32, curve: &CurveConfig) -> Option<u32> {
-        // Anchor hysteresis on first evaluation after a reset.
-        if !self.anchored {
-            self.transition_start_temp = temp;
-            self.active_target = None;
-            self.anchored = true;
-        }
-
         let curve_target = calculate_duty_from_curve(temp, &curve.points);
 
         match self.active_target {
+            // First evaluation after a reset anchors the hysteresis band.
             None => {
                 self.active_target = Some(curve_target);
                 self.transition_start_temp = temp;
@@ -322,6 +313,8 @@ fn calculate_duty_from_curve(temp: i32, points: &[[u32; 2]]) -> u32 {
     full_curve.push([0, 0]);
     full_curve.extend_from_slice(points);
     full_curve.push([100, 100]);
+    // Config may hold unsorted points (API/hand edits); the UI draws them sorted.
+    full_curve.sort_by_key(|p| p[0]);
 
     // Find the two points to interpolate between
     for window in full_curve.windows(2) {
@@ -335,16 +328,12 @@ fn calculate_duty_from_curve(temp: i32, points: &[[u32; 2]]) -> u32 {
 
         if temp <= x2 {
             // Linear interpolation between points
-            if x2 == x1 {
-                return y2 as u32;
-            }
             let ratio = (temp - x1) / (x2 - x1);
             let duty = y1 + ratio * (y2 - y1);
             return duty.round() as u32;
         }
     }
 
-    // Should never reach here due to [100,100] anchor, but just in case
     100
 }
 
@@ -358,119 +347,5 @@ fn apply_rate_limit(current: u32, target: u32, max_change: u32) -> u32 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_calculate_duty_from_curve() {
-        // Test with multiple points
-        let points = [[40, 20], [60, 40], [75, 80]];
-
-        // Test interpolation with anchor points
-        assert_eq!(calculate_duty_from_curve(0, &points), 0); // Start anchor
-        assert_eq!(calculate_duty_from_curve(20, &points), 10); // Between [0,0] and [40,20]
-        assert_eq!(calculate_duty_from_curve(40, &points), 20); // Exact point
-        assert_eq!(calculate_duty_from_curve(50, &points), 30); // Between [40,20] and [60,40]
-        assert_eq!(calculate_duty_from_curve(60, &points), 40); // Exact point
-        assert_eq!(calculate_duty_from_curve(75, &points), 80); // Exact point
-        assert_eq!(calculate_duty_from_curve(87, &points), 90); // Between [75,80] and [100,100]
-        assert_eq!(calculate_duty_from_curve(100, &points), 100); // End anchor
-
-        // Test with empty points (just anchors)
-        let empty: [[u32; 2]; 0] = [];
-        assert_eq!(calculate_duty_from_curve(0, &empty), 0);
-        assert_eq!(calculate_duty_from_curve(50, &empty), 50); // Linear from [0,0] to [100,100]
-        assert_eq!(calculate_duty_from_curve(75, &empty), 75);
-        assert_eq!(calculate_duty_from_curve(100, &empty), 100);
-
-        // Test with single point
-        let single = [[50, 30]];
-        assert_eq!(calculate_duty_from_curve(0, &single), 0); // Start anchor
-        assert_eq!(calculate_duty_from_curve(25, &single), 15); // Between [0,0] and [50,30]
-        assert_eq!(calculate_duty_from_curve(50, &single), 30); // Exact point
-        assert_eq!(calculate_duty_from_curve(75, &single), 65); // Between [50,30] and [100,100]
-        assert_eq!(calculate_duty_from_curve(100, &single), 100); // End anchor
-    }
-
-    #[test]
-    fn test_apply_rate_limit() {
-        // Test increasing
-        assert_eq!(apply_rate_limit(30, 50, 10), 40);
-        assert_eq!(apply_rate_limit(30, 35, 10), 35);
-
-        // Test decreasing
-        assert_eq!(apply_rate_limit(50, 30, 10), 40);
-        assert_eq!(apply_rate_limit(50, 45, 10), 45);
-
-        // Test no limit (100%)
-        assert_eq!(apply_rate_limit(30, 80, 100), 80);
-    }
-
-    #[test]
-    fn max_sensor_temperature_falls_back_only_when_no_sensor_matches() {
-        let temps = [("apu_f75303@4d".to_string(), 58), ("cpu@4c".to_string(), 62)].into();
-        // Names from framework_tool <= 0.6.5 no longer exist.
-        assert_eq!(max_sensor_temperature(&temps, &["APU".to_string()]), Some(62));
-        // A temporarily missing sensor (unpowered dGPU) shouldn't trigger the fallback.
-        assert_eq!(
-            max_sensor_temperature(&temps, &["apu_f75303@4d".to_string(), "gpu_temp@40".to_string()]),
-            Some(58)
-        );
-    }
-
-    fn curve(points: Vec<[u32; 2]>, hysteresis_c: u32, rate_limit_pct_per_step: u32) -> CurveConfig {
-        CurveConfig {
-            sensors: vec![],
-            points,
-            hysteresis_c,
-            rate_limit_pct_per_step,
-            rate_limit_down_pct_per_step: None,
-        }
-    }
-
-    #[test]
-    fn stepper_anchors_then_holds() {
-        let c = curve(vec![[40, 20], [60, 40]], 0, 100);
-        let mut s = CurveStepper::new();
-        // First evaluation applies the computed duty.
-        let first = s.next(50, &c);
-        assert_eq!(first, Some(30));
-        s.note_applied(30);
-        // Same temperature holds (no redundant apply).
-        assert_eq!(s.next(50, &c), None);
-    }
-
-    #[test]
-    fn stepper_hysteresis_blocks_small_drops() {
-        let c = curve(vec![[40, 20], [60, 40]], 5, 100);
-        let mut s = CurveStepper::new();
-        s.note_applied(40);
-        // Anchor at 60 -> target 40, already applied so holds.
-        assert_eq!(s.next(60, &c), None);
-        // Drop of 2°C is inside the 5°C band -> still holds at 40.
-        assert_eq!(s.next(58, &c), None);
-        // Drop beyond the band -> accept the lower target.
-        let dropped = s.next(54, &c);
-        assert_eq!(dropped, Some(34));
-    }
-
-    #[test]
-    fn stepper_rate_limit_steps_toward_target() {
-        let c = curve(vec![[40, 20], [60, 80]], 0, 10);
-        let mut s = CurveStepper::new();
-        s.note_applied(20);
-        // Target at 60°C is 80, but rate limit caps the step at +10.
-        assert_eq!(s.next(60, &c), Some(30));
-    }
-
-    #[test]
-    fn stepper_separate_down_rate_limit() {
-        // Fast spin-up (100 = instant), slow spin-down (5% per step).
-        let mut c = curve(vec![[40, 20], [60, 80]], 0, 100);
-        c.rate_limit_down_pct_per_step = Some(5);
-        let mut s = CurveStepper::new();
-        s.note_applied(80);
-        // Target at 40°C is 20; the down rate caps the drop at -5 -> 75.
-        assert_eq!(s.next(40, &c), Some(75));
-    }
-}
+#[path = "fan_curve_tests.rs"]
+mod tests;

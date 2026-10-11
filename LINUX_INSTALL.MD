@@ -72,9 +72,7 @@ sudo nixos-rebuild switch
 
 ### 1. Install `framework_tool`
 
-The service requires the official Framework CLI to be installed and available on your `PATH`.
-
-Follow Framework's official installation guide:
+The service uses the official Framework CLI. If it is not on your `PATH`, the service downloads it automatically on first run. To use your own install instead, follow Framework's official installation guide:
 https://github.com/FrameworkComputer/framework-system#installation
 
 Verify it works:
@@ -168,11 +166,11 @@ sudo systemctl disable framework-control.service
 
 ## Desktop Integration
 
-After the service is running, you can create a desktop shortcut from within the web UI:
+The install script creates a desktop entry on the service's first run. You can also create it from within the web UI:
 
 1. Open the web UI (check installer output or service logs for the URL)
 2. Click the settings icon (⚙️)
-3. Under "Desktop Integration", click "Create Shortcuts"
+3. Under "Desktop Entry", click "Create entry"
 
 This will add a desktop entry to `~/.local/share/applications/framework-control.desktop` that opens the UI in your default browser.
 

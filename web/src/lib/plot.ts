@@ -6,14 +6,14 @@ export type PlotPadding = {
 };
 
 /** CSS-pixel mouse X → viewBox X (same mapping as a 1:1 viewBox). */
-export function pointerViewX(clientX: number, svg: SVGSVGElement, svgWidth: number): number {
+function pointerViewX(clientX: number, svg: SVGSVGElement, svgWidth: number): number {
 	const rect = svg.getBoundingClientRect();
 	const fracX = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)));
 	return fracX * svgWidth;
 }
 
 /** ViewBox X → domain X. Positions in the axis gutters extrapolate past the domain. */
-export function viewXToDomain(
+function viewXToDomain(
 	xView: number,
 	svgWidth: number,
 	padding: Pick<PlotPadding, 'left' | 'right'>,

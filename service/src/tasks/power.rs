@@ -20,22 +20,14 @@ async fn get_profile(
     cfg: &LiveConfig,
     framework_tool_lock: &Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
 ) -> Option<crate::types::PowerProfile> {
-    let Some(ft) = framework_tool_lock.read().await.clone() else {
-        return None;
-    };
-
+    let ft = framework_tool_lock.read().await.clone()?;
     let cfg_power = { cfg.read().await.power.clone() };
-
-    let Ok(p) = ft.power().await else {
-        return None;
-    };
-    let Some(ac_present) = p.ac_present else {
-        return None;
-    };
-
-    let maybe_profile = if ac_present { cfg_power.ac } else { cfg_power.battery };
-
-    maybe_profile
+    let ac_present = ft.power().await.ok()?.ac_present?;
+    if ac_present {
+        cfg_power.ac
+    } else {
+        cfg_power.battery
+    }
 }
 
 fn log_outcome(setting: &str, target: &str, outcome: &ReconcileOutcome) {
@@ -118,7 +110,7 @@ impl SettingIo<String> for LinuxGovernorIo {
     fn read_current<'a>(
         &'a self,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<String>, String>> + Send + 'a>> {
-        Box::pin(async move { self.lp.get_state().await.map(|s| s.governor).map_err(|e| e) })
+        Box::pin(async move { self.lp.get_state().await.map(|s| s.governor) })
     }
 
     fn apply_target<'a>(
@@ -139,7 +131,7 @@ impl SettingIo<String> for LinuxEppIo {
     fn read_current<'a>(
         &'a self,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<String>, String>> + Send + 'a>> {
-        Box::pin(async move { self.lp.get_state().await.map(|s| s.epp_preference).map_err(|e| e) })
+        Box::pin(async move { self.lp.get_state().await.map(|s| s.epp_preference) })
     }
 
     fn apply_target<'a>(
@@ -215,18 +207,14 @@ pub async fn run(
             let enabled = setting.enabled && setting.value > 0;
             let io = WindowsTdpIo { ryz: ryz.clone() };
             let outcome = tdp.reconcile(enabled, Some(setting.value), &io).await;
-            if let crate::utils::reconciler::ReconcileOutcome::ApplyFailed(e) = outcome {
-                warn!("power: tdp apply failed: {}", e);
-            }
+            log_outcome("tdp", &setting.value.to_string(), &outcome);
         }
 
         if let Some(setting) = profile.thermal_limit_c.as_ref() {
             let enabled = setting.enabled && setting.value > 0;
             let io = WindowsThermalIo { ryz: ryz.clone() };
             let outcome = thermal.reconcile(enabled, Some(setting.value), &io).await;
-            if let crate::utils::reconciler::ReconcileOutcome::ApplyFailed(e) = outcome {
-                warn!("power: thermal apply failed: {}", e);
-            }
+            log_outcome("thermal", &setting.value.to_string(), &outcome);
         }
 
         sleep(Duration::from_secs(LOOP_INTERVAL_SECS)).await;

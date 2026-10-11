@@ -21,7 +21,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Routes: `service/src/routes.rs` (@routes.rs)
   - Endpoints (under `/api`):
     - `GET /health`: health + version + `cli_present`
-  - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`
+    - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`
     - `GET /thermal`: parsed thermal report (temps map + fan RPMs)
     - `GET /thermal/history`: recent telemetry samples collected by the service (30-minute window)
     - `GET /battery/history`: charge % and signed pack watts (up to 7 days; optional `since`)
@@ -31,14 +31,15 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
     - `GET /config/events`: SSE of config writes (for multi-tab sync)
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Desktop/application menu shortcut existence
-    - `POST /shortcuts/create`: create desktop shortcuts with browser detection (auth required, Windows + Linux)
-- `POST /ryzenadj/install`: download/install RyzenAdj on demand (auth required, Windows only; returns "unsupported_platform" on Linux)
-- `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (auth required, Windows only)
-  - `GET /update/check`: check for latest version from update feed (see env below)
-  - `POST /update/apply`: install the update (auth required)
+    - `POST /shortcuts/create`: create desktop shortcuts with browser detection (Windows + Linux)
+    - `POST /ryzenadj/install`: download/install RyzenAdj on demand (Windows only; returns "unsupported_platform" on Linux)
+    - `POST /ryzenadj/uninstall`: remove downloaded RyzenAdj artifacts and clear state (Windows only)
+    - `GET /update/check`: check for latest version from update feed (see env below)
+    - `POST /update/apply`: install the update
+    - `GET /logs`: recent service logs as plain text
 - Helpers: GPU detection via PowerShell on Windows
 - Other key files (condensed):
-  - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
+  - `service/src/config.rs`: load/save config JSON (see Configuration below for paths)
   - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme/layout, `telemetry` config, `TelemetrySample`, and `BatterySample`
   - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), `LiveConfig`, in‑memory `telemetry_samples` and `battery_samples`
 - Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `battery`, `battery_history`, `auto_update`, `telemetry`
@@ -62,7 +63,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Always use the generated API client (`DefaultService`, `OpenAPI`) for all requests.
 - Do NOT call `fetch` directly to backend endpoints in UI code.
 - Prefer typed responses from OpenAPI models NEVER EVER use fetch() when interacting with the backend service.
-- To reflect backend changes, rebuild the service to refresh `openapi.json`, then run `npm run gen:api` in `web/`.
+- To reflect backend changes, run `npm run gen:api` in `web/` (it runs the service to refresh `openapi.json`, then regenerates the client).
 - Hosted vs Embedded: when hosted and an update is available, `VersionMismatchModal.svelte` blocks with actions to open the local app or view releases. Embedded mode (127.0.0.1) continues normally.
 
 - Env: `web/.env.local`

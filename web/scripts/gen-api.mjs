@@ -28,23 +28,19 @@ await run('cargo', ['run', '--no-default-features', '--', '--generate-openapi'],
 	env: { ...process.env, CARGO_TARGET_DIR: isolatedTargetDir },
 });
 if (!fs.existsSync(openapiPath)) {
-	console.warn(`[gen-api] openapi.json not found at ${openapiPath}`);
-	process.exit(0);
+	console.error(`[gen-api] openapi.json not found at ${openapiPath}`);
+	process.exit(1);
 }
 
 // 2) Generate TS API client from OpenAPI
 console.log(`[gen-api] found openapi spec at ${openapiPath}`);
-try {
-	fs.mkdirSync(clientOutDir, { recursive: true });
-	const { generate } = await import('openapi-typescript-codegen');
-	await generate({
-		input: openapiPath,
-		output: clientOutDir,
-		httpClient: 'fetch',
-		skipValidateSpec: true,
-		useUnionTypes: true,
-	});
-	console.log(`[gen-api] wrote client to ${clientOutDir}`);
-} catch (e) {
-	console.warn('[gen-api] openapi client generation skipped:', e?.message || e);
-}
+fs.mkdirSync(clientOutDir, { recursive: true });
+const { generate } = await import('openapi-typescript-codegen');
+await generate({
+	input: openapiPath,
+	output: clientOutDir,
+	httpClient: 'fetch',
+	skipValidateSpec: true,
+	useUnionTypes: true,
+});
+console.log(`[gen-api] wrote client to ${clientOutDir}`);

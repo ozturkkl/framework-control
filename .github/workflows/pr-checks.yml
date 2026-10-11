@@ -16,6 +16,13 @@ jobs:
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: service
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,6 +37,10 @@ jobs:
 
       - name: Lint (ESLint, Prettier, rustfmt)
         run: npm run lint
+        working-directory: web
+
+      - name: Test (web)
+        run: npm test
         working-directory: web
 
       - name: Test (service)

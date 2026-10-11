@@ -35,78 +35,62 @@ async fn download_raw_to_file(url: &str, dest_file_path: &str) -> Result<(), Str
     Ok(())
 }
 
+#[derive(Debug, PartialEq)]
+enum ArchiveKind {
+    Zip,
+    TarGz,
+}
+
+/// Returns the archive kind and the file name without its archive extension, or None for non-archives.
+fn split_archive_name(filename: &str) -> Option<(ArchiveKind, &str)> {
+    let filename_lc = filename.to_ascii_lowercase();
+    for (ext, kind) in [
+        (".zip", ArchiveKind::Zip),
+        (".tar.gz", ArchiveKind::TarGz),
+        (".tgz", ArchiveKind::TarGz),
+    ] {
+        if filename_lc.ends_with(ext) && filename.len() > ext.len() {
+            return Some((kind, &filename[..filename.len() - ext.len()]));
+        }
+    }
+    None
+}
+
 /// Download to a root directory. If the URL is a .zip or .tar.gz, it will be extracted into a
 /// subfolder named after the archive's file stem. Otherwise, the file will be saved in the
 /// root directory using the URL's filename.
 /// Returns the final path created: directory path for archives, or file path for non-archives.
 pub async fn download_to_path(url: &str, root_dir: &str) -> Result<String, String> {
-    let url_lc = url.to_ascii_lowercase();
-    let is_zip = url_lc.ends_with(".zip");
-    let is_tar_gz = url_lc.ends_with(".tar.gz") || url_lc.ends_with(".tgz");
-
-    // Ensure root directory exists
     let root_dir_p = std::path::Path::new(root_dir);
-    let _ = std::fs::create_dir_all(&root_dir_p);
+    let _ = std::fs::create_dir_all(root_dir_p);
 
     // Derive filename from URL (strip query string if present)
     let url_last = url.rsplit('/').next().unwrap_or("download.bin");
     let filename = url_last.split('?').next().unwrap_or(url_last);
 
-    if is_zip {
-        // Determine folder name from filename without .zip
-        let folder_name = if filename.to_ascii_lowercase().ends_with(".zip") && filename.len() > 4 {
-            &filename[..filename.len() - 4]
-        } else {
-            filename
-        };
-        let final_dir = root_dir_p.join(folder_name);
-        if let Some(parent) = final_dir.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        // Download zip next to the final directory using original zip name
-        let tmp_zip_path = root_dir_p.join(filename);
-        let tmp_zip_s = tmp_zip_path.to_string_lossy().to_string();
-        download_raw_to_file(url, &tmp_zip_s).await?;
-
-        crate::utils::extract::extract_zip_to(&tmp_zip_s, &final_dir.to_string_lossy().to_string())
-            .map_err(|e| format!("zip extract failed: {e}"))?;
-        if let Ok(meta) = std::fs::metadata(&tmp_zip_s) {
-            info!("zip downloaded size: {} bytes", meta.len());
-        }
-        std::fs::remove_file(&tmp_zip_s).map_err(|e| format!("remove temp zip failed: {e}"))?;
-        return Ok(final_dir.to_string_lossy().to_string());
-    }
-
-    if is_tar_gz {
-        // Determine folder name from filename without .tar.gz or .tgz
-        let folder_name = if filename.to_ascii_lowercase().ends_with(".tar.gz") && filename.len() > 7 {
-            &filename[..filename.len() - 7]
-        } else if filename.to_ascii_lowercase().ends_with(".tgz") && filename.len() > 4 {
-            &filename[..filename.len() - 4]
-        } else {
-            filename
-        };
-        let final_dir = root_dir_p.join(folder_name);
-        if let Some(parent) = final_dir.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        // Download tar.gz next to the final directory using original tar name
-        let tmp_tar_path = root_dir_p.join(filename);
-        let tmp_tar_s = tmp_tar_path.to_string_lossy().to_string();
-        download_raw_to_file(url, &tmp_tar_s).await?;
-
-        crate::utils::extract::extract_tar_gz_to(&tmp_tar_s, &final_dir.to_string_lossy().to_string())
-            .await
-            .map_err(|e| format!("tar.gz extract failed: {e}"))?;
-        if let Ok(meta) = std::fs::metadata(&tmp_tar_s) {
-            info!("tar.gz downloaded size: {} bytes", meta.len());
-        }
-        std::fs::remove_file(&tmp_tar_s).map_err(|e| format!("remove temp tar.gz failed: {e}"))?;
-        return Ok(final_dir.to_string_lossy().to_string());
-    }
-
     let dest_file = root_dir_p.join(filename);
     let dest_file_s = dest_file.to_string_lossy().to_string();
     download_raw_to_file(url, &dest_file_s).await?;
-    Ok(dest_file_s)
+
+    let Some((kind, folder_name)) = split_archive_name(filename) else {
+        return Ok(dest_file_s);
+    };
+    let final_dir_s = root_dir_p.join(folder_name).to_string_lossy().to_string();
+    match kind {
+        ArchiveKind::Zip => {
+            crate::utils::extract::extract_zip_to(&dest_file_s, &final_dir_s)
+                .map_err(|e| format!("zip extract failed: {e}"))?;
+        }
+        ArchiveKind::TarGz => {
+            crate::utils::extract::extract_tar_gz_to(&dest_file_s, &final_dir_s)
+                .await
+                .map_err(|e| format!("tar.gz extract failed: {e}"))?;
+        }
+    }
+    std::fs::remove_file(&dest_file_s).map_err(|e| format!("remove downloaded archive failed: {e}"))?;
+    Ok(final_dir_s)
 }
+
+#[cfg(test)]
+#[path = "download_tests.rs"]
+mod tests;

@@ -18,7 +18,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-trap 'echo -e "${RED}Installation failed at line $LINENO${NC}" >&2' ERR
+trap 'echo -e "${RED}Installation failed at line $LINENO: $BASH_COMMAND${NC}" >&2' ERR
 
 info() {
     echo -e "${GREEN}[INFO]${NC} $*" >&2
@@ -126,9 +126,8 @@ get_latest_prerelease_tag() {
 }
 
 download_release() {
-    local tmpdir download_url
-    tmpdir=$(mktemp -d)
-    trap 'rm -rf "$tmpdir"' EXIT
+    local tmpdir="$1"
+    local download_url
 
     if [ "$INSTALL_BETA" = true ]; then
         local tag
@@ -156,8 +155,6 @@ download_release() {
         error "Failed to extract tarball"
         exit 1
     fi
-
-    echo "$tmpdir"
 }
 
 install_binary() {
@@ -193,6 +190,13 @@ install_service() {
     fi
 }
 
+# sed rather than grep: no match (service still starting) must not trip pipefail.
+detect_port() {
+    journalctl -u "$SERVICE_NAME" -n 20 --no-pager \
+        | sed -nE 's|.*listening on http://127\.0\.0\.1:([0-9]+).*|\1|p' \
+        | tail -1
+}
+
 verify_installation() {
     info "Verifying installation..."
 
@@ -207,30 +211,25 @@ verify_installation() {
     # Give the service a moment to start listening
     sleep 2
 
-    # Extract the actual port from service logs
     local detected_port
-    detected_port=$(journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+    detected_port=$(detect_port)
 
     if [ -z "$detected_port" ]; then
         warn "Could not detect port from service logs"
         return
     fi
 
-    # Try to reach the health endpoint on the detected port
-    if command -v curl >/dev/null 2>&1; then
-        if curl -f -s "http://127.0.0.1:$detected_port/api/health" >/dev/null 2>&1; then
-            info "Health check passed"
-        else
-            warn "Service is running but health check failed"
-            warn "The service may still be starting up"
-        fi
+    if curl -f -s "http://127.0.0.1:$detected_port/api/health" >/dev/null 2>&1; then
+        info "Health check passed"
+    else
+        warn "Service is running but health check failed"
+        warn "The service may still be starting up"
     fi
 }
 
 print_success() {
-    # Extract the actual port from service logs
     local port
-    port=$(journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+    port=$(detect_port)
 
     local url="http://127.0.0.1:${port:-<configured-port>}"
 
@@ -259,8 +258,10 @@ main() {
     check_dependencies
     check_framework_tool
 
-    local tmpdir
-    tmpdir=$(download_release)
+    # Global, not local: the EXIT trap runs after main returns.
+    tmpdir=$(mktemp -d)
+    trap 'rm -rf "$tmpdir"' EXIT
+    download_release "$tmpdir"
 
     install_binary "$tmpdir"
 

@@ -1,12 +1,13 @@
-export function computeNaturalCubicSpline(points: [number, number][]): {
+function computeNaturalCubicSpline(points: [number, number][]): {
 	a: number[];
 	b: number[];
 	c: number[];
 	d: number[];
 	x: number[];
 } {
-	const n = points.length;
-	const sorted = [...points].sort((a, b) => a[0] - b[0]);
+	// Duplicate x (e.g. two calibration duties both reading 0 RPM) would divide by zero.
+	const sorted = [...points].sort((a, b) => a[0] - b[0]).filter((p, i, arr) => i === 0 || p[0] !== arr[i - 1][0]);
+	const n = sorted.length;
 
 	const x = sorted.map((p) => p[0]);
 	const a = sorted.map((p) => p[1]);
@@ -51,16 +52,11 @@ export function computeNaturalCubicSpline(points: [number, number][]): {
 	return { a: a.slice(0, -1), b, c: c.slice(0, -1), d, x: x.slice(0, -1) };
 }
 
-export function evaluateCubicSpline(spline: ReturnType<typeof computeNaturalCubicSpline>, xVal: number): number {
+function evaluateCubicSpline(spline: ReturnType<typeof computeNaturalCubicSpline>, xVal: number): number {
 	const { a, b, c, d, x } = spline;
 	const n = x.length;
 	if (n === 0) return xVal;
 	if (xVal <= x[0]) return a[0];
-	if (xVal >= x[n - 1] + (x[n - 1] - x[n - 2])) {
-		const lastX = x[n - 1];
-		const dx = xVal - lastX;
-		return a[n - 1] + b[n - 1] * dx + c[n - 1] * dx * dx + d[n - 1] * dx * dx * dx;
-	}
 	let i = 0;
 	while (i < n - 1 && x[i + 1] < xVal) i++;
 	const dx = xVal - x[i];

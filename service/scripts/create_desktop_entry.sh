@@ -1,5 +1,6 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
+trap 'echo "create_desktop_entry failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 
 # Template variables (user_home passed from Rust)
 user_home="{USER_HOME}"

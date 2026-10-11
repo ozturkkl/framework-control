@@ -109,3 +109,7 @@ async fn peek_archive_for_suffixes(
     }
     Ok(false)
 }
+
+#[cfg(test)]
+#[path = "extract_tests.rs"]
+mod tests;

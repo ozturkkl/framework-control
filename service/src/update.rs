@@ -9,33 +9,43 @@ pub fn parse_github_repo_env() -> Option<(String, String)> {
     let repo = std::env::var("FRAMEWORK_CONTROL_UPDATE_REPO")
         .ok()
         .or_else(|| option_env!("FRAMEWORK_CONTROL_UPDATE_REPO").map(String::from))?;
-    if repo.contains('/') && !repo.contains("github.com") {
-        let mut it = repo.splitn(2, '/');
-        Some((it.next().unwrap_or("").to_string(), it.next().unwrap_or("").to_string()))
+    parse_github_repo(&repo)
+}
+
+/// Accepts "owner/name" or a GitHub URL ending in "/owner/name".
+fn parse_github_repo(repo: &str) -> Option<(String, String)> {
+    let mut parts = repo.trim().trim_end_matches('/').rsplit('/');
+    let name = parts.next()?;
+    let owner = parts.next()?;
+    if owner.is_empty() || name.is_empty() {
+        None
     } else {
-        let parts: Vec<&str> = repo.split('/').collect();
-        let owner = parts.get(parts.len().saturating_sub(2)).cloned().unwrap_or("");
-        let name = parts.get(parts.len().saturating_sub(1)).cloned().unwrap_or("");
-        if owner.is_empty() || name.is_empty() {
-            None
-        } else {
-            Some((owner.to_string(), name.to_string()))
-        }
+        Some((owner.to_string(), name.to_string()))
     }
+}
+
+/// Plain string comparison would rank "0.9.0" above "0.10.0".
+fn is_newer(latest: &str, current: &str) -> Result<bool, String> {
+    let parse = |version: &str| -> Result<Vec<u64>, String> {
+        version
+            .split('.')
+            .map(|part| {
+                part.parse::<u64>()
+                    .map_err(|_| format!("unrecognized version '{}'", version))
+            })
+            .collect()
+    };
+    Ok(parse(latest)? > parse(current)?)
 }
 
 pub async fn get_current_and_latest() -> Result<(String, String), String> {
     let current = env!("CARGO_PKG_VERSION").to_string();
-    let current_trimmed = current.trim().to_string();
-    if current_trimmed.is_empty() {
-        return Err("current version missing".into());
-    }
     let Some((owner, name)) = parse_github_repo_env() else {
         return Err("FRAMEWORK_CONTROL_UPDATE_REPO not set".into());
     };
     let latest_opt = gh::get_latest_release_version_tag(&owner, &name).await?;
     let latest = latest_opt.ok_or_else(|| "latest version missing".to_string())?;
-    Ok((current_trimmed, latest))
+    Ok((current, latest))
 }
 
 #[cfg(target_os = "windows")]
@@ -157,7 +167,7 @@ pub async fn check_and_apply_now() -> Result<bool, String> {
         return Err("FRAMEWORK_CONTROL_UPDATE_REPO not set".into());
     };
     let (current, latest) = get_current_and_latest().await?;
-    if latest <= current {
+    if !is_newer(&latest, &current)? {
         return Ok(false);
     }
     #[cfg(target_os = "windows")]
@@ -206,3 +216,7 @@ pub async fn check_and_apply_now() -> Result<bool, String> {
         Err("update apply unsupported on this OS".into())
     }
 }
+
+#[cfg(test)]
+#[path = "update_tests.rs"]
+mod tests;

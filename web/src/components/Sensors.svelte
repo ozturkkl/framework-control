@@ -11,8 +11,6 @@
     import { measureSize, type MeasuredSize } from "../lib/measureSize";
     import { findNearestByTime, pointerToDomainX } from "../lib/plot";
 
-    // No power bar here anymore; moved to PowerControl
-
     // Telemetry graph state
     const SENSOR_SEL_KEY = "fc.telemetry.sensors";
     const WINDOW_KEY = "fc.telemetry.windowSecs";
@@ -24,9 +22,6 @@
     let historyTimer: ReturnType<typeof setInterval> | null = null;
     let series: Record<string, Array<[number, number]>> = {};
 
-    // colors provided by seriesColors
-
-    // Inline graph (was TelemetryGraph.svelte)
     let yMin = 0;
     let yMax = 100;
 

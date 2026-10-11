@@ -219,3 +219,7 @@ fn save(cfg: &Config) -> Result<(), String> {
     let s = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
     f.write_all(s.as_bytes()).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod tests;

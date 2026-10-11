@@ -64,7 +64,7 @@ pub trait SettingIo<T>: Send + Sync {
 }
 
 /// Result of a single reconcile attempt.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ReconcileOutcome {
     Noop,
     Applied,
@@ -191,3 +191,7 @@ where
         }
     }
 }
+
+#[cfg(test)]
+#[path = "reconciler_tests.rs"]
+mod tests;

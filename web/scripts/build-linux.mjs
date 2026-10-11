@@ -35,7 +35,7 @@ const readDotEnv = (p) => {
 
 const isValidPort = (v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 65535;
 
-const generateMinimalServiceFile = (port) => `[Unit]
+const generateMinimalServiceFile = () => `[Unit]
 Description=Framework Control Service
 After=network.target
 
@@ -144,7 +144,7 @@ async function main() {
 
 	// Generate minimal service file (for reference)
 	const serviceFile = path.resolve(distDir, 'framework-control.service');
-	fs.writeFileSync(serviceFile, generateMinimalServiceFile(config.port), 'utf8');
+	fs.writeFileSync(serviceFile, generateMinimalServiceFile(), 'utf8');
 
 	// Read version from package.json
 	const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));

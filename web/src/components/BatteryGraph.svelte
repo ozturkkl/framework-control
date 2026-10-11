@@ -8,6 +8,7 @@
 	import { followConfig, patch } from '../lib/config';
 	import { measureSize, type MeasuredSize } from '../lib/measureSize';
 	import { bracketByTime, pointerToDomainX, wattsScale, wattYToPx } from '../lib/plot';
+	import { lastChargeStartMs, splitByWattSign, type Pt } from '../lib/batteryHistory';
 
 	const WINDOW_KEY = 'fc.battery.window';
 	const WINDOW_SINCE_CHARGE = 'Since last charge';
@@ -44,7 +45,6 @@
 	}
 	let hoverCircleEl: SVGCircleElement | null = null;
 
-	type Pt = [number, number];
 	type HoverInfo = {
 		ts: number;
 		chargePct?: number;
@@ -122,18 +122,6 @@
 		return out;
 	}
 
-	function lastChargeStartMs(list: BatterySample[]): number | null {
-		if (!list.length) return null;
-		let start: number | null = null;
-		let prevOn = false;
-		for (const s of list) {
-			const on = s.ac_present === true;
-			if (on && !prevOn) start = s.ts_ms;
-			prevOn = on;
-		}
-		return start;
-	}
-
 	function windowStartMs(choice: string, list: BatterySample[], now: number, chargeAt: number | null): number {
 		const secs = WINDOW_SECONDS[choice];
 		if (secs != null) return now - secs * 1000;
@@ -177,51 +165,6 @@
 		const last = points[points.length - 1];
 		const first = points[0];
 		return `${buildPath(points, yToPx, width, height)} L${xToPx(last[0], width)},${y0} L${xToPx(first[0], width)},${y0} Z`;
-	}
-
-	function zeroCrossing(a: Pt, b: Pt): Pt {
-		const dy = b[1] - a[1];
-		const t = dy === 0 ? 0 : (0 - a[1]) / dy;
-		return [a[0] + t * (b[0] - a[0]), 0];
-	}
-
-	function wattSign(y: number): 1 | -1 | 0 {
-		if (y > 0) return 1;
-		if (y < 0) return -1;
-		return 0;
-	}
-
-	/** Keep runs on one side of 0W, inserting interpolated crossings so fills meet the baseline. */
-	function splitByWattSign(segs: Pt[][], sign: 1 | -1): Pt[][] {
-		const out: Pt[][] = [];
-		for (const points of segs) {
-			let cur: Pt[] = [];
-			const flush = () => {
-				if (cur.length >= 2 && cur.some((p) => p[1] !== 0)) out.push(cur);
-				cur = [];
-			};
-			for (let i = 0; i < points.length; i++) {
-				const p = points[i];
-				const s = wattSign(p[1]);
-				if (i > 0) {
-					const prev = points[i - 1];
-					const ps = wattSign(prev[1]);
-					if (ps !== 0 && s !== 0 && ps !== s) {
-						const z = zeroCrossing(prev, p);
-						if (ps === sign) {
-							cur.push(z);
-							flush();
-						} else {
-							cur = [z];
-						}
-					}
-				}
-				if (s === sign || s === 0) cur.push(p);
-				else flush();
-			}
-			flush();
-		}
-		return out;
 	}
 
 	function powerColor(watts?: number): string {
