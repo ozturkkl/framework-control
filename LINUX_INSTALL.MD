@@ -1,10 +1,10 @@
 # Linux Installation Guide
 
-Framework Control on Linux runs as a systemd service and requires the official Framework CLI (`framework_tool`) to communicate with the embedded controller.
+Framework Control on Linux runs as a systemd service (or a runit service on Void Linux) and requires the official Framework CLI (`framework_tool`) to communicate with the embedded controller.
 
 ## Install Options
 
-### Install script (all distributions)
+### Install script (systemd distributions and Void Linux)
 
 Run the automated installer as root:
 
@@ -21,7 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/ins
 This will:
 - Download the latest release from GitHub (stable by default, or beta with `--beta`)
 - Install the binary to `/usr/local/bin/framework-control`
-- Install and enable the systemd service
+- Install and enable the systemd service (or the runit service on Void Linux)
 - Start the service automatically
 - Verify the installation
 
@@ -85,7 +85,7 @@ framework_tool --versions
 
 ### 2. System Requirements
 
-- **systemd**: Required for service management
+- **systemd** or **runit** (Void Linux): Required for service management
 - **curl**: For downloading releases
 - **tar**: For extracting the release tarball
 - **Root access**: The service must run with elevated permissions
@@ -166,6 +166,16 @@ sudo systemctl stop framework-control.service
 sudo systemctl disable framework-control.service
 ```
 
+### Void Linux (runit)
+
+```bash
+sudo sv status framework-control                    # check status
+sudo tail -f /var/log/framework-control/current     # view logs
+sudo sv restart framework-control                   # restart
+sudo sv down framework-control                      # stop
+sudo rm /var/service/framework-control              # disable auto-start
+```
+
 ## Desktop Integration
 
 After the service is running, you can create a desktop shortcut from within the web UI:
@@ -197,7 +207,7 @@ Run the automated uninstaller as root:
 curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uninstall-linux.sh | sudo bash
 ```
 
-This stops and disables the service, then removes the binary, systemd unit,
+This stops and disables the service, then removes the binary, systemd unit (or runit service and logs),
 config directory, desktop entry, and icon assets.
 
 ### AUR installs
