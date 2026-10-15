@@ -4,7 +4,7 @@ date: 2026-10-12
 
 # What's new in 0.5.5
 
-<div><video class="block mx-auto my-0" height=250 src="https://github.com/user-attachments/assets/b1a8adaf-ce17-4548-9e9c-3616753c1ede" autoplay loop muted playsinline></video></div>
+<div><video class="block mx-auto my-0" height=250 src="https://github.com/user-attachments/assets/27423fc9-076e-4339-8348-52515fb142d9" autoplay loop muted playsinline></video></div>
 
 - **Fan profiles:** Save fan setups as named profiles and switch between them from the Fan Control header, or have them switch automatically when you plug in or go on battery.
 - **Customizable dashboard:** Reorder, resize, maximize, or hide panels. Hiding a panel also disables its background feature.
