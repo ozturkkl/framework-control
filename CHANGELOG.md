@@ -1,6 +1,6 @@
 # Unreleased
 
-## 0.5.5 - 2026-09-27
+## 0.5.5 - 2026-10-15
 
 - **NEW: Dashboard layout customization** (#73): Drag panels around, make them full or half width, or hide the ones you don't need. Hiding a panel also disables the feature. Good for disabling sections of the app that don't play nicely with your workflow.
 - **NEW: Fan profiles** (#74): Save fan setups (mode, manual duty, curve, per-fan overrides) as named profiles and switch from the profile menu in the Fan Control header. Profiles can also be assigned to plugged in and on battery to switch automatically when the power source changes.
