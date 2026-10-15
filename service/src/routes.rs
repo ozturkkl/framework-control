@@ -353,7 +353,10 @@ impl Api {
         }
         if let Err(e) = state
             .config
-            .persist(None, |cfg| cfg.framework_tool.latest = latest)
+            .persist(None, |cfg| {
+                cfg.framework_tool.latest = latest;
+                Ok(())
+            })
             .await
         {
             error!("config save error: {}", e);

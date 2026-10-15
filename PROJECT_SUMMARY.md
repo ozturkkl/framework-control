@@ -41,7 +41,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
   - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme/layout, `telemetry` config, `TelemetrySample`, and `BatterySample`
   - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), `LiveConfig`, in‑memory `telemetry_samples` and `battery_samples`
-- Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `battery`, `battery_history`, `auto_update`, `telemetry`
+- Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `fan_profiles` (AC/battery auto-switch), `battery`, `battery_history`, `auto_update`, `telemetry`
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only — reads/writes sysfs for AMD P-State EPP, cpufreq governor, and frequency limits)
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, `reconciler` (generic drift-aware reconciler with quiet-window + cooldown logic), etc.
   - `service/src/static.rs`: static file serving for the UI
@@ -93,7 +93,10 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
   - Windows: `C:\ProgramData\FrameworkControl\config.json`
   - Linux: `/etc/framework-control/config.json`
   - Battery history: `battery-history.json` in that same directory
+  - A config that fails to load is renamed to `config.invalid.json` and the service starts on defaults
 - Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors); optional `overrides[]` per fan index; per-fan calibration in `fan.calibration.fans[]`
+- Fan profiles: `fan.profiles[]` (id, name, mode/manual/curve/overrides), `fan.active_profile`, `fan.auto_switch` (`ac`/`battery` profile ids); the active profile is the live fan setup. Patches replace `profiles` wholesale (the web UI edits one profile via `patchFanProfile` in `web/src/lib/config.ts`); writes with duplicate ids or that leave `active_profile` or `auto_switch` pointing at a missing profile are rejected. `tasks/fan_profiles.rs` switches when the power source or the current source's assignment changes, including on service start. Calibration is not part of profiles.
+- Config migrations: `service/src/migrations.rs` upgrades the raw JSON on load based on the top-level `version` and saves once (v1: legacy top-level fan settings → `Default` profile).
 - Telemetry: `telemetry.poll_ms` (30-minute in-memory history for `/api/thermal/history`)
 - Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting), `battery.poll_ms` (5s–1min, default 15s) for history sampling
 - UI: `ui.theme` (DaisyUI theme name) and `ui.panels` (order/size/enabled; a missing id is treated as enabled)

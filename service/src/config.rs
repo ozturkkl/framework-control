@@ -1,11 +1,12 @@
 use std::fs::{create_dir_all, File};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::{broadcast, RwLock, RwLockReadGuard};
-use tracing::info;
+use tracing::{info, warn};
 
+use crate::migrations;
 use crate::types::{Config, ConfigEvent, PartialConfig, MAX_BATTERY_POLL_MS, MIN_BATTERY_POLL_MS};
 
 #[derive(Clone)]
@@ -32,10 +33,14 @@ impl LiveConfig {
     }
 
     /// Merge, persist, replace, and broadcast under one write lock.
-    pub async fn persist(&self, client_id: Option<String>, apply: impl FnOnce(&mut Config)) -> Result<Config, String> {
+    pub async fn persist(
+        &self,
+        client_id: Option<String>,
+        apply: impl FnOnce(&mut Config) -> Result<(), String>,
+    ) -> Result<Config, String> {
         let mut w = self.inner.write().await;
         let mut cfg = w.clone();
-        apply(&mut cfg);
+        apply(&mut cfg)?;
         save(&cfg)?;
         *w = cfg.clone();
         let _ = self.events.send(ConfigEvent {
@@ -50,25 +55,22 @@ impl LiveConfig {
     }
 }
 
-fn apply_partial(merged: &mut Config, req: PartialConfig) {
+fn apply_partial(merged: &mut Config, req: PartialConfig) -> Result<(), String> {
     if let Some(fan) = req.fan {
         let mut new_fan = merged.fan.clone();
-        if let Some(m) = fan.mode {
-            new_fan.mode = Some(m);
-        }
-        if let Some(man) = fan.manual {
-            new_fan.manual = Some(man);
-        }
-        if let Some(cur) = fan.curve {
-            new_fan.curve = Some(cur);
-        }
         if let Some(cal) = fan.calibration {
             new_fan.calibration = Some(cal);
         }
-        // Overrides are replaced wholesale when provided. An empty array clears them entirely.
-        if let Some(ov) = fan.overrides {
-            new_fan.overrides = if ov.is_empty() { None } else { Some(ov) };
+        if let Some(profiles) = fan.profiles {
+            new_fan.profiles = profiles;
         }
+        if let Some(id) = fan.active_profile {
+            new_fan.active_profile = id;
+        }
+        if let Some(auto) = fan.auto_switch {
+            new_fan.auto_switch = auto;
+        }
+        new_fan.validate()?;
         merged.fan = new_fan;
     }
     if let Some(pow) = req.power {
@@ -154,6 +156,7 @@ fn apply_partial(merged: &mut Config, req: PartialConfig) {
         }
         merged.ui = new_ui;
     }
+    Ok(())
 }
 
 fn config_dir() -> PathBuf {
@@ -198,16 +201,40 @@ pub fn battery_history_path() -> PathBuf {
 
 fn load() -> Config {
     let path = config_path();
-    if let Ok(mut f) = File::open(&path) {
-        let mut buf = String::new();
-        if f.read_to_string(&mut buf).is_ok() {
-            if let Ok(cfg) = serde_json::from_str::<Config>(&buf) {
-                info!("Loaded config from {:?}", path);
-                return cfg;
+    let buf = match std::fs::read_to_string(&path) {
+        Ok(buf) => buf,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Config::default(),
+        Err(e) => {
+            warn!("Failed to read config {:?}: {}; using defaults", path, e);
+            return Config::default();
+        }
+    };
+    let parsed = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&buf).and_then(|mut raw| {
+        let migrated = migrations::migrate(&mut raw);
+        serde_json::from_value::<Config>(raw.into()).map(|cfg| (cfg, migrated))
+    });
+    match parsed {
+        Ok((cfg, migrated)) => {
+            info!("Loaded config from {:?}", path);
+            if migrated {
+                match save(&cfg) {
+                    Ok(()) => info!("Migrated config to version {}", cfg.version),
+                    Err(e) => warn!("Failed to save migrated config: {}", e),
+                }
             }
+            cfg
+        }
+        Err(e) => {
+            // Move it aside so the next save can't overwrite the user's settings.
+            let invalid_path = path.with_extension("invalid.json");
+            warn!("Invalid config {:?}: {}; using defaults", path, e);
+            match std::fs::rename(&path, &invalid_path) {
+                Ok(()) => warn!("Moved invalid config to {:?}", invalid_path),
+                Err(e) => warn!("Failed to move invalid config to {:?}: {}", invalid_path, e),
+            }
+            Config::default()
         }
     }
-    Config::default()
 }
 
 fn save(cfg: &Config) -> Result<(), String> {
@@ -218,4 +245,87 @@ fn save(cfg: &Config) -> Result<(), String> {
     let mut f = File::create(&path).map_err(|e| e.to_string())?;
     let s = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
     f.write_all(s.as_bytes()).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{FanCalibration, FanControlPatch, FanProfile, FanProfileAutoSwitch};
+
+    fn fan_patch(fan: FanControlPatch) -> PartialConfig {
+        PartialConfig {
+            fan: Some(fan),
+            power: None,
+            battery: None,
+            updates: None,
+            telemetry: None,
+            ui: None,
+        }
+    }
+
+    fn profile(id: &str) -> FanProfile {
+        FanProfile {
+            id: id.into(),
+            name: id.into(),
+            ..Default::default()
+        }
+    }
+
+    fn two_profiles() -> Config {
+        let mut cfg = Config::default();
+        cfg.fan.profiles = vec![profile("home"), profile("quiet")];
+        cfg.fan.active_profile = "home".into();
+        cfg
+    }
+
+    #[test]
+    fn switching_keeps_calibration() {
+        let mut cfg = two_profiles();
+        cfg.fan.calibration = Some(FanCalibration {
+            updated_at: 1,
+            fans: vec![],
+        });
+        apply_partial(
+            &mut cfg,
+            fan_patch(FanControlPatch {
+                active_profile: Some("quiet".into()),
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        assert_eq!(cfg.fan.active().unwrap().id, "quiet");
+        assert!(cfg.fan.calibration.is_some());
+    }
+
+    #[test]
+    fn unknown_active_profile_is_rejected() {
+        let mut cfg = two_profiles();
+        let res = apply_partial(
+            &mut cfg,
+            fan_patch(FanControlPatch {
+                active_profile: Some("missing".into()),
+                ..Default::default()
+            }),
+        );
+        assert!(res.is_err());
+        assert_eq!(cfg.fan.active_profile, "home");
+    }
+
+    #[test]
+    fn deleting_profile_still_assigned_to_auto_switch_is_rejected() {
+        let mut cfg = two_profiles();
+        cfg.fan.auto_switch = FanProfileAutoSwitch {
+            ac: None,
+            battery: Some("quiet".into()),
+        };
+        let res = apply_partial(
+            &mut cfg,
+            fan_patch(FanControlPatch {
+                profiles: Some(vec![profile("home")]),
+                ..Default::default()
+            }),
+        );
+        assert!(res.is_err());
+        assert_eq!(cfg.fan.profiles.len(), 2);
+    }
 }

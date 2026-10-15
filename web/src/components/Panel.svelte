@@ -1,6 +1,6 @@
 <script context="module" lang="ts">
   export const PANEL_HEADER_OVERLAY_CLASS =
-    "panel-header-overlay absolute top-[0.62rem] right-2 z-10 flex items-center justify-end gap-2 text-sm";
+    "panel-header-overlay absolute top-[0.62rem] right-2 z-20 flex items-center justify-end gap-2 text-sm";
   export const PANEL_HEADER_TOGGLE_CLASS =
     "join border surface-border shrink-0 max-w-full whitespace-nowrap";
 </script>
@@ -94,7 +94,7 @@
   {/if}
   <div
     bind:this={cardEl}
-    class="card origin-top-left {isExpanded
+    class="card [container-type:inline-size] origin-top-left {isExpanded
       ? expandedCardClass
       : 'relative h-full'} {enabled
       ? enabledCardClass

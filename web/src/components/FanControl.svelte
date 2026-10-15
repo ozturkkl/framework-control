@@ -3,11 +3,18 @@
     import { DefaultService } from "../api";
     import type {
         FanControlConfig,
+        FanControlPatch,
         FanOverride,
+        FanProfile,
         CurveConfig,
         GlobalCurveConfig,
     } from "../api";
-    import { configStore, followConfig, patch } from "../lib/config";
+    import {
+        configStore,
+        followConfig,
+        patch,
+        patchFanProfile,
+    } from "../lib/config";
     import { throttleDebounce } from "../lib/utils";
     import { cubicSplineInterpolate } from "../lib/spline";
     import CalibrationModal from "./CalibrationModal.svelte";
@@ -16,6 +23,7 @@
     import MultiSelect from "./MultiSelect.svelte";
     import GraphPanel from "./GraphPanel.svelte";
     import FanSelector from "./FanSelector.svelte";
+    import FanProfileMenu from "./FanProfileMenu.svelte";
     import {
         PANEL_HEADER_OVERLAY_CLASS,
         PANEL_HEADER_TOGGLE_CLASS,
@@ -481,24 +489,30 @@
         pollMs = c.poll_ms;
     }
 
-    function applyLoadedGlobalConfig(fan: FanControlConfig) {
-        if (fan.curve) {
-            applyGlobalCurveConfig(fan.curve);
+    function activeProfile(
+        fan: FanControlConfig | undefined,
+    ): FanProfile | undefined {
+        return fan?.profiles.find((p) => p.id === fan.active_profile);
+    }
+
+    function applyLoadedGlobalConfig(profile: FanProfile) {
+        if (profile.curve) {
+            applyGlobalCurveConfig(profile.curve);
         }
-        if (fan.manual) manualDutyPct = fan.manual.duty_pct;
+        if (profile.manual) manualDutyPct = profile.manual.duty_pct;
     }
 
     function applyEditorFromFan(
-        fan: FanControlConfig | undefined,
+        profile: FanProfile | undefined,
         target: "all" | number,
     ) {
         if (target === "all") {
-            if (fan) applyLoadedGlobalConfig(fan);
+            if (profile) applyLoadedGlobalConfig(profile);
             return;
         }
         const ov = overrides.find((o) => o.index === target);
-        const globalCurve = fan?.curve;
-        const globalManual = fan?.manual;
+        const globalCurve = profile?.curve;
+        const globalManual = profile?.manual;
         if (ov?.curve) {
             applyCurveConfig(ov.curve);
         } else if (globalCurve) {
@@ -512,8 +526,17 @@
         pollMs = globalCurve?.poll_ms ?? DEFAULTS.curve.poll_ms;
     }
 
+    let editorProfileId: string | undefined;
+
     function applyFanConfig(fan: FanControlConfig) {
-        switch (fan.mode) {
+        // The new profile may not have an override for the selected fan tab.
+        if (fan.active_profile !== editorProfileId) {
+            editorProfileId = fan.active_profile;
+            activeFan = "all";
+            selectedIdx = null;
+        }
+        const profile = activeProfile(fan);
+        switch (profile?.mode) {
             case "manual":
                 mode = "Manual";
                 break;
@@ -527,13 +550,13 @@
         if (mode === "Auto") {
             activeFan = "all";
         }
-        overrides = fan.overrides ?? [];
+        overrides = profile?.overrides ?? [];
         applyCalibration(
             fan.calibration?.fans as
                 | { index: number; points: [number, number][] }[]
                 | undefined,
         );
-        applyEditorFromFan(fan, activeFan);
+        applyEditorFromFan(profile, activeFan);
         prevMode = mode;
     }
 
@@ -575,7 +598,10 @@
             }
             activeFan = target;
             selectedIdx = null;
-            applyEditorFromFan($configStore.config?.fan, target);
+            applyEditorFromFan(
+                activeProfile($configStore.config?.fan),
+                target,
+            );
             await tick();
         } catch (e: unknown) {
             error = e instanceof Error ? e.message : String(e);
@@ -599,6 +625,7 @@
     }
 
     async function doSave(_opts?: { silent?: boolean }) {
+        if (!editorProfileId) return;
         error = null;
         const backendMode =
             mode === "Manual"
@@ -606,26 +633,46 @@
                 : mode === "Curve"
                   ? "curve"
                   : "disabled";
-        const fanPatch: FanControlConfig = { mode: backendMode };
+        const settings: Partial<FanProfile> = { mode: backendMode };
         if (activeFan === "all") {
             if (backendMode === "manual") {
-                fanPatch.manual = {
+                settings.manual = {
                     duty_pct: clamp(manualDutyPct, 0, 100),
                 };
             } else if (backendMode === "curve") {
-                fanPatch.curve = readEditorGlobalCurve();
+                settings.curve = readEditorGlobalCurve();
             }
         }
         // Overrides replace wholesale when provided; always send the full list.
-        fanPatch.overrides = overrides;
+        settings.overrides = overrides;
         try {
-            await patch({ fan: fanPatch });
+            await patchFanProfile(editorProfileId, settings);
         } catch (e: unknown) {
             error = e instanceof Error ? e.message : String(e);
         }
     }
 
     const save = throttleDebounce(doSave, 200, false, true);
+
+    async function updateProfiles(
+        makePatch: (fan: FanControlConfig) => FanControlPatch,
+    ) {
+        error = null;
+        try {
+            if (activeFan !== "all") commitOverrideFromEditor();
+            await doSave({ silent: true });
+            const current = $configStore.config?.fan;
+            if (!current) return;
+            await patch({ fan: makePatch(current) });
+            // Own writes skip followConfig, so reload the editor for the newly active profile.
+            const fan = $configStore.config?.fan;
+            if (fan && fan.active_profile !== editorProfileId) {
+                applyFanConfig(fan);
+            }
+        } catch (e: unknown) {
+            error = e instanceof Error ? e.message : String(e);
+        }
+    }
 
     // Apply local mode changes
     $: if (onMountComplete && mode !== prevMode) {
@@ -860,6 +907,7 @@
 <svelte:window on:pointerup={endDrag} on:pointercancel={endDrag} />
 
 <div class={PANEL_HEADER_OVERLAY_CLASS}>
+    <FanProfileMenu fan={$configStore.config?.fan} update={updateProfiles} />
     <div
         class={PANEL_HEADER_TOGGLE_CLASS}
         role="radiogroup"

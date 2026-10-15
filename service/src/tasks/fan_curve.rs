@@ -24,11 +24,14 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
         let loop_started = std::time::Instant::now();
         let (config, fan_enabled) = {
             let cfg = cfg.read().await;
-            (cfg.fan.clone(), cfg.ui.is_panel_enabled(DashboardPanelId::Fan))
+            (
+                cfg.fan.active().cloned().unwrap_or_default(),
+                cfg.ui.is_panel_enabled(DashboardPanelId::Fan),
+            )
         };
-        let mode = config.mode.unwrap_or(FanControlMode::Disabled);
+        let mode = config.mode;
 
-        let overrides = config.overrides.clone().unwrap_or_default();
+        let overrides = config.overrides;
         let per_fan_active = !overrides.is_empty();
 
         let poll_interval = Duration::from_millis(match mode {

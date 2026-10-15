@@ -10,6 +10,14 @@ pub async fn boot(state: &AppState) {
         });
     }
 
+    {
+        let ft_clone = state.framework_tool.clone();
+        let cfg_clone = state.config.clone();
+        tokio::spawn(async move {
+            crate::tasks::fan_profiles::run(ft_clone, cfg_clone).await;
+        });
+    }
+
     // Power settings task: start once at boot; it will wait until power backend is available
     #[cfg(target_os = "windows")]
     {
@@ -73,5 +81,6 @@ pub mod auto_update;
 pub mod battery;
 pub mod battery_history;
 pub mod fan_curve;
+pub mod fan_profiles;
 pub mod power;
 pub mod telemetry;

@@ -1,5 +1,5 @@
-import { writable } from 'svelte/store';
-import { DefaultService, OpenAPI, type Config, type PartialConfig } from '../api';
+import { get, writable } from 'svelte/store';
+import { DefaultService, OpenAPI, type Config, type FanProfile, type PartialConfig } from '../api';
 
 const CLIENT_ID = crypto.randomUUID();
 
@@ -70,6 +70,11 @@ async function loadConfigFromServer(): Promise<void> {
 export async function patch(partial: PartialConfig): Promise<void> {
 	const cfg = await DefaultService.setConfig(partial, CLIENT_ID);
 	setStore(cfg, true);
+}
+
+export async function patchFanProfile(id: string, changes: Partial<FanProfile>): Promise<void> {
+	const profiles = get(configStore).config?.fan.profiles ?? [];
+	await patch({ fan: { profiles: profiles.map((p) => (p.id === id ? { ...p, ...changes } : p)) } });
 }
 
 let eventSource: EventSource | null = null;

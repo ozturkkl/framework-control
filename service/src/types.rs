@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 // Core config types
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct Config {
+    /// Schema version; see `migrations.rs`.
+    #[serde(default)]
+    pub version: u32,
     #[serde(default)]
     pub fan: FanControlConfig,
     #[serde(default)]
@@ -23,6 +26,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            version: crate::migrations::CURRENT_VERSION,
             fan: FanControlConfig::default(),
             power: PowerConfig::default(),
             battery: BatteryConfig::default(),
@@ -77,18 +81,86 @@ pub enum FanControlMode {
     Curve,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct FanControlConfig {
-    #[serde(default)]
-    pub mode: Option<FanControlMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub manual: Option<ManualConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub curve: Option<GlobalCurveConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration: Option<FanCalibration>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub overrides: Option<Vec<FanOverride>>,
+    pub profiles: Vec<FanProfile>,
+    pub active_profile: String,
+    #[serde(default)]
+    pub auto_switch: FanProfileAutoSwitch,
+}
+
+impl Default for FanControlConfig {
+    fn default() -> Self {
+        Self {
+            calibration: None,
+            profiles: vec![FanProfile {
+                id: "default".into(),
+                name: "Default".into(),
+                ..Default::default()
+            }],
+            active_profile: "default".into(),
+            auto_switch: FanProfileAutoSwitch::default(),
+        }
+    }
+}
+
+impl FanControlConfig {
+    /// None only if the config file was hand-edited into an inconsistent state.
+    pub fn active(&self) -> Option<&FanProfile> {
+        self.profiles.iter().find(|p| p.id == self.active_profile)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        let mut ids = std::collections::HashSet::new();
+        if let Some(dup) = self.profiles.iter().find(|p| !ids.insert(&p.id)) {
+            return Err(format!("duplicate fan profile id '{}'", dup.id));
+        }
+        let exists = |id: &str| self.profiles.iter().any(|p| p.id == id);
+        if !exists(&self.active_profile) {
+            return Err(format!("unknown active fan profile '{}'", self.active_profile));
+        }
+        for id in [&self.auto_switch.ac, &self.auto_switch.battery].into_iter().flatten() {
+            if !exists(id) {
+                return Err(format!("auto-switch references unknown fan profile '{}'", id));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct FanProfile {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub mode: FanControlMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manual: Option<ManualConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curve: Option<GlobalCurveConfig>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overrides: Vec<FanOverride>,
+}
+
+/// Profile ids to switch to when the power source changes.
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default, PartialEq)]
+pub struct FanProfileAutoSwitch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ac: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub battery: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Object, Default)]
+pub struct FanControlPatch {
+    pub calibration: Option<FanCalibration>,
+    /// Replaced wholesale.
+    pub profiles: Option<Vec<FanProfile>>,
+    pub active_profile: Option<String>,
+    /// Replaced wholesale.
+    pub auto_switch: Option<FanProfileAutoSwitch>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
@@ -179,7 +251,7 @@ pub struct ConfigEvent {
 
 #[derive(Debug, Clone, Deserialize, Object)]
 pub struct PartialConfig {
-    pub fan: Option<FanControlConfig>,
+    pub fan: Option<FanControlPatch>,
     pub power: Option<PowerConfig>,
     pub battery: Option<BatteryConfig>,
     pub updates: Option<UpdatesConfig>,
