@@ -13,6 +13,8 @@ export default defineConfig(() => {
 		plugins: [svelte()],
 		server: {
 			port: 5174,
+			// Lets VITE_ANNOUNCEMENT_URL point at the repo-root ANNOUNCEMENT.md via /@fs/.
+			fs: { allow: ['.', '../ANNOUNCEMENT.md'] },
 		},
 	};
 });
