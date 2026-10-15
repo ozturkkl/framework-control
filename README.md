@@ -35,6 +35,16 @@ https://github.com/user-attachments/assets/5d7c07c2-83cc-4b82-b685-df5f86318597
 
 This software is provided "as is," without warranty of any kind, express or implied. By using it, you acknowledge that you are responsible for any configuration changes you make to your system and accept all risks associated with its use. The authors and contributors are not liable for any damage, data loss, hardware wear, unintended behavior, or other harm that may result from use or misuse of this application.
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=ozturkkl%2Fframework-control&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&legend=top-left" />
+   <img alt="Star History Chart" width=600 src="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ## Current Features
 
 - **Fan Controls**: Auto, Manual duty, and Curve editor with hysteresis and rate-limit
