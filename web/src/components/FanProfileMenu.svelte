@@ -220,6 +220,15 @@
                         class="w-3.5 h-3.5 opacity-70"
                     />
                 </button>
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-xs btn-square ml-auto"
+                    aria-label="New profile from current settings"
+                    title="New profile from current settings"
+                    on:click={createProfile}
+                >
+                    <Icon icon="mdi:plus" class="w-3.5 h-3.5" />
+                </button>
             </div>
             {#each profiles as p (p.id)}
                 <div
@@ -245,15 +254,26 @@
                     on:dragend={endDrag}
                 >
                     {#if renamingId === p.id}
-                        <input
-                            class="input input-xs input-bordered flex-1 min-w-0 my-0.5 ml-0.5"
-                            maxlength={NAME_MAX}
-                            aria-label="Profile name"
-                            bind:this={renameInput}
-                            bind:value={renameValue}
-                            on:keydown={onRenameKeydown}
-                            on:blur={commitRename}
-                        />
+                        <div
+                            class="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1"
+                        >
+                            <Icon
+                                icon="mdi:check"
+                                class="w-3.5 h-3.5 shrink-0 {p.id ===
+                                active?.id
+                                    ? ''
+                                    : 'invisible'}"
+                            />
+                            <input
+                                class="flex-1 min-w-0 p-0 bg-transparent outline-none border-b border-primary"
+                                maxlength={NAME_MAX}
+                                aria-label="Profile name"
+                                bind:this={renameInput}
+                                bind:value={renameValue}
+                                on:keydown={onRenameKeydown}
+                                on:blur={commitRename}
+                            />
+                        </div>
                     {:else if confirmDeleteId === p.id}
                         <span class="flex-1 min-w-0 px-2 py-1 truncate text-xs"
                             >Delete “{p.name}”?</span
@@ -331,14 +351,6 @@
                     {/if}
                 </div>
             {/each}
-            <button
-                type="button"
-                class="btn btn-ghost btn-xs justify-start gap-1.5 font-normal"
-                on:click={createProfile}
-            >
-                <Icon icon="mdi:plus" class="w-3.5 h-3.5" />
-                New profile from current settings
-            </button>
 
             <div class="border-t surface-border mt-1 pt-2 px-1 flex flex-col gap-1.5">
                 <div class="text-xs opacity-60">Switch automatically</div>
