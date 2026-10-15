@@ -151,6 +151,8 @@ jobs:
           FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
           FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
           FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
+          # Pre-releases read the dev branch announcement; empty falls back to main.
+          VITE_ANNOUNCEMENT_URL: ${{ needs.read-version.outputs.is_prerelease == 'true' && 'https://raw.githubusercontent.com/ozturkkl/framework-control/dev/ANNOUNCEMENT.md' || '' }}
         working-directory: web
 
       - name: Locate MSI
@@ -238,6 +240,7 @@ jobs:
           FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
           FRAMEWORK_CONTROL_ALLOWED_ORIGINS: ${{ secrets.FRAMEWORK_CONTROL_ALLOWED_ORIGINS || vars.FRAMEWORK_CONTROL_ALLOWED_ORIGINS }}
           FRAMEWORK_CONTROL_UPDATE_REPO: ${{ secrets.FRAMEWORK_CONTROL_UPDATE_REPO || vars.FRAMEWORK_CONTROL_UPDATE_REPO }}
+          VITE_ANNOUNCEMENT_URL: ${{ needs.read-version.outputs.is_prerelease == 'true' && 'https://raw.githubusercontent.com/ozturkkl/framework-control/dev/ANNOUNCEMENT.md' || '' }}
         working-directory: web
 
       - name: Locate tarball
@@ -342,6 +345,18 @@ jobs:
           runuser -u builder -- updpkgsums
           runuser -u builder -- makepkg --printsrcinfo > .SRCINFO
 
+      - name: Build and install package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd aur
+          depsLine=$(source PKGBUILD && echo "${depends[@]}" "${makedepends[@]}")
+          read -ra deps <<< "$depsLine"
+          pacman -S --noconfirm --needed "${deps[@]}"
+          runuser -u builder -- makepkg --noconfirm
+          # Scriptlets call systemctl, which can't run in a container
+          pacman -U --noconfirm --noscriptlet ./*.pkg.tar.zst
+
       - name: Push to AUR
         shell: bash
         env:
@@ -422,6 +437,18 @@ jobs:
           chown -R builder .
           runuser -u builder -- updpkgsums
           runuser -u builder -- makepkg --printsrcinfo > .SRCINFO
+
+      - name: Build and install package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd aur-beta
+          depsLine=$(source PKGBUILD && echo "${depends[@]}" "${makedepends[@]}")
+          read -ra deps <<< "$depsLine"
+          pacman -S --noconfirm --needed "${deps[@]}"
+          runuser -u builder -- makepkg --noconfirm
+          # Scriptlets call systemctl, which can't run in a container
+          pacman -U --noconfirm --noscriptlet ./*.pkg.tar.zst
 
       - name: Push to AUR
         shell: bash

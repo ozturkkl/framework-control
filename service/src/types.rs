@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 // Core config types
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct Config {
+    /// Schema version; see `migrations.rs`.
+    #[serde(default)]
+    pub version: u32,
     #[serde(default)]
     pub fan: FanControlConfig,
     #[serde(default)]
@@ -23,6 +26,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            version: crate::migrations::CURRENT_VERSION,
             fan: FanControlConfig::default(),
             power: PowerConfig::default(),
             battery: BatteryConfig::default(),
@@ -77,18 +81,86 @@ pub enum FanControlMode {
     Curve,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct FanControlConfig {
-    #[serde(default)]
-    pub mode: Option<FanControlMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub manual: Option<ManualConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub curve: Option<GlobalCurveConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calibration: Option<FanCalibration>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub overrides: Option<Vec<FanOverride>>,
+    pub profiles: Vec<FanProfile>,
+    pub active_profile: String,
+    #[serde(default)]
+    pub auto_switch: FanProfileAutoSwitch,
+}
+
+impl Default for FanControlConfig {
+    fn default() -> Self {
+        Self {
+            calibration: None,
+            profiles: vec![FanProfile {
+                id: "default".into(),
+                name: "Default".into(),
+                ..Default::default()
+            }],
+            active_profile: "default".into(),
+            auto_switch: FanProfileAutoSwitch::default(),
+        }
+    }
+}
+
+impl FanControlConfig {
+    /// None only if the config file was hand-edited into an inconsistent state.
+    pub fn active(&self) -> Option<&FanProfile> {
+        self.profiles.iter().find(|p| p.id == self.active_profile)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        let mut ids = std::collections::HashSet::new();
+        if let Some(dup) = self.profiles.iter().find(|p| !ids.insert(&p.id)) {
+            return Err(format!("duplicate fan profile id '{}'", dup.id));
+        }
+        let exists = |id: &str| self.profiles.iter().any(|p| p.id == id);
+        if !exists(&self.active_profile) {
+            return Err(format!("unknown active fan profile '{}'", self.active_profile));
+        }
+        for id in [&self.auto_switch.ac, &self.auto_switch.battery].into_iter().flatten() {
+            if !exists(id) {
+                return Err(format!("auto-switch references unknown fan profile '{}'", id));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct FanProfile {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub mode: FanControlMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manual: Option<ManualConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curve: Option<GlobalCurveConfig>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overrides: Vec<FanOverride>,
+}
+
+/// Profile ids to switch to when the power source changes.
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default, PartialEq)]
+pub struct FanProfileAutoSwitch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ac: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub battery: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Object, Default)]
+pub struct FanControlPatch {
+    pub calibration: Option<FanCalibration>,
+    /// Replaced wholesale.
+    pub profiles: Option<Vec<FanProfile>>,
+    pub active_profile: Option<String>,
+    /// Replaced wholesale.
+    pub auto_switch: Option<FanProfileAutoSwitch>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
@@ -171,9 +243,15 @@ pub struct ShortcutsStatus {
 #[derive(Serialize, Object, Default)]
 pub struct Empty {}
 
+#[derive(Debug, Clone, Serialize, Object)]
+pub struct ConfigEvent {
+    pub client_id: Option<String>,
+    pub config: Config,
+}
+
 #[derive(Debug, Clone, Deserialize, Object)]
 pub struct PartialConfig {
-    pub fan: Option<FanControlConfig>,
+    pub fan: Option<FanControlPatch>,
     pub power: Option<PowerConfig>,
     pub battery: Option<BatteryConfig>,
     pub updates: Option<UpdatesConfig>,
@@ -187,35 +265,82 @@ pub struct UpdatesConfig {
     pub auto_install: bool,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Enum)]
+#[serde(rename_all = "lowercase")]
+pub enum DashboardPanelId {
+    #[oai(rename = "telemetry")]
+    Telemetry,
+    #[oai(rename = "fan")]
+    Fan,
+    #[oai(rename = "power")]
+    Power,
+    #[oai(rename = "battery")]
+    Battery,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Enum, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DashboardPanelSize {
+    #[default]
+    #[oai(rename = "half")]
+    Half,
+    #[oai(rename = "full")]
+    Full,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, PartialEq)]
+pub struct DashboardPanel {
+    pub id: DashboardPanelId,
+    pub enabled: bool,
+    pub size: DashboardPanelSize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
 pub struct UiConfig {
     /// Preferred UI theme (matches DaisyUI theme names)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    /// Absent layout or a missing id means that panel is enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panels: Option<Vec<DashboardPanel>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announcements: Option<AnnouncementsConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object, Default)]
+pub struct AnnouncementsConfig {
+    #[serde(default)]
+    pub disabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seen_date: Option<String>,
+}
+
+impl UiConfig {
+    pub fn is_panel_enabled(&self, id: DashboardPanelId) -> bool {
+        self.panels
+            .as_ref()
+            .and_then(|panels| panels.iter().find(|panel| panel.id == id))
+            .map(|panel| panel.enabled)
+            .unwrap_or(true)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct TelemetryConfig {
     #[serde(default = "default_telemetry_poll_ms")]
     pub poll_ms: u64,
-    #[serde(default = "default_telemetry_retain_seconds")]
-    pub retain_seconds: u64,
 }
 
 impl Default for TelemetryConfig {
     fn default() -> Self {
         Self {
             poll_ms: default_telemetry_poll_ms(),
-            retain_seconds: default_telemetry_retain_seconds(),
         }
     }
 }
 
 fn default_telemetry_poll_ms() -> u64 {
     2000
-}
-fn default_telemetry_retain_seconds() -> u64 {
-    1800
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
@@ -225,13 +350,17 @@ pub struct TelemetrySample {
     pub rpms: Vec<u32>,
 }
 
-// Fan calibration types
 #[derive(Debug, Clone, Serialize, Deserialize, Object)]
 pub struct FanCalibration {
-    /// Calibration data points: [duty_pct, rpm]
-    pub points: Vec<[u32; 2]>,
-    /// Unix timestamp (seconds)
     pub updated_at: i64,
+    #[serde(default)]
+    pub fans: Vec<PerFanCalibration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct PerFanCalibration {
+    pub index: u32,
+    pub points: Vec<[u32; 2]>,
 }
 
 // Generic API error envelope
@@ -319,6 +448,36 @@ pub struct BatteryConfig {
     /// Optional SoC threshold (%) for rate limiting
     #[serde(skip_serializing_if = "Option::is_none")]
     pub charge_rate_soc_threshold_pct: Option<u8>,
+    /// History poll interval in ms. Absent means the default (15000). Clamped to 5s–1min.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub poll_ms: Option<u64>,
+}
+
+impl BatteryConfig {
+    pub fn history_poll_ms(&self) -> u64 {
+        self.poll_ms
+            .unwrap_or(default_battery_poll_ms())
+            .clamp(MIN_BATTERY_POLL_MS, MAX_BATTERY_POLL_MS)
+    }
+}
+
+pub const MIN_BATTERY_POLL_MS: u64 = 5_000;
+pub const MAX_BATTERY_POLL_MS: u64 = 60_000;
+
+fn default_battery_poll_ms() -> u64 {
+    15_000
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Object)]
+pub struct BatterySample {
+    pub ts_ms: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charge_pct: Option<f32>,
+    /// Signed pack power: positive while charging, negative while discharging.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub watts: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ac_present: Option<bool>,
 }
 
 // API-facing union of battery info (flatten of parsed + limits)

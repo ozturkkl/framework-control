@@ -1,8 +1,10 @@
 > [!IMPORTANT]
-> **This project is not accepting outside contributions.**
-> Pull requests from non-collaborators are closed automatically. Please [open an issue](https://github.com/ozturkkl/framework-control/issues) instead. See [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
+> **PRs must originate from an issue labeled `pr-welcome`.**
+> Add the issue number below. PRs without a linked `pr-welcome` issue will be closed. See [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
 
 ---
+
+Fixes #
 
 ## What & why
 

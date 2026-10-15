@@ -23,10 +23,12 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
     - `GET /health`: health + version + `cli_present`
   - `GET /power`: battery telemetry (SoC, capacity, voltages/currents, charger wattage) plus charge-limit info and `power_control` object with platform `capabilities` and `current_state`
     - `GET /thermal`: parsed thermal report (temps map + fan RPMs)
-    - `GET /thermal/history`: recent telemetry samples collected by the service (trimmed by configured retention)
+    - `GET /thermal/history`: recent telemetry samples collected by the service (30-minute window)
+    - `GET /battery/history`: charge % and signed pack watts (up to 7 days; optional `since`)
     - `GET /versions`: parsed versions (mainboard_type, uefi_version, etc.)
     - `GET /config`: return persisted config
     - `POST /config`: update config
+    - `GET /config/events`: SSE of config writes (for multi-tab sync)
     - `GET /system`: basic system info (CPU, memory, OS, dGPU guess)
     - `GET /shortcuts/status`: Desktop/application menu shortcut existence
     - `POST /shortcuts/create`: create desktop shortcuts with browser detection (auth required, Windows + Linux)
@@ -37,9 +39,9 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Helpers: GPU detection via PowerShell on Windows
 - Other key files (condensed):
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
-  - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme, `telemetry` config, and `TelemetrySample`
-  - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), config, in‑memory `telemetry_samples`
-- Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `battery`, `auto_update`, `telemetry`
+  - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme/layout, `telemetry` config, `TelemetrySample`, and `BatterySample`
+  - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), `LiveConfig`, in‑memory `telemetry_samples` and `battery_samples`
+- Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `fan_profiles` (AC/battery auto-switch), `battery`, `battery_history`, `auto_update`, `telemetry`
   - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only — reads/writes sysfs for AMD P-State EPP, cpufreq governor, and frequency limits)
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, `reconciler` (generic drift-aware reconciler with quiet-window + cooldown logic), etc.
   - `service/src/static.rs`: static file serving for the UI
@@ -47,14 +49,14 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 
 ### Frontend Web UI (Svelte)
 
-- Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; `flex-wrap` layout.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (battery telemetry, charge limit and rate controls), `FanControl` (Auto/Manual/Curve with header selector; optional per-fan manual/curve overrides via fan tabs).
-- Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors` and Fan Control (Curve).
+- Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; dashboard layout (order, full/half width, hide). Hiding a panel also disables that feature's background task.
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (telemetry, charge limit/rate, history graph from `/api/battery/history`), `FanControl` (Auto/Manual/Curve with header selector; optional per-fan manual/curve overrides via fan tabs).
+- Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors`, Fan Control (Curve), and the battery history graph.
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
 - Shared controls: `web/src/components/UiControlCard.svelte` — composite card supporting both range sliders and select dropdowns (replaces former `UiSlider`); used by Power and Battery panels.
 - Device header: static images (no crossfade/width/pulse).
-- API client: generated (`web/src/api/*`). Use `DefaultService` and `OpenAPI` for all requests.
+- API client: generated (`web/src/api/*`). Use `DefaultService` and `OpenAPI` for all requests. Config live-sync uses `EventSource` on `/config/events`.
 
 ### Things to Pay Attention To
 - Always use the generated API client (`DefaultService`, `OpenAPI`) for all requests.
@@ -90,10 +92,15 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Persisted at:
   - Windows: `C:\ProgramData\FrameworkControl\config.json`
   - Linux: `/etc/framework-control/config.json`
-- Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors); optional `overrides[]` per fan index for custom manual duty or curve (falls back to global config)
-- Telemetry: `telemetry.poll_ms`, `telemetry.retain_seconds` (history for `/api/thermal/history`)
-- Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting)
-- UI: `ui.theme` (DaisyUI theme name, shared across clients)
+  - Battery history: `battery-history.json` in that same directory
+  - A config that fails to load is renamed to `config.invalid.json` and the service starts on defaults
+- Fan modes: Auto, Manual duty, Curve (`sensors: string[]`, service applies max across selected sensors); optional `overrides[]` per fan index; per-fan calibration in `fan.calibration.fans[]`
+- Fan profiles: `fan.profiles[]` (id, name, mode/manual/curve/overrides), `fan.active_profile`, `fan.auto_switch` (`ac`/`battery` profile ids); the active profile is the live fan setup. Patches replace `profiles` wholesale (the web UI edits one profile via `patchFanProfile` in `web/src/lib/config.ts`); writes with duplicate ids or that leave `active_profile` or `auto_switch` pointing at a missing profile are rejected. `tasks/fan_profiles.rs` switches when the power source or the current source's assignment changes, including on service start. Calibration is not part of profiles.
+- Config migrations: `service/src/migrations.rs` upgrades the raw JSON on load based on the top-level `version` and saves once (v1: legacy top-level fan settings → `Default` profile).
+- Telemetry: `telemetry.poll_ms` (30-minute in-memory history for `/api/thermal/history`)
+- Battery: `battery.charge_limit_max_pct` (25–100%, when disabled the service no-ops and leaves the EC/BIOS charge limit unchanged), `battery.charge_rate_c` (0.1–1.0C), optional `battery.charge_rate_soc_threshold_pct` (% SoC to start limiting), `battery.poll_ms` (5s–1min, default 15s) for history sampling
+- UI: `ui.theme` (DaisyUI theme name) and `ui.panels` (order/size/enabled; a missing id is treated as enabled)
+- Announcements: `ui.announcements` (`disabled`, `seen_date`). Content is `ANNOUNCEMENT.md` on the `main` branch (fetched by the UI from raw.githubusercontent.com, override with `VITE_ANNOUNCEMENT_URL`; pre-release builds and the AUR beta package point it at `dev`), so it can change without a release. Its frontmatter `date:` is compared against `seen_date`; bump it to show the announcement again. Rendered with marked + DOMPurify (YouTube iframes, video, images allowed); raw `<input required>` checkboxes block dismissal until ticked. Tailwind never scans it, so it can only use classes from the `safelist` in `web/tailwind.config.js` or already used in `web/src/` (older installs fetch the same file with their own CSS). An empty file shows nothing.
 - Updates: `FRAMEWORK_CONTROL_UPDATE_REPO` used by update endpoints
 
 ### Developer Quick Start

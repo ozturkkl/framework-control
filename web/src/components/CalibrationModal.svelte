@@ -1,196 +1,212 @@
 <script lang="ts">
-  import { DefaultService } from "../api";
-  import type { PartialConfig } from "../api";
-  import { createEventDispatcher } from "svelte";
-  import { tweened } from "svelte/motion";
-  import { get } from "svelte/store";
+	import { DefaultService } from '../api';
+	import type { FanProfile } from '../api';
+	import { createEventDispatcher } from 'svelte';
+	import { tweened } from 'svelte/motion';
+	import { get } from 'svelte/store';
+	import { configStore, patch, patchFanProfile } from '../lib/config';
 
-  const dispatch = createEventDispatcher();
+	type CalibrationFan = {
+		index: number;
+		points: [number, number][];
+	};
 
-  let progress = 0; // 0..100
-  let info = "";
-  let cancelled = false;
-  let hasStarted = false;
+	const dispatch = createEventDispatcher<{
+		done: CalibrationFan[];
+		cancel: void;
+	}>();
 
-  let prevMode: "manual" | "curve" | "disabled" = "curve";
+	let progress = 0; // 0..100
+	let info = '';
+	let cancelled = false;
+	let hasStarted = false;
 
-  // Simple tween with tunable power ease-out towards the actual progress
-  const powOut = (p: number) => (t: number) => 1 - Math.pow(1 - t, p);
-  const POW_P = 100; // 2..3 is a good range (higher = stronger ease-out)
-  const animatedProgress = tweened(0, { duration: 0, easing: powOut(POW_P) });
-  const MS_PER_PERCENT = 10000; // lower = faster
+	let prevProfile: FanProfile | undefined;
 
-  $: {
-    const from = get(animatedProgress);
-    const to = Math.max(0, Math.min(100, progress));
-    if (from !== to) {
-      const delta = Math.abs(to - from);
-      const duration = delta * MS_PER_PERCENT;
-      animatedProgress.set(to, { duration, easing: powOut(POW_P) });
-    }
-  }
+	// Simple tween with tunable power ease-out towards the actual progress
+	const powOut = (p: number) => (t: number) => 1 - Math.pow(1 - t, p);
+	const POW_P = 100; // 2..3 is a good range (higher = stronger ease-out)
+	const animatedProgress = tweened(0, { duration: 0, easing: powOut(POW_P) });
+	const MS_PER_PERCENT = 10000; // lower = faster
 
-  async function setMode(mode: "manual" | "curve" | "disabled") {
-    const patch: PartialConfig = { fan: { mode } };
-    try {
-      await DefaultService.setConfig(patch);
-    } catch {}
-  }
+	$: {
+		const from = get(animatedProgress);
+		const to = Math.max(0, Math.min(100, progress));
+		if (from !== to) {
+			const delta = Math.abs(to - from);
+			const duration = delta * MS_PER_PERCENT;
+			animatedProgress.set(to, { duration, easing: powOut(POW_P) });
+		}
+	}
 
-  async function setManualDuty(duty: number) {
-    const patch: PartialConfig = {
-      fan: {
-        mode: "manual",
-        manual: { duty_pct: Math.max(0, Math.min(100, Math.round(duty))) },
-      },
-    };
-    await DefaultService.setConfig(patch);
-  }
+	async function restoreFanState() {
+		if (!prevProfile) return;
+		try {
+			await patchFanProfile(prevProfile.id, prevProfile);
+		} catch {}
+	}
 
-  async function readStableRpm(): Promise<number> {
-    // Simple sliding window with deviation check and a hard timeout
-    const WINDOW = 5;
-    const STDEV_MAX = 30; // accept when std-dev is small
-    const POLL_MS = 500;
-    const TIMEOUT_MS = 10000;
+	async function setManualDuty(id: string, duty: number) {
+		await patchFanProfile(id, {
+			mode: 'manual',
+			manual: { duty_pct: Math.max(0, Math.min(100, Math.round(duty))) },
+		});
+	}
 
-    const buf: number[] = [];
-    const started = performance.now();
+	function stdev(values: number[]): number {
+		if (!values.length) return Number.POSITIVE_INFINITY;
+		let sum = 0;
+		for (const v of values) sum += v;
+		const mean = sum / values.length;
+		let varSum = 0;
+		for (const v of values) {
+			const d = v - mean;
+			varSum += d * d;
+		}
+		return Math.sqrt(varSum / values.length);
+	}
 
-    while (performance.now() - started < TIMEOUT_MS) {
-      if (cancelled) return 0;
-      try {
-        const res = await DefaultService.getThermal();
-        const rpms = (res.fans ?? []).map((f) => f.rpm);
-        const rpm = rpms.length ? Math.max(...rpms) : 0;
-        if (rpm > 0) {
-          buf.push(rpm);
-          if (buf.length > WINDOW) buf.shift();
-        }
-      } catch {}
+	function median(values: number[]): number {
+		if (!values.length) return 0;
+		const sorted = [...values].sort((a, b) => a - b);
+		return sorted[Math.floor(sorted.length / 2)];
+	}
 
-      if (buf.length >= WINDOW) {
-        let sum = 0;
-        for (const v of buf) sum += v;
-        const mean = sum / buf.length;
-        let varSum = 0;
-        for (const v of buf) {
-          const d = v - mean;
-          varSum += d * d;
-        }
-        const stdev = Math.sqrt(varSum / buf.length);
-        console.log("stdev", stdev);
-        if (stdev <= STDEV_MAX) {
-          const sorted = [...buf].sort((a, b) => a - b);
-          console.log("stdev is small, sorted", sorted);
-          console.log("median", sorted[Math.floor(sorted.length / 2)]);
-          return sorted[Math.floor(sorted.length / 2)];
-        }
-      }
+	async function readStableRpms(): Promise<number[]> {
+		const SETTLE_MS = 1000;
+		const WINDOW = 8;
+		const STDEV_MAX = 30;
+		const POLL_MS = 500;
+		const TIMEOUT_MS = 15000;
+		const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-      await new Promise((r) => setTimeout(r, POLL_MS));
-    }
+		const bufs: number[][] = [];
+		const started = performance.now();
+		let pendingAccept = false;
 
-    if (!buf.length) return 0;
-    const sorted = [...buf].sort((a, b) => a - b);
-    return sorted[Math.floor(sorted.length / 2)];
-  }
+		await sleep(SETTLE_MS);
 
-  async function start() {
-    cancelled = false;
-    progress = 20;
-    info = "Starting calibration";
-    // Snapshot current mode so we can restore it later
-    try {
-      const config = await DefaultService.getConfig();
-      if (config?.fan?.mode) {
-        prevMode = config.fan.mode;
-      }
-    } catch {}
-    const duties = [100, 80, 60, 40, 20];
-    const out: [number, number][] = [];
-    for (let i = 0; i < duties.length; i++) {
-      if (cancelled) {
-        return;
-      }
-      const d = duties[i];
-      info = `Your fan is calibrating, please wait... `;
-      await setManualDuty(d);
-      if (cancelled) {
-        return;
-      }
-      const rpm = await readStableRpm();
-      out.push([d, rpm]);
-      progress = Math.round(((i + 2) / duties.length) * 100);
-    }
-    out.push([0, 0]);
-    out.sort((a, b) => a[0] - b[0]);
-    info = "Saving";
-    // Save calibration at root; include mode to satisfy backend schema
-    try {
-      await DefaultService.setConfig({
-        fan: {
-          calibration: {
-            points: out,
-            updated_at: Math.floor(Date.now() / 1000),
-          },
-        },
-      });
-    } catch {}
-    dispatch("done", out);
-  }
+		while (performance.now() - started < TIMEOUT_MS) {
+			if (cancelled) return bufs.map(median);
+			try {
+				const res = await DefaultService.getThermal();
+				const rpms = (res.fans ?? []).map((f) => f.rpm);
+				while (bufs.length < rpms.length) bufs.push([]);
+				for (let i = 0; i < rpms.length; i++) {
+					bufs[i].push(rpms[i]);
+					if (bufs[i].length > WINDOW) bufs[i].shift();
+				}
+			} catch {}
 
-  function cancel() {
-    cancelled = true;
-  }
+			const ready = bufs.length > 0 && bufs.every((b) => b.length >= WINDOW && stdev(b) <= STDEV_MAX);
+			if (ready) {
+				if (pendingAccept) return bufs.map(median);
+				pendingAccept = true;
+			} else {
+				pendingAccept = false;
+			}
 
-  function onStart() {
-    hasStarted = true;
-    info = 'Starting calibration';
-    start().finally(() => {
-      setMode(prevMode);
-      if (cancelled) {
-        dispatch('cancel');
-      }
-    });
-  }
+			await sleep(pendingAccept ? SETTLE_MS : POLL_MS);
+		}
+
+		return bufs.map(median);
+	}
+
+	async function start() {
+		cancelled = false;
+		progress = 20;
+		info = 'Starting calibration';
+		const fan = get(configStore).config?.fan;
+		const profile = fan?.profiles.find((p) => p.id === fan.active_profile);
+		if (!profile) return;
+		prevProfile = profile;
+		try {
+			await patchFanProfile(profile.id, { mode: 'manual', overrides: [] });
+		} catch {}
+		const duties = [100, 80, 60, 40, 20];
+		const perFan: [number, number][][] = [];
+		for (let i = 0; i < duties.length; i++) {
+			if (cancelled) {
+				return;
+			}
+			const d = duties[i];
+			info = `Your fans are calibrating, please wait... `;
+			await setManualDuty(profile.id, d);
+			if (cancelled) {
+				return;
+			}
+			const rpms = await readStableRpms();
+			while (perFan.length < rpms.length) perFan.push([]);
+			for (let f = 0; f < rpms.length; f++) {
+				perFan[f].push([d, rpms[f]]);
+			}
+			progress = Math.round(((i + 2) / duties.length) * 100);
+		}
+		const fans: CalibrationFan[] = perFan.map((pts, index) => {
+			const points: [number, number][] = [...pts, [0, 0]];
+			points.sort((a, b) => a[0] - b[0]);
+			return { index, points };
+		});
+		info = 'Saving';
+		try {
+			await patch({
+				fan: {
+					calibration: {
+						updated_at: Math.floor(Date.now() / 1000),
+						fans,
+					},
+				},
+			});
+		} catch {}
+		dispatch('done', fans);
+	}
+
+	function cancel() {
+		cancelled = true;
+	}
+
+	function onStart() {
+		hasStarted = true;
+		info = 'Starting calibration';
+		start().finally(async () => {
+			await restoreFanState();
+			if (cancelled) {
+				dispatch('cancel');
+			}
+		});
+	}
 </script>
 
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-  <div class="card bg-base-200 p-5 w-[460px] shadow-xl">
-    {#if !hasStarted}
-      <div class="space-y-3">
-        <div class="font-semibold">Calibrate to enable Live RPM</div>
-        <div class="text-sm opacity-80">
-          To display the live RPM overlay accurately, we need to measure how your fan speed (RPM) maps to duty percentage. This takes about a minute and will briefly spin the fan at different speeds.
-        </div>
-        <ul class="list-disc list-inside text-sm opacity-70">
-          <li>Your current fan settings will be restored after calibration.</li>
-          <li>You can cancel at any time.</li>
-        </ul>
-        <div class="mt-4 flex items-center justify-end gap-2">
-          <button class="btn btn-sm" on:click={() => dispatch('cancel')}>Cancel</button>
-          <button
-            class="btn btn-sm btn-primary"
-            on:click={onStart}
-          >
-            Start calibration
-          </button>
-        </div>
-      </div>
-    {:else}
-      <div class="flex items-center justify-between mb-2">
-        <div class="font-semibold">Calibrating fan</div>
-      </div>
-      <div class="text-sm opacity-80 mb-3">
-        {info}
-        {$animatedProgress.toFixed(0)}%
-      </div>
-      <progress class="progress w-full" value={$animatedProgress} max="100"
-      ></progress>
-      <div class="mt-3 flex items-center justify-end gap-2">
-        <button class="btn btn-sm" on:click={cancel}>Cancel</button>
-      </div>
-    {/if}
-  </div>
+	<div class="card bg-base-100 p-5 w-[460px] shadow-xl">
+		{#if !hasStarted}
+			<div class="space-y-3">
+				<div class="font-semibold">Calibrate to enable Live RPM</div>
+				<div class="text-sm opacity-80">
+					To display the live RPM overlay accurately, we need to measure how each fan's speed (RPM) maps to
+					duty percentage. This takes about a minute and will briefly spin the fans at different speeds.
+				</div>
+				<ul class="list-disc list-inside text-sm opacity-70">
+					<li>Your current fan settings will be restored after calibration.</li>
+					<li>You can cancel at any time.</li>
+				</ul>
+				<div class="mt-4 flex items-center justify-end gap-2">
+					<button class="btn btn-sm" on:click={() => dispatch('cancel')}>Cancel</button>
+					<button class="btn btn-sm btn-primary" on:click={onStart}> Start calibration </button>
+				</div>
+			</div>
+		{:else}
+			<div class="flex items-center justify-between mb-2">
+				<div class="font-semibold">Calibrating fans</div>
+			</div>
+			<div class="text-sm opacity-80 mb-3">
+				{info}
+				{$animatedProgress.toFixed(0)}%
+			</div>
+			<progress class="progress w-full" value={$animatedProgress} max="100"></progress>
+			<div class="mt-3 flex items-center justify-end gap-2">
+				<button class="btn btn-sm" on:click={cancel}>Cancel</button>
+			</div>
+		{/if}
+	</div>
 </div>

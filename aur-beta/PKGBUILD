@@ -9,7 +9,9 @@ url="https://github.com/ozturkkl/framework-control"
 license=('MIT')
 depends=('xdg-utils' 'hicolor-icon-theme')
 optdepends=('framework-system: Framework CLI on PATH; otherwise auto-downloaded on first run')
-makedepends=('rust' 'nodejs')
+makedepends=('cargo' 'nodejs' 'npm')
+# ring's C/asm objects fail to link under makepkg's default LTO
+options=('!lto')
 conflicts=('framework-control')
 provides=('framework-control')
 install=framework-control-beta.install
@@ -35,6 +37,7 @@ build() {
     cd web
     GITHUB_PAGES=false \
     VITE_BASE="/" \
+    VITE_ANNOUNCEMENT_URL="https://raw.githubusercontent.com/ozturkkl/framework-control/dev/ANNOUNCEMENT.md" \
         npm run build
 
     cd ../service

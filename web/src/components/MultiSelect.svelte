@@ -105,7 +105,7 @@
   bind:this={rootEl}
 >
   <button
-    class="btn btn-xs btn-ghost gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-base-content/80 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 focus-visible:bg-base-200"
+    class="btn btn-xs btn-ghost gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 focus-visible:bg-base-200"
     aria-haspopup="listbox"
     aria-expanded={isOpen}
     aria-controls={menuId}
@@ -136,7 +136,7 @@
   </button>
 
   <div
-    class="dropdown-content p-2 bg-base-100 rounded-box w-56 max-h-60 overflow-y-auto overflow-x-hidden flex flex-col gap-1 border-base-content/35 border shadow-lg"
+    class="dropdown-content p-2 bg-base-100 rounded-box w-64 max-h-60 overflow-y-auto overflow-x-hidden flex flex-col gap-1 border surface-border shadow-lg"
     role="listbox"
     aria-multiselectable="true"
     aria-labelledby={buttonId}
@@ -147,7 +147,7 @@
     style={`visibility:${isOpen && alignmentDone ? "visible" : "hidden"};pointer-events:${isOpen ? "auto" : "none"}`}
   >
     <div
-      class="flex items-center justify-between gap-2 sticky -top-2 bg-base-100 z-10 -mx-2 -mt-2 px-2 pt-2 pb-2 mb-0 border-b border-base-content/20"
+      class="flex items-center justify-between gap-2 sticky -top-2 bg-base-100 z-10 -mx-2 -mt-2 px-2 pt-2 pb-2 mb-0 border-b surface-border"
     >
       <button
         type="button"
@@ -165,7 +165,7 @@
         class="label cursor-pointer items-center justify-between gap-2 w-full"
         for={`ms-${instanceId}-${i}`}
       >
-        <span class="inline-flex items-center gap-2">
+        <span class="inline-flex items-center gap-2 min-w-0">
           <input
             id={`ms-${instanceId}-${i}`}
             type="checkbox"
@@ -173,7 +173,7 @@
             checked={selectedSet.has(it)}
             on:change={(e) => onCheckboxChange(it, e)}
           />
-          <span class="text-xs">{it}</span>
+          <span class="text-xs truncate" title={it}>{it}</span>
         </span>
         <span class="ml-2 text-xs whitespace-nowrap">
           <slot name="itemRight" item={it} isSelected={selectedSet.has(it)} />

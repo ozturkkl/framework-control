@@ -4,13 +4,11 @@ use tokio::time::{sleep, Duration, Instant};
 use tracing::{debug, info, warn};
 
 use crate::cli::FrameworkTool;
-use crate::types::{BatteryConfig, Config};
+use crate::config::LiveConfig;
+use crate::types::{BatteryConfig, DashboardPanelId};
 
 /// Battery task: applies config.battery settings when they change and periodically every 30 minutes.
-pub async fn run(
-    framework_tool_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>,
-    cfg: Arc<tokio::sync::RwLock<Config>>,
-) {
+pub async fn run(framework_tool_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: LiveConfig) {
     info!("Battery task started");
 
     const REAPPLY_INTERVAL_SECS: u64 = 10 * 60;
@@ -25,7 +23,21 @@ pub async fn run(
 
     loop {
         // Clone required shared state each tick
-        let cfg_bat: BatteryConfig = { cfg.read().await.battery.clone() };
+        let (cfg_bat, battery_enabled): (BatteryConfig, bool) = {
+            let cfg = cfg.read().await;
+            (cfg.battery.clone(), cfg.ui.is_panel_enabled(DashboardPanelId::Battery))
+        };
+
+        if !battery_enabled {
+            last_charge_limit_pct = None;
+            last_rate_c = None;
+            last_threshold_pct = None;
+            last_charge_apply_at = None;
+            last_rate_apply_at = None;
+            sleep(Duration::from_secs(1)).await;
+            continue;
+        }
+
         let ft_opt = { framework_tool_lock.read().await.clone() };
 
         if let Some(cli) = ft_opt {

@@ -8,6 +8,7 @@ use tracing::info;
 
 mod cli;
 mod config;
+mod migrations;
 mod routes;
 mod shortcuts;
 mod state;

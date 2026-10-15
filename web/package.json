@@ -1,7 +1,7 @@
 {
   "name": "framework-control-web",
   "private": true,
-  "version": "0.5.4",
+  "version": "0.5.5",
   "type": "module",
   "scripts": {
     "bump-version": "node scripts/bump-version.mjs",
@@ -21,6 +21,7 @@
   "devDependencies": {
     "@iconify/svelte": "^4.1.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@tailwindcss/typography": "^0.5.20",
     "@types/node": "^24.3.0",
     "@typescript-eslint/eslint-plugin": "^8.14.0",
     "@typescript-eslint/parser": "^8.14.0",
@@ -39,6 +40,9 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "openapi-typescript-codegen": "^0.29.0"
+    "dompurify": "^3.4.16",
+    "marked": "^18.1.0",
+    "openapi-typescript-codegen": "^0.29.0",
+    "svelte-dnd-action": "^0.9.79"
   }
 }
