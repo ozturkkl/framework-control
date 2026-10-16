@@ -137,6 +137,10 @@ async fn extract_and_replace_binary(tarball_url: &str) -> Result<(), String> {
                     status
                 );
             }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                info!("systemctl not found, exiting so the service supervisor restarts the new binary");
+                std::process::exit(0);
+            }
             Err(e) => {
                 info!(
                     "Could not restart service ({}). Manual restart required: \

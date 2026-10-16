@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/5d7c07c2-83cc-4b82-b685-df5f86318597
 
 **Linux install options** (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD) for full details):
 
-- **Install script** (any distro): `curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash`
+- **Install script** (systemd distros and Void Linux): `curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash`
 - **Arch Linux (AUR)**: `yay -S framework-control` ([stable](https://aur.archlinux.org/packages/framework-control) · [beta](https://aur.archlinux.org/packages/framework-control-beta))
 - **NixOS**: `services.framework-control.enable = true;` in your NixOS configuration
 

@@ -1,5 +1,9 @@
 # Unreleased
 
+## 0.5.6 - 2026-10-15
+
+- **NEW: Void Linux (runit) support** (#85): `install-linux.sh` and `uninstall-linux.sh` detect the init system and, on runit, set up `/etc/sv/framework-control` with an `svlogd` log service (`/var/log/framework-control`) linked into `/var/service`. Unsupported init systems now fail early with a clear error. The Logs screen reads the runit log file when `journalctl` is unavailable, and in-app updates exit the service so runit restarts it on the new binary when `systemctl` is unavailable. systemd installs are unchanged.
+
 ## 0.5.5 - 2026-10-15
 
 - **NEW: Dashboard layout customization** (#73): Drag panels around, make them full or half width, or hide the ones you don't need. Hiding a panel also disables the feature. Good for disabling sections of the app that don't play nicely with your workflow.

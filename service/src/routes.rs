@@ -464,7 +464,7 @@ async fn get_service_logs() -> Result<String, String> {
     #[cfg(target_os = "linux")]
     {
         use tokio::process::Command;
-        let output = Command::new("journalctl")
+        let output = match Command::new("journalctl")
             .arg("-u")
             .arg("framework-control")
             .arg("-n")
@@ -472,7 +472,17 @@ async fn get_service_logs() -> Result<String, String> {
             .arg("--no-pager")
             .output()
             .await
-            .map_err(|e| format!("failed to run journalctl: {}", e))?;
+        {
+            Ok(output) => output,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let contents = std::fs::read_to_string("/var/log/framework-control/current")
+                    .map_err(|e| format!("failed to read log file: {}", e))?;
+                let lines: Vec<&str> = contents.lines().collect();
+                let start = lines.len().saturating_sub(500);
+                return Ok(lines[start..].join("\n"));
+            }
+            Err(e) => return Err(format!("failed to run journalctl: {}", e)),
+        };
 
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
