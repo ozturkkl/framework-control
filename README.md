@@ -9,7 +9,7 @@ A local lightweight Linux/Windows service with a Svelte web UI for Framework dev
 > Install the [latest BIOS](https://knowledgebase.frame.work/en_us/framework-laptop-16-bios-and-driver-releases-amd-ryzen-7040-series-BkeqkVovp) before using this tool or it won't work.
 <img width="0" height="0" alt="image" src="https://github.com/user-attachments/assets/61fe424b-1c2b-4897-987a-28042721726d" />
 
-https://github.com/user-attachments/assets/0521570b-aed2-4438-9492-0e4bc1a8b051
+https://github.com/user-attachments/assets/5d7c07c2-83cc-4b82-b685-df5f86318597
 
 1. Open the web app: [https://ozturkkl.github.io/framework-control/](https://ozturkkl.github.io/framework-control/)
 2. Install the background service that allows the web app to talk to the low level CLI (download link provided in the web app)
@@ -34,6 +34,16 @@ https://github.com/user-attachments/assets/0521570b-aed2-4438-9492-0e4bc1a8b051
 ## Disclaimer
 
 This software is provided "as is," without warranty of any kind, express or implied. By using it, you acknowledge that you are responsible for any configuration changes you make to your system and accept all risks associated with its use. The authors and contributors are not liable for any damage, data loss, hardware wear, unintended behavior, or other harm that may result from use or misuse of this application.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=ozturkkl%2Fframework-control&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&legend=top-left" />
+   <img alt="Star History Chart" width=600 src="https://api.star-history.com/chart?repos=ozturkkl/framework-control&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ## Current Features
 
