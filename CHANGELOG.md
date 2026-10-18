@@ -1,8 +1,7 @@
-# Unreleased
-
 ## 0.5.6 - 2026-10-15
 
-- **NEW: Void Linux (runit) support** (#85): `install-linux.sh` and `uninstall-linux.sh` detect the init system and, on runit, set up `/etc/sv/framework-control` with an `svlogd` log service (`/var/log/framework-control`) linked into `/var/service`. Unsupported init systems now fail early with a clear error. The Logs screen reads the runit log file when `journalctl` is unavailable, and in-app updates exit the service so runit restarts it on the new binary when `systemctl` is unavailable. systemd installs are unchanged.
+- **NEW: Void Linux (runit) support** (#85): Install/uninstall scripts, Logs screen, and in-app updates now work on runit.
+- **Windows shortcut icon fix**: Updates no longer remove the shortcut icon and other app files. Missing icons are restored on service start.
 
 ## 0.5.5 - 2026-10-15
 
