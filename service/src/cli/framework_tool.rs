@@ -16,6 +16,8 @@ const TOOL_ASSET: &str = if cfg!(windows) {
 } else {
     "framework_tool"
 };
+// Snap installs it as `framework-tool`.
+const TOOL_COMMANDS: [&str; 2] = [TOOL_ASSET, "framework-tool"];
 pub fn tool_suspect() -> bool {
     TOOL_SUSPECT.load(Ordering::Relaxed)
 }
@@ -213,10 +215,12 @@ fn candidate_paths() -> Vec<String> {
             paths.push(m.to_string_lossy().to_string());
         }
     }
-    if let Ok(p) = which(TOOL_ASSET) {
-        let s = p.to_string_lossy().to_string();
-        if !paths.contains(&s) {
-            paths.push(s);
+    for name in TOOL_COMMANDS {
+        if let Ok(p) = which(name) {
+            let s = p.to_string_lossy().to_string();
+            if !paths.contains(&s) {
+                paths.push(s);
+            }
         }
     }
     paths

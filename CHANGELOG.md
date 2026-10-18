@@ -2,6 +2,7 @@
 
 - **NEW: Void Linux (runit) support** (#85): Install/uninstall scripts, Logs screen, and in-app updates now work on runit.
 - **Windows shortcut icon fix**: Updates no longer remove the shortcut icon and other app files. Missing icons are restored on service start.
+- **Snap `framework-tool` support** (#91): The service now finds the Snap package's `framework-tool` command.
 
 ## 0.5.5 - 2026-10-15
 
