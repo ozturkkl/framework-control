@@ -40,21 +40,21 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Other key files (condensed):
   - `service/src/config.rs`: load/save config JSON at `C:\ProgramData\FrameworkControl\config.json`
   - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme/layout, `telemetry` config, `TelemetrySample`, and `BatterySample`
-  - `service/src/state.rs`: shared `AppState` — `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), `LiveConfig`, in‑memory `telemetry_samples` and `battery_samples`
+  - `service/src/state.rs`: shared `AppState` - `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), `LiveConfig`, in‑memory `telemetry_samples` and `battery_samples`
 - Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `fan_profiles` (AC/battery auto-switch), `battery`, `battery_history`, `auto_update`, `telemetry`
-  - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only — reads/writes sysfs for AMD P-State EPP, cpufreq governor, and frequency limits)
+  - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only - reads/writes sysfs for AMD P-State EPP, cpufreq governor, and frequency limits)
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, `reconciler` (generic drift-aware reconciler with quiet-window + cooldown logic), etc.
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Desktop shortcut creation for Windows (Edge/Chrome/Brave app mode + .url fallback) and Linux (simple .desktop entry using xdg-open)
 
 ### Frontend Web UI (Svelte)
 
-- Entry: `web/src/App.svelte` (@App.svelte) — polls `/health`; dashboard layout (order, full/half width, hide). Hiding a panel also disables that feature's background task.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend — TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (telemetry, charge limit/rate, history graph from `/api/battery/history`), `FanControl` (Auto/Manual/Curve with header selector; optional per-fan manual/curve overrides via fan tabs).
+- Entry: `web/src/App.svelte` (@App.svelte) - polls `/health`; dashboard layout (order, full/half width, hide). Hiding a panel also disables that feature's background task.
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend - TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (telemetry, charge limit/rate, history graph from `/api/battery/history`), `FanControl` (Auto/Manual/Curve with header selector; optional per-fan manual/curve overrides via fan tabs).
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors`, Fan Control (Curve), and the battery history graph.
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
-- Shared controls: `web/src/components/UiControlCard.svelte` — composite card supporting both range sliders and select dropdowns (replaces former `UiSlider`); used by Power and Battery panels.
+- Shared controls: `web/src/components/UiControlCard.svelte` - composite card supporting both range sliders and select dropdowns (replaces former `UiSlider`); used by Power and Battery panels.
 - Device header: static images (no crossfade/width/pulse).
 - API client: generated (`web/src/api/*`). Use `DefaultService` and `OpenAPI` for all requests. Config live-sync uses `EventSource` on `/config/events`.
 

@@ -9,7 +9,7 @@
 - **NEW: Dashboard layout customization** (#73): Drag panels around, make them full or half width, or hide the ones you don't need. Hiding a panel also disables the feature. Good for disabling sections of the app that don't play nicely with your workflow.
 - **NEW: Fan profiles** (#74): Save fan setups (mode, manual duty, curve, per-fan overrides) as named profiles and switch from the profile menu in the Fan Control header. Profiles can also be assigned to plugged in and on battery to switch automatically when the power source changes.
 - **NEW: Battery history graph** (#72): Background poll keeps up to 7 days of charge % and signed pack watts. `/api/battery/history` added. Window presets include 1 hour through 7 days and **Since last charge**. History sample interval is `battery.poll_ms` (5s–1min, default 15s).
-- **Per-Fan calibration and improvements to the calibration process**: Per-fan duty-to-RPM mapping. One run commands all fans together, waits until each is stable, and stores a curve per fan (`fan.calibration.fans[]`). Live RPM overlay uses that fan's curve. The shared `points` field is removed — existing calibrations are treated as missing and need a re-run. Sampling waits for settle and a longer stable window so a slow fan response is not recorded as the next step. NOTE: Fan calibrations will have to be re-recorded.
+- **Per-Fan calibration and improvements to the calibration process**: Per-fan duty-to-RPM mapping. One run commands all fans together, waits until each is stable, and stores a curve per fan (`fan.calibration.fans[]`). Live RPM overlay uses that fan's curve. The shared `points` field is removed - existing calibrations are treated as missing and need a re-run. Sampling waits for settle and a longer stable window so a slow fan response is not recorded as the next step. NOTE: Fan calibrations will have to be re-recorded.
 - **Fan curve not responding after framework_tool 0.6.6** (#86): `framework_tool` 0.6.6 reports sensor names from EC firmware (e.g. `cpu_f75303@4d`) instead of the old fixed labels (`APU`, `F75303_CPU`), so saved curve sensors stopped matching and the fan curve stalled with an "undefined" temperature. The service now falls back to the hottest available sensor when none of the selected ones exist, and the UI resets the selection to all current sensors when it finds only stale names. Sensor dropdown is wider and truncates long names so temperature badges stay aligned.
 - **Announcements**: A "What's new" modal. Can be turned off from the modal and reopened via "What's new" in Settings.
 - **Config sync**: One UI config store plus SSE on config writes so open tabs stay in sync without polling.
@@ -19,17 +19,17 @@
 
 ## 0.5.4 - 2026-07-03
 - **framework_tool version selection** (#68): New Settings dropdown showing the active `framework_tool` version. Selecting a release tag is a one-off attempt to download, validate, and switch to that version.
-- **Service**: Reduced background CLI process spawning and Windows WinRing0 driver churn (#66) — longer cache TTLs (RyzenAdj 15s, `framework_tool` power/charge-limit 5s), power reconcile loop slowed to 15s, telemetry default poll raised to 2s, and UI poll-interval minimums aligned with backend floors.
+- **Service**: Reduced background CLI process spawning and Windows WinRing0 driver churn (#66) - longer cache TTLs (RyzenAdj 15s, `framework_tool` power/charge-limit 5s), power reconcile loop slowed to 15s, telemetry default poll raised to 2s, and UI poll-interval minimums aligned with backend floors.
 - **Linux**: AUR stable and beta packages; NixOS/nixpkgs install docs; `install-linux.sh --beta`. AUR marks `framework-system` at install time because of install capabilites.
 - **Updates**: In-app self-updates hidden when `FRAMEWORK_CONTROL_UPDATE_REPO` is unset (e.g. AUR installs).
 
 ## 0.5.3 - 2026-06-14
 
-- **Multi-fan control**: Per-fan manual/curve overrides for multi-fan laptops — shared global defaults with optional per-fan tabs, separate spin-down rate limits, and live per-fan RPM overlays on the curve editor. Backend fansetduty calls accept an optional fan index; config adds `fan.overrides[]` with per-index manual or curve settings that fall back to the global config when unset.
+- **Multi-fan control**: Per-fan manual/curve overrides for multi-fan laptops - shared global defaults with optional per-fan tabs, separate spin-down rate limits, and live per-fan RPM overlays on the curve editor. Backend fansetduty calls accept an optional fan index; config adds `fan.overrides[]` with per-index manual or curve settings that fall back to the global config when unset.
 - **Fan curve**: Optional `rate_limit_down_pct_per_step` for slower spin-down than spin-up. `poll_ms` now lives on the global curve config (`GlobalCurveConfig`) rather than per-fan curve overrides, which share a single control-loop cadence.
-- **Thermal API**: `/api/thermal` now returns `fans: [{ name, rpm }]` instead of a flat `rpms` array — fixes multi-fan ordering/naming on Framework 16 and treats stalled EC readings (65534 / "Stalled") as 0 RPM while preserving fan slot index.
+- **Thermal API**: `/api/thermal` now returns `fans: [{ name, rpm }]` instead of a flat `rpms` array - fixes multi-fan ordering/naming on Framework 16 and treats stalled EC readings (65534 / "Stalled") as 0 RPM while preserving fan slot index.
 - **Uninstall**: Windows MSI now removes runtime-created shortcuts, config, icons, logs, and auto-downloaded `framework_tool.exe` on uninstall without wiping them during in-app updates (`NOT UPGRADINGPRODUCTCODE` guard). Linux adds `uninstall-linux.sh` for one-command removal of the service, binary, config, desktop entry, and icon assets.
-- **Service**: Removed the periodic `framework_tool --versions` liveness check that spawned a process every 5 seconds even when no UI was connected (#34). Tool health is now validated on demand — a failing call flags it and the background resolver confirms once with `--versions` before clearing it — and uses exponential backoff (5s up to a 5min cap) when the tool is missing instead of retrying installation every 5 seconds (#62).
+- **Service**: Removed the periodic `framework_tool --versions` liveness check that spawned a process every 5 seconds even when no UI was connected (#34). Tool health is now validated on demand - a failing call flags it and the background resolver confirms once with `--versions` before clearing it - and uses exponential backoff (5s up to a 5min cap) when the tool is missing instead of retrying installation every 5 seconds (#62).
 - **Nix**: Removed the repo-root `flake.nix` redirect now that the package lives in nixpkgs (see 0.5.2).
 - **Project**: Added `CONTRIBUTING.md` (outside contributions not accepted), a workflow to auto-close external PRs, and a streamlined PR template. Documented uninstall flows in `README.md` / `LINUX_INSTALL.MD` and expanded `service/.example.env`.
 - **Dev**: Archive-peek temp dirs are always cleaned up after update checks; `build-msi.mjs` validates WiX Toolset (`candle.exe`) before building.
@@ -37,18 +37,18 @@
 ## 0.5.2 - 2026-07-15
 
 - **Nix support**: Added `flake.nix`, `nix/package.nix`, and `nix/module.nix` for building and running as a NixOS service. Enables `services.framework-control.enable = true` in NixOS configurations. Work in progress toward a nixpkgs submission.
-- **Removed bearer token auth**: Write endpoints no longer require a bearer token. Security relies on CORS + loopback-only binding (`127.0.0.1`), which covers the actual threat model. Simplifies setup across all platforms — no token configuration needed.
+- **Removed bearer token auth**: Write endpoints no longer require a bearer token. Security relies on CORS + loopback-only binding (`127.0.0.1`), which covers the actual threat model. Simplifies setup across all platforms - no token configuration needed.
 
 ## 0.5.1 - 2026-02-28
 
 - **Linux Power Management**: Native kernel interface support (AMD P-State EPP, cpufreq) replaces RyzenAdj on Linux. Exposes energy preference (EPP), governor selection, and frequency limit controls where available.
 - **Power API**: `/api/power` response restructured with `power_control` object containing `capabilities` and `current_state`. Backend uses a unified interface across Windows (RyzenAdj) and Linux (native), with platform-specific power profiles in config.
-- **Breaking Change**: `PowerResponse` API structure changed — clients must update to use `power_control` instead of flat `ryzenadj`/`ryzenadj_installed` fields.
+- **Breaking Change**: `PowerResponse` API structure changed - clients must update to use `power_control` instead of flat `ryzenadj`/`ryzenadj_installed` fields.
 - Power task refactored: extracted a generic drift-aware `Reconciler` utility (`service/src/utils/reconciler.rs`) that handles quiet-window, cooldown, and immediate-apply logic. Replaces inline TDP/thermal reapply state tracking.
 - Backend modules (`ryzen_adj`, `ryzen_adj_parser`) are now conditionally compiled for Windows only; new `linux_power` module compiled for Linux only. `AppState` carries platform-specific power backend behind `#[cfg]` gates.
 - RyzenAdj install/uninstall endpoints now return an "unsupported_platform" error on Linux instead of attempting Windows-only operations.
 - UI: `UiSlider` replaced by `UiControlCard` component supporting both range sliders and select dropdowns (used for governor/EPP selection).
-- UI: PowerControl panel is now fully capability-driven — controls appear based on `PowerCapabilities` reported by the backend rather than OS/CPU detection heuristics.
+- UI: PowerControl panel is now fully capability-driven - controls appear based on `PowerCapabilities` reported by the backend rather than OS/CPU detection heuristics.
 - UI: Frequency-limit mismatch warning shown when one power profile (AC or Battery) has frequency limits enabled but the other does not.
 - Tooling: Added `.editorconfig`, `rustfmt.toml`, Prettier config (`.prettierrc.cjs`, `.prettierignore`); unified `lint` script runs ESLint + Prettier + `cargo fmt --check`; added `format` script.
 - Service: Web server now starts immediately without waiting for `framework_tool` validation; CLI resolution/installation happens asynchronously in background, eliminating 60-second startup delay when tool is unavailable.

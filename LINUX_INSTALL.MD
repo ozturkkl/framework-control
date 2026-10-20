@@ -29,7 +29,7 @@ After installation, access the web UI at the address shown in the installer outp
 
 ### Arch Linux (AUR)
 
-An [AUR package](https://aur.archlinux.org/packages/framework-control) is available. It builds from source and installs the systemd unit and desktop entry. `framework_tool` is optional at install time — the service downloads it automatically on first run if it is not already on `PATH` (you can also install the official `framework-system` package beforehand).
+An [AUR package](https://aur.archlinux.org/packages/framework-control) is available. It builds from source and installs the systemd unit and desktop entry. `framework_tool` is optional at install time - the service downloads it automatically on first run if it is not already on `PATH` (you can also install the official `framework-system` package beforehand).
 
 With an AUR helper:
 
@@ -47,7 +47,7 @@ yay -S framework-control
 paru -S framework-control
 ```
 
-A [beta/pre-release package](https://aur.archlinux.org/packages/framework-control-beta) is also published automatically when a GitHub prerelease is built (typically on version PRs). It conflicts with the stable package — install one or the other:
+A [beta/pre-release package](https://aur.archlinux.org/packages/framework-control-beta) is also published automatically when a GitHub prerelease is built (typically on version PRs). It conflicts with the stable package - install one or the other:
 
 ```bash
 yay -S framework-control-beta

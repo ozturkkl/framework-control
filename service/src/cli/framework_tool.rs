@@ -287,7 +287,7 @@ pub async fn resolve_or_install(cfg: &FrameworkToolConfig) -> Result<FrameworkTo
         if let Ok(cli) = resolve_existing().await {
             return Ok(cli);
         }
-        // Nothing runnable anywhere — bootstrap from latest.
+        // Nothing runnable anywhere - bootstrap from latest.
         if let Ok(tag) = latest_tag().await {
             let _ = install_version(&tag).await;
         }

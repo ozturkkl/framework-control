@@ -172,7 +172,7 @@
                 id: "charger",
                 icon: "mdi:power-plug-outline",
                 iconClass: "w-3.5 h-3.5",
-                value: `${chargerRequestedWatts != null ? Math.round(chargerRequestedWatts) : "—"}/${chargerWatts != null ? Math.round(chargerWatts) : "—"} W`,
+                value: `${chargerRequestedWatts != null ? Math.round(chargerRequestedWatts) : "-"}/${chargerWatts != null ? Math.round(chargerWatts) : "-"} W`,
             });
         }
         return metrics;
@@ -192,7 +192,7 @@
             id: "pct",
             icon: acPresent ? "mdi:battery-charging" : "mdi:battery",
             iconClass: `w-3.5 h-3.5 ${acPresent ? "animate-pulse" : ""}  ${acPresent ? "text-success" : ""}`,
-            value: `${batteryPct ?? "—"}%`,
+            value: `${batteryPct ?? "-"}%`,
         },
         {
             id: "status",
