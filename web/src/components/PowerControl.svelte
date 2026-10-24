@@ -11,6 +11,7 @@
     import Icon from "@iconify/svelte";
     import { deepMerge } from "../lib/utils";
     import { followConfig, patch } from "../lib/config";
+    import { batteryPresent } from "../lib/battery";
     import UiControlCard from "./UiControlCard.svelte";
     import {
         PANEL_HEADER_OVERLAY_CLASS,
@@ -33,6 +34,8 @@
         { value: "ac", label: "Plugged in" },
         { value: "battery", label: "On battery" },
     ];
+
+    $: if (!$batteryPresent && activeProfile !== "ac") activeProfile = "ac";
 
     function setActiveProfile(profile: keyof PowerConfig) {
         activeProfile = profile;
@@ -167,7 +170,7 @@
                 });
             }
         }
-        if (acPresent) {
+        if (acPresent && $batteryPresent) {
             metrics.push({
                 id: "charger",
                 icon: "mdi:power-plug-outline",
@@ -365,25 +368,27 @@
     }
 </script>
 
-<div class={PANEL_HEADER_OVERLAY_CLASS}>
-    <div
-        class={PANEL_HEADER_TOGGLE_CLASS}
-        role="radiogroup"
-        aria-label="Power profile"
-    >
-        {#each POWER_PROFILES as opt (opt.value)}
-            <input
-                type="radio"
-                name="power-profile"
-                aria-label={opt.label}
-                class="btn btn-xs join-item"
-                value={opt.value}
-                checked={activeProfile === opt.value}
-                on:change={() => setActiveProfile(opt.value)}
-            />
-        {/each}
+{#if $batteryPresent}
+    <div class={PANEL_HEADER_OVERLAY_CLASS}>
+        <div
+            class={PANEL_HEADER_TOGGLE_CLASS}
+            role="radiogroup"
+            aria-label="Power profile"
+        >
+            {#each POWER_PROFILES as opt (opt.value)}
+                <input
+                    type="radio"
+                    name="power-profile"
+                    aria-label={opt.label}
+                    class="btn btn-xs join-item"
+                    value={opt.value}
+                    checked={activeProfile === opt.value}
+                    on:change={() => setActiveProfile(opt.value)}
+                />
+            {/each}
+        </div>
     </div>
-</div>
+{/if}
 
 <!-- Preload icons -->
 <div aria-hidden="true" class="absolute opacity-0 pointer-events-none -z-10">
@@ -498,23 +503,27 @@
                     {/if}
                 </div>
             {/if}
-            <div class="flex gap-x-1 items-center whitespace-nowrap">
-                {#each batterySummary as item, i (item.id)}
-                    {#if i > 0}
-                        <span class="opacity-60">•</span>
-                    {/if}
-                    {#if item.icon}
-                        <span
-                            class="inline-flex items-center gap-1 whitespace-nowrap"
-                        >
-                            <Icon icon={item.icon} class={item.iconClass} />
-                            <span class="tabular-nums text-xs">{item.value}</span>
-                        </span>
-                    {:else}
-                        <span class={item.textClass}>{item.text}</span>
-                    {/if}
-                {/each}
-            </div>
+            {#if $batteryPresent}
+                <div class="flex gap-x-1 items-center whitespace-nowrap">
+                    {#each batterySummary as item, i (item.id)}
+                        {#if i > 0}
+                            <span class="opacity-60">•</span>
+                        {/if}
+                        {#if item.icon}
+                            <span
+                                class="inline-flex items-center gap-1 whitespace-nowrap"
+                            >
+                                <Icon icon={item.icon} class={item.iconClass} />
+                                <span class="tabular-nums text-xs"
+                                    >{item.value}</span
+                                >
+                            </span>
+                        {:else}
+                            <span class={item.textClass}>{item.text}</span>
+                        {/if}
+                    {/each}
+                </div>
+            {/if}
         </div>
     </div>
     {#if showControls && capabilities?.supports_tdp}

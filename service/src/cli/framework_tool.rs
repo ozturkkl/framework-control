@@ -54,7 +54,10 @@ impl FrameworkTool {
     pub async fn power(&self) -> Result<PowerBatteryInfo, String> {
         const TTL: Duration = Duration::from_secs(5);
         global_cache::cache_get_or_update("framework_tool.power", TTL, true, || async {
-            let out = self.run(&["--power", "-vv"]).await?;
+            // WORKAROUND: The cli exits 1 when no battery is connected (Desktop, battery-less laptop) after printing the status correctly.
+            let out = self
+                .run_accepting_failure_if(&["--power", "-vv"], |stdout| stdout.contains("Battery is:"))
+                .await?;
             Ok(parse_power(&out))
         })
         .await
@@ -130,6 +133,15 @@ impl FrameworkTool {
     }
 
     async fn run(&self, args: &[&str]) -> Result<String, String> {
+        self.run_accepting_failure_if(args, |_| false).await
+    }
+
+    /// Like `run`, but a non-zero exit still succeeds when `accept_stdout` accepts the output.
+    async fn run_accepting_failure_if(
+        &self,
+        args: &[&str],
+        accept_stdout: impl Fn(&str) -> bool,
+    ) -> Result<String, String> {
         use tokio::time::{timeout, Duration};
         let result = async {
             let child = Command::new(&self.path)
@@ -142,8 +154,9 @@ impl FrameworkTool {
                 .await
                 .map_err(|_| "framework_tool timed out".to_string())
                 .and_then(|res| res.map_err(|e| format!("wait failed: {e}")))?;
-            if output.status.success() {
-                Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            if output.status.success() || accept_stdout(&stdout) {
+                Ok(stdout)
             } else {
                 Err(format!(
                     "exit {}: {}",

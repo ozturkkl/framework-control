@@ -58,7 +58,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Clean Architecture**: Minimal always-on local service with REST API on loopback
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode on Windows; Linux gets an application menu desktop entry (created on first run)
-- **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold, plus a charge/power history graph.
+- **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold, plus a charge/power history graph. Hidden on devices without a battery (e.g. Desktop), which always use the AC power profile.
 - **Power Controls**:
   - **Windows (RyzenAdj)**: TDP and thermal limit control for AMD Ryzen systems
   - **Linux (Native)**: Uses kernel interfaces (AMD P-State EPP, cpufreq governor)

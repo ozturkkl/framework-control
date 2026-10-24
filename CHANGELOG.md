@@ -1,8 +1,9 @@
-## 0.5.6 - 2026-10-15
+## 0.5.6 - Unreleased
 
 - **NEW: Void Linux (runit) support** (#85): Install/uninstall scripts, Logs screen, and in-app updates now work on runit.
 - **Windows shortcut icon fix**: Updates no longer remove the shortcut icon and other app files. Missing icons are restored on service start.
 - **Snap `framework-tool` support** (#91): The service now finds the Snap package's `framework-tool` command.
+- **Framework Desktop and battery-less devices** (#93): Power controls work again instead of failing with a 502, and settings always use the plugged in profile. Battery UI (Battery panel, power profile switcher, fan profile auto-switch) is hidden.
 
 ## 0.5.5 - 2026-10-15
 

@@ -50,7 +50,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 ### Frontend Web UI (Svelte)
 
 - Entry: `web/src/App.svelte` (@App.svelte) - polls `/health`; dashboard layout (order, full/half width, hide). Hiding a panel also disables that feature's background task.
-- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend - TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (telemetry, charge limit/rate, history graph from `/api/battery/history`), `FanControl` (Auto/Manual/Curve with header selector; optional per-fan manual/curve overrides via fan tabs).
+- Panels: `Sensors` (temperature graphs from `/api/thermal/history`), `Power` (capability-driven AC/Battery profiles; controls appear based on `PowerCapabilities` from backend - TDP/thermal on Windows, EPP/governor/freq on Linux), `Battery` (telemetry, charge limit/rate, history graph from `/api/battery/history`; battery UI is hidden when `/api/power` reports no battery), `FanControl` (Auto/Manual/Curve with header selector; optional per-fan manual/curve overrides via fan tabs).
 - Graph shell: `web/src/components/GraphPanel.svelte` standardizes spacing and sticky settings; used by `Sensors`, Fan Control (Curve), and the battery history graph.
 - Tooltips: `web/src/lib/tooltip.ts` (portaled, auto‑flip). DaisyUI tooltip usage removed.
 - MultiSelect: per‑instance IDs and auto left/right alignment.
