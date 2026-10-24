@@ -56,7 +56,7 @@
     $: cycleCount = batteryInfo?.cycle_count ?? undefined;
 
     function formatEtaMinutes(totalMinutes: number): string {
-        if (!isFinite(totalMinutes) || totalMinutes <= 0) return "—";
+        if (!isFinite(totalMinutes) || totalMinutes <= 0) return "-";
         const m = Math.round(totalMinutes);
         const days = Math.floor(m / 1440);
         const hours = Math.floor((m % 1440) / 60);
@@ -264,7 +264,7 @@
                     <span class="tabular-nums text-xs"
                         >{isCharging ? "+" : "-"}{presentWatts != null
                             ? (Math.round(presentWatts * 100) / 100).toFixed(2)
-                            : "—"} W</span
+                            : "-"} W</span
                     >
                     <span class="opacity-60"
                         >{isCharging ? "charge" : "discharge"}</span
@@ -275,7 +275,7 @@
                 <span class="panel-status-item">
                     <span class="panel-status-item-body">
                         <Icon icon="mdi:speedometer" class="w-4 h-4" />
-                        <span class="tabular-nums text-xs">{cRate ?? "—"} C</span>
+                        <span class="tabular-nums text-xs">{cRate ?? "-"} C</span>
                     </span>
                 </span>
             {/if}
@@ -286,7 +286,7 @@
                         {#if healthCapacityPct != null}
                             {healthCapacityPct}% health
                         {:else}
-                            — health
+                            - health
                         {/if}
                     </span>
                 </span>
@@ -310,7 +310,7 @@
                 <span class="panel-status-item-body">
                     <Icon icon="mdi:battery-charging-90" class="w-4 h-4" />
                     <span class="tabular-nums text-xs"
-                        >{clMax != null ? clMax : "—"}% max</span
+                        >{clMax != null ? clMax : "-"}% max</span
                     >
                 </span>
             </span>

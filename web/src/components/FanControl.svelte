@@ -1367,7 +1367,7 @@
                                     {Math.round(latestTemps[item])} °C
                                 </span>
                             {:else}
-                                <span class="opacity-60">—</span>
+                                <span class="opacity-60">-</span>
                             {/if}
                         </svelte:fragment>
                     </MultiSelect>
@@ -1419,7 +1419,7 @@
                         }}
                         class="pointer-events-none whitespace-nowrap bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs"
                     >
-                        Poll interval can’t be set per fan — it’s shared by all
+                        Poll interval can’t be set per fan - it’s shared by all
                         fans.
                     </div>
 

@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Framework Control - Linux Installation Script
-# Downloads and installs the latest stable or beta release as a systemd service
+# Downloads and installs the latest stable or beta release as a systemd or runit (Void Linux) service
 
 REPO="ozturkkl/framework-control"
 INSTALL_BETA=false
@@ -10,6 +10,10 @@ BINARY_NAME="framework-control"
 SERVICE_NAME="framework-control.service"
 INSTALL_DIR="/usr/local/bin"
 SERVICE_DIR="/etc/systemd/system"
+RUNIT_SV_DIR="/etc/sv/framework-control"
+RUNIT_LINK="/var/service/framework-control"
+RUNIT_LOG_DIR="/var/log/framework-control"
+INIT_SYSTEM=""
 TARBALL_NAME="framework-control-service-x86_64.tar.gz"
 
 # Color output
@@ -39,9 +43,27 @@ check_root() {
     fi
 }
 
+detect_init() {
+    if [ -d /run/systemd/system ]; then
+        INIT_SYSTEM="systemd"
+    elif [ -d /run/runit ] && [ -d /var/service ]; then
+        INIT_SYSTEM="runit"
+    else
+        error "Unsupported init system. Framework Control supports systemd and runit (Void Linux)."
+        exit 1
+    fi
+    info "Detected init system: $INIT_SYSTEM"
+}
+
 check_dependencies() {
     local missing=()
-    for cmd in curl tar systemctl; do
+    local commands=(curl tar)
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        commands+=(systemctl)
+    else
+        commands+=(sv svlogd)
+    fi
+    for cmd in "${commands[@]}"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing+=("$cmd")
         fi
@@ -54,13 +76,15 @@ check_dependencies() {
 }
 
 check_framework_tool() {
-    if ! command -v framework_tool >/dev/null 2>&1; then
+    if command -v framework_tool >/dev/null 2>&1; then
+        info "framework_tool found: $(command -v framework_tool)"
+    elif command -v framework-tool >/dev/null 2>&1; then
+        info "framework-tool found: $(command -v framework-tool)"
+    else
         warn "framework_tool not found on PATH"
         warn "The service will attempt to download it automatically on first run"
         warn "Or install it manually from: https://github.com/FrameworkComputer/framework-system"
         echo "" >&2
-    else
-        info "framework_tool found: $(command -v framework_tool)"
     fi
 }
 
@@ -68,7 +92,7 @@ usage() {
     cat <<EOF >&2
 Usage: $0 [OPTIONS]
 
-Install Framework Control as a systemd service.
+Install Framework Control as a systemd or runit (Void Linux) service.
 
 Options:
   --beta      Prefer latest beta; fall back to latest stable if none exists
@@ -173,6 +197,16 @@ install_binary() {
 install_service() {
     local tmpdir="$1"
 
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        install_systemd_service "$tmpdir"
+    else
+        install_runit_service
+    fi
+}
+
+install_systemd_service() {
+    local tmpdir="$1"
+
     info "Installing systemd service..."
     if ! install -m 644 "$tmpdir/$SERVICE_NAME" "$SERVICE_DIR/$SERVICE_NAME"; then
         error "Failed to install service file"
@@ -193,12 +227,75 @@ install_service() {
     fi
 }
 
+install_runit_service() {
+    info "Installing runit service..."
+    install -d -m 755 "$RUNIT_SV_DIR/log" "$RUNIT_LOG_DIR"
+
+    # PATH matches systemd's default so framework_tool in /usr/local/bin is found.
+    cat > "$RUNIT_SV_DIR/run" <<EOF
+#!/bin/sh
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+exec 2>&1
+exec $INSTALL_DIR/$BINARY_NAME
+EOF
+    chmod 755 "$RUNIT_SV_DIR/run"
+
+    cat > "$RUNIT_SV_DIR/log/run" <<EOF
+#!/bin/sh
+exec svlogd -tt $RUNIT_LOG_DIR
+EOF
+    chmod 755 "$RUNIT_SV_DIR/log/run"
+
+    info "Enabling service..."
+    ln -sfn "$RUNIT_SV_DIR" "$RUNIT_LINK"
+
+    # runsvdir picks up new links on its next scan (every 5s).
+    local attempt
+    for attempt in $(seq 1 15); do
+        if [ -p "$RUNIT_LINK/supervise/ok" ]; then
+            break
+        fi
+        sleep 1
+    done
+    if [ ! -p "$RUNIT_LINK/supervise/ok" ]; then
+        error "runit did not start supervising the service"
+        exit 1
+    fi
+
+    info "Starting service..."
+    sv up "$RUNIT_LINK"
+}
+
+service_is_running() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl is-active --quiet "$SERVICE_NAME"
+    else
+        sv status "$RUNIT_LINK" | grep -q '^run:'
+    fi
+}
+
+recent_service_logs() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null
+    else
+        tail -n 20 "$RUNIT_LOG_DIR/current"
+    fi
+}
+
+logs_hint() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        echo "sudo journalctl -u $SERVICE_NAME -n 50"
+    else
+        echo "sudo tail -n 50 $RUNIT_LOG_DIR/current"
+    fi
+}
+
 verify_installation() {
     info "Verifying installation..."
 
-    if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+    if ! service_is_running; then
         error "Service is not running"
-        error "Check logs with: sudo journalctl -u $SERVICE_NAME -n 50"
+        error "Check logs with: $(logs_hint)"
         exit 1
     fi
 
@@ -209,7 +306,7 @@ verify_installation() {
 
     # Extract the actual port from service logs
     local detected_port
-    detected_port=$(journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+    detected_port=$(recent_service_logs | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
 
     if [ -z "$detected_port" ]; then
         warn "Could not detect port from service logs"
@@ -230,7 +327,7 @@ verify_installation() {
 print_success() {
     # Extract the actual port from service logs
     local port
-    port=$(journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+    port=$(recent_service_logs | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
 
     local url="http://127.0.0.1:${port:-<configured-port>}"
 
@@ -242,10 +339,17 @@ print_success() {
     echo -e "Access the web UI at: ${GREEN}${url}${NC}" >&2
     echo "" >&2
     echo "Useful commands:" >&2
-    echo "  - Check status:  sudo systemctl status $SERVICE_NAME" >&2
-    echo "  - View logs:     sudo journalctl -u $SERVICE_NAME -f" >&2
-    echo "  - Restart:       sudo systemctl restart $SERVICE_NAME" >&2
-    echo "  - Stop:          sudo systemctl stop $SERVICE_NAME" >&2
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        echo "  - Check status:  sudo systemctl status $SERVICE_NAME" >&2
+        echo "  - View logs:     sudo journalctl -u $SERVICE_NAME -f" >&2
+        echo "  - Restart:       sudo systemctl restart $SERVICE_NAME" >&2
+        echo "  - Stop:          sudo systemctl stop $SERVICE_NAME" >&2
+    else
+        echo "  - Check status:  sudo sv status $RUNIT_LINK" >&2
+        echo "  - View logs:     sudo tail -f $RUNIT_LOG_DIR/current" >&2
+        echo "  - Restart:       sudo sv restart $RUNIT_LINK" >&2
+        echo "  - Stop:          sudo sv down $RUNIT_LINK" >&2
+    fi
     echo "" >&2
 }
 
@@ -256,6 +360,7 @@ main() {
     echo ""
 
     check_root
+    detect_init
     check_dependencies
     check_framework_tool
 
