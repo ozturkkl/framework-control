@@ -1,0 +1,42 @@
+name: framework-control
+arch: amd64
+platform: linux
+version: ${PACKAGE_VERSION}
+release: ${PACKAGE_RELEASE}
+version_schema: none
+section: utils
+maintainer: Kemal Ozturk <97kemalozturk@gmail.com>
+description: Lightweight control surface for Framework laptops (Fan, Battery, Power, LEDs)
+homepage: https://github.com/ozturkkl/framework-control
+license: MIT
+recommends:
+  - xdg-utils
+  - hicolor-icon-theme
+contents:
+  - src: service/target/dist-linux/framework-control
+    dst: /usr/bin/framework-control
+    file_info:
+      mode: 0755
+  - src: web/public/assets/generated/icon-512.png
+    dst: /usr/share/icons/hicolor/512x512/apps/framework-control.png
+    file_info:
+      mode: 0644
+  - src: service/target/dist-linux/framework-control.desktop
+    dst: /usr/share/applications/framework-control.desktop
+    file_info:
+      mode: 0644
+  - src: packaging/framework-control.service
+    dst: /usr/lib/systemd/system/framework-control.service
+    file_info:
+      mode: 0644
+  - src: LICENSE
+    dst: /usr/share/licenses/framework-control/LICENSE
+    file_info:
+      mode: 0644
+scripts:
+  postinstall: packaging/scripts/post-install.sh
+  preremove: packaging/scripts/pre-remove.sh
+  postremove: packaging/scripts/post-remove.sh
+rpm:
+  signature:
+    key_file: ${PACKAGE_SIGNING_KEY_FILE}

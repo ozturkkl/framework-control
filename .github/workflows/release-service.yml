@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   read-version:
@@ -263,20 +264,41 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          stablePath="$RUNNER_TEMP/$STABLE_NAME"
-          cp "$TARBALL_PATH" "$stablePath"
-          echo "STABLE_PATH=$stablePath" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/linux"
+          cp "$TARBALL_PATH" "$RUNNER_TEMP/linux/$STABLE_NAME"
 
-      - name: Generate tarball SHA256
+      - name: Install nfpm
         shell: bash
         run: |
           set -euo pipefail
-          hash=$(sha256sum "$STABLE_PATH" | awk '{print $1}')
-          shaFile="$RUNNER_TEMP/tarball.sha256"
-          echo "$hash *$STABLE_NAME" > "$shaFile"
-          echo "TARBALL_SHA_PATH=$shaFile" >> "$GITHUB_ENV"
+          curl -fsSL https://github.com/goreleaser/nfpm/releases/download/v2.43.0/nfpm_2.43.0_Linux_x86_64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP" nfpm
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
-      - name: Upload tarball and its SHA to release
+      - name: Build deb and rpm packages
+        shell: bash
+        working-directory: .
+        env:
+          PACKAGE_VERSION: ${{ needs.read-version.outputs.version }}
+          # Beta builds reuse the version, so the run number keeps package upgrades moving.
+          PACKAGE_RELEASE: ${{ github.run_number }}
+          PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
+          FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
+        run: |
+          set -euo pipefail
+          export PACKAGE_SIGNING_KEY_FILE="$RUNNER_TEMP/package-signing-key.asc"
+          printf '%s\n' "$PACKAGE_SIGNING_KEY" > "$PACKAGE_SIGNING_KEY_FILE"
+          packaging/build-packages.sh "$RUNNER_TEMP/linux"
+          rm "$PACKAGE_SIGNING_KEY_FILE"
+
+      - name: Generate Linux SHA256
+        shell: bash
+        working-directory: ${{ runner.temp }}/linux
+        run: |
+          set -euo pipefail
+          sha256sum --binary * > "$RUNNER_TEMP/linux.sha256"
+
+      - name: Upload Linux assets and their SHA to release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -284,8 +306,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="$VERSION"
-          gh release upload "$tag" "$STABLE_PATH" --clobber
-          gh release upload "$tag" "$TARBALL_SHA_PATH" --clobber
+          gh release upload "$tag" "$RUNNER_TEMP"/linux/* "$RUNNER_TEMP/linux.sha256" --clobber
 
   create-sha256sums:
     needs: [read-version, build-msi, build-linux]
@@ -313,9 +334,19 @@ jobs:
 
           # Clean up individual SHA files from release
           gh release delete-asset "$tag" msi.sha256 --yes -R "$REPO" || true
-          gh release delete-asset "$tag" tarball.sha256 --yes -R "$REPO" || true
+          gh release delete-asset "$tag" linux.sha256 --yes -R "$REPO" || true
 
           echo "Created SHA256SUMS with all hashes"
+
+  deploy-package-repos:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Redeploy GitHub Pages to pick up the new packages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-pages.yml --ref main --repo "$GITHUB_REPOSITORY"
 
   publish-aur:
     needs: [read-version, create-release, build-linux]

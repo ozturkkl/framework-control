@@ -138,29 +138,27 @@ impl RyzenAdj {
 }
 
 async fn resolve_ryzenadj() -> Result<String, String> {
-    // Prefer alongside the running service binary
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let candidate = if cfg!(windows) {
-                dir.join("ryzenadj/ryzenadj.exe")
-            } else {
-                dir.join("ryzenadj/ryzenadj")
-            };
-            if candidate.exists() {
-                if let Some(s) = candidate.to_str() {
-                    return Ok(s.to_string());
-                }
+    // Prefer the tools directory
+    if let Some(dir) = crate::utils::fs::tools_dir() {
+        let candidate = if cfg!(windows) {
+            dir.join("ryzenadj/ryzenadj.exe")
+        } else {
+            dir.join("ryzenadj/ryzenadj")
+        };
+        if candidate.exists() {
+            if let Some(s) = candidate.to_str() {
+                return Ok(s.to_string());
             }
-            // Also allow a root-level binary next to the service
-            let root_candidate = if cfg!(windows) {
-                dir.join("ryzenadj.exe")
-            } else {
-                dir.join("ryzenadj")
-            };
-            if root_candidate.exists() {
-                if let Some(s) = root_candidate.to_str() {
-                    return Ok(s.to_string());
-                }
+        }
+        // Also allow a root-level binary in the tools directory
+        let root_candidate = if cfg!(windows) {
+            dir.join("ryzenadj.exe")
+        } else {
+            dir.join("ryzenadj")
+        };
+        if root_candidate.exists() {
+            if let Some(s) = root_candidate.to_str() {
+                return Ok(s.to_string());
             }
         }
     }
@@ -178,12 +176,9 @@ async fn resolve_ryzenadj() -> Result<String, String> {
 /// Fallback: direct download of ryzenadj from GitHub Releases (Windows/Linux)
 pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     // Always download next to the service binary to avoid hardcoded system paths
-    let base_dir = match std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-    {
+    let base_dir = match crate::utils::fs::tools_dir() {
         Some(p) => p,
-        None => return Err("could not resolve service directory for direct download".into()),
+        None => return Err("could not resolve tools directory for direct download".into()),
     };
     #[cfg(target_os = "windows")]
     let ext: &str = ".exe";
@@ -228,16 +223,12 @@ pub async fn attempt_install_via_direct_download() -> Result<(), String> {
     Ok(())
 }
 
-/// Remove any ryzenadj artifacts that we may have downloaded alongside the service.
+/// Remove any ryzenadj artifacts that we may have downloaded into the tools directory.
 /// This targets both a nested `ryzenadj/` directory and a root-level `ryzenadj(.exe)` file.
 pub async fn remove_installed_files() -> Result<(), String> {
-    // Determine base directory next to the running service binary
-    let base_dir = match std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-    {
+    let base_dir = match crate::utils::fs::tools_dir() {
         Some(p) => p,
-        None => return Err("could not resolve service directory for uninstall".into()),
+        None => return Err("could not resolve tools directory for uninstall".into()),
     };
 
     // Remove nested ryzenadj directory if present

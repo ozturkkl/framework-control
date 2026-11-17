@@ -172,9 +172,7 @@ impl FrameworkTool {
 }
 
 fn install_path() -> Option<std::path::PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let dir = exe.parent()?;
-    Some(dir.join(TOOL_ASSET))
+    Some(crate::utils::fs::tools_dir()?.join(TOOL_ASSET))
 }
 
 const LATEST_INSTALL_FAILED_FLAG: &str = ".framework_tool_latest_install_failed";
@@ -326,13 +324,9 @@ pub async fn resolve_or_install(cfg: &FrameworkToolConfig) -> Result<FrameworkTo
 
 /// Cross-platform direct download of framework_tool at the given release tag
 async fn attempt_install_via_direct_download(tag: &str) -> Result<(), String> {
-    // Always download next to the service binary to avoid hardcoded system paths
-    let base_dir = match std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-    {
+    let base_dir = match crate::utils::fs::tools_dir() {
         Some(p) => p,
-        None => return Err("could not resolve service directory for direct download".into()),
+        None => return Err("could not resolve tools directory for direct download".into()),
     };
     let url = gh::get_release(TOOL_REPO.0, TOOL_REPO.1, Some(tag), &[TOOL_ASSET])
         .await

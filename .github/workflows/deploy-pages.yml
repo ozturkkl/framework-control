@@ -1,11 +1,13 @@
-name: Deploy web to GitHub Pages
+name: Deploy web UI and package repos to GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
       - "web/**"
+      - "packaging/build-package-repos.sh"
       - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -38,6 +40,18 @@ jobs:
         env:
           GITHUB_PAGES: "true"
           VITE_API_BASE: ${{ secrets.VITE_API_BASE || vars.VITE_API_BASE }}
+      - name: Install package repo tools
+        run: sudo apt-get update && sudo apt-get install -y apt-utils createrepo-c
+      - name: Build package repos
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          gpg --batch --import <<< "$PACKAGE_SIGNING_KEY"
+          packaging/build-package-repos.sh web/dist/packages \
+            "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/packages"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

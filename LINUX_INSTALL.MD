@@ -55,6 +55,33 @@ yay -S framework-control-beta
 paru -S framework-control-beta
 ```
 
+### Debian / Ubuntu (apt)
+
+Add the signed apt repository, then install:
+
+```bash
+sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/framework-control.asc -o /etc/apt/keyrings/framework-control.asc
+sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/deb/stable/framework-control.sources -o /etc/apt/sources.list.d/framework-control.sources
+sudo apt update && sudo apt install framework-control
+```
+
+The package installs `/usr/bin/framework-control`, the systemd unit and a desktop entry, and enables and starts the service. Updates arrive through `apt upgrade`; in-app updates are turned off. For betas, use `deb/beta/` instead of `deb/stable/` (the beta channel also receives stable releases).
+
+If you used the install script before, run the uninstaller first (see [Uninstallation](#uninstallation)): its unit in `/etc/systemd/system` would otherwise take precedence over the package's.
+
+### Fedora / RHEL (dnf)
+
+Add the signed dnf repository, then install:
+
+```bash
+sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/rpm/stable/framework-control.repo -o /etc/yum.repos.d/framework-control.repo
+sudo dnf install framework-control
+```
+
+This works the same as the apt package above, including the beta channel (`rpm/beta/`) and the note about install script users. On Fedora Atomic (Silverblue, Kinoite, Bazzite), add the repo file the same way, then run `sudo rpm-ostree install framework-control`, reboot, and enable the service with `sudo systemctl enable --now framework-control`.
+
+Each release also attaches `framework-control-service-x86_64.deb` and `.rpm` for a one-off install without the repository.
+
 ### NixOS
 
 `framework-control` is packaged in [nixpkgs](https://github.com/NixOS/nixpkgs/tree/master/pkgs/by-name/fr/framework-control) with a NixOS module. Add this to your configuration:
@@ -220,6 +247,16 @@ sudo pacman -R framework-control-beta
 
 The package hooks stop and disable the systemd service before removal.
 
+### apt and dnf installs
+
+```bash
+sudo apt remove framework-control
+# or
+sudo dnf remove framework-control
+```
+
+This stops and disables the service and removes the downloaded `framework_tool`.
+
 ### NixOS installs
 
 Set `services.framework-control.enable = false;` (or remove the option) and rebuild:
@@ -287,7 +324,7 @@ If it continues to fail, check the service logs.
 
 ### Immutable Distributions (Fedora Silverblue, Bazzite, etc.)
 
-The install script uses `/usr/local/bin` which is typically writable on immutable systems. If you encounter issues, you may need to use `rpm-ostree` or your distribution's preferred method for adding system binaries.
+On Fedora Atomic variants, prefer the [dnf repository](#fedora--rhel-dnf) with `rpm-ostree`. The install script uses `/usr/local/bin`, which is typically writable on immutable systems.
 
 ## Security Notes
 
