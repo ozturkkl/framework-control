@@ -288,7 +288,7 @@ jobs:
           set -euo pipefail
           export PACKAGE_SIGNING_KEY_FILE="$RUNNER_TEMP/package-signing-key.asc"
           printf '%s\n' "$PACKAGE_SIGNING_KEY" > "$PACKAGE_SIGNING_KEY_FILE"
-          packaging/build-packages.sh "$RUNNER_TEMP/linux"
+          packaging/deb-rpm/build-packages.sh "$RUNNER_TEMP/linux"
           rm "$PACKAGE_SIGNING_KEY_FILE"
 
       - name: Generate Linux SHA256
@@ -366,7 +366,7 @@ jobs:
           VERSION: ${{ needs.read-version.outputs.version }}
         run: |
           set -euo pipefail
-          pkgDir=aur
+          pkgDir=packaging/aur
           cd "$pkgDir"
           sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
@@ -380,7 +380,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd aur
+          cd packaging/aur
           depsLine=$(source PKGBUILD && echo "${depends[@]}" "${makedepends[@]}")
           read -ra deps <<< "$depsLine"
           pacman -S --noconfirm --needed "${deps[@]}"
@@ -397,7 +397,7 @@ jobs:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          pkgDir=aur
+          pkgDir=packaging/aur
           aurDir="$RUNNER_TEMP/aur"
           mkdir -p "$HOME/.ssh"
           printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$HOME/.ssh/aur_key"
@@ -459,7 +459,7 @@ jobs:
           fi
           echo "pkgrel=$pkgrel" >> "$GITHUB_ENV"
 
-          pkgDir=aur-beta
+          pkgDir=packaging/aur-beta
           cd "$pkgDir"
           sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=$pkgrel/" PKGBUILD
@@ -473,7 +473,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd aur-beta
+          cd packaging/aur-beta
           depsLine=$(source PKGBUILD && echo "${depends[@]}" "${makedepends[@]}")
           read -ra deps <<< "$depsLine"
           pacman -S --noconfirm --needed "${deps[@]}"
@@ -490,7 +490,7 @@ jobs:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          pkgDir=aur-beta
+          pkgDir=packaging/aur-beta
           aurDir="$RUNNER_TEMP/aur"
           mkdir -p "$HOME/.ssh"
           printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$HOME/.ssh/aur_key"
