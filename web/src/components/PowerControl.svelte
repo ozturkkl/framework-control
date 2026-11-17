@@ -95,6 +95,11 @@
     let freqWarningBtn: HTMLButtonElement;
     let freqWarningTipVisible = false;
 
+    let eppInfoBtn: HTMLButtonElement;
+    let eppInfoTipVisible = false;
+    let governorInfoBtn: HTMLButtonElement;
+    let governorInfoTipVisible = false;
+
     $: hasAnyPowerCapability =
         !!capabilities &&
         (capabilities.supports_tdp ||
@@ -626,9 +631,9 @@
             <ul
                 class="list-disc text-sm space-y-1 list-inside opacity-70 text-left"
             >
-                <li>Unsupported CPU (Intel, or non-AMD on Windows)</li>
                 <li>Missing kernel support (Linux needs RAPL/cpufreq)</li>
                 {#if isWindows}
+                    <li>Unsupported CPU (Windows needs AMD Ryzen)</li>
                     <li>RyzenAdj not installed (Windows AMD systems)</li>
                 {/if}
             </ul>
@@ -697,7 +702,7 @@
                 </div>
             {/if}
 
-            <!-- AMD P-State EPP -->
+            <!-- Energy Performance Preference -->
             {#if capabilities?.supports_epp && powerConfig[activeProfile]?.epp_preference}
                 <div
                     class={POWER_CONTROL_WRAP_CLASS}
@@ -724,7 +729,38 @@
                             powerConfig[activeProfile].epp_preference.value
                         }
                         on:change={() => onChangeProfileField("epp_preference")}
-                    />
+                    >
+                        <div slot="label-trailing" class="relative">
+                            <button
+                                class="btn btn-ghost btn-xs btn-square"
+                                aria-label="About Energy Preference"
+                                bind:this={eppInfoBtn}
+                                on:mouseenter={() => (eppInfoTipVisible = true)}
+                                on:mouseleave={() =>
+                                    (eppInfoTipVisible = false)}
+                                on:focus={() => (eppInfoTipVisible = true)}
+                                on:blur={() => (eppInfoTipVisible = false)}
+                            >
+                                <Icon
+                                    icon="mdi:information-outline"
+                                    class="w-4 h-4 opacity-70"
+                                />
+                            </button>
+                            <div
+                                use:tooltip={{
+                                    anchor: eppInfoBtn,
+                                    visible: eppInfoTipVisible,
+                                    attachGlobalDismiss: false,
+                                }}
+                                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs w-64 text-center"
+                            >
+                                Hint to the CPU on how aggressively to boost,
+                                from "performance" (fastest) to "power" (most
+                                efficient). Only takes effect with the
+                                "powersave" governor; "performance" locks it.
+                            </div>
+                        </div>
+                    </UiControlCard>
                 </div>
             {/if}
 
@@ -752,7 +788,39 @@
                         }
                         bind:value={powerConfig[activeProfile].governor.value}
                         on:change={() => onChangeProfileField("governor")}
-                    />
+                    >
+                        <div slot="label-trailing" class="relative">
+                            <button
+                                class="btn btn-ghost btn-xs btn-square"
+                                aria-label="About CPU Governor"
+                                bind:this={governorInfoBtn}
+                                on:mouseenter={() =>
+                                    (governorInfoTipVisible = true)}
+                                on:mouseleave={() =>
+                                    (governorInfoTipVisible = false)}
+                                on:focus={() => (governorInfoTipVisible = true)}
+                                on:blur={() => (governorInfoTipVisible = false)}
+                            >
+                                <Icon
+                                    icon="mdi:information-outline"
+                                    class="w-4 h-4 opacity-70"
+                                />
+                            </button>
+                            <div
+                                use:tooltip={{
+                                    anchor: governorInfoBtn,
+                                    visible: governorInfoTipVisible,
+                                    attachGlobalDismiss: false,
+                                }}
+                                class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs w-64 text-center"
+                            >
+                                Kernel CPU frequency policy. "performance" keeps
+                                clocks high and ignores Energy Preference;
+                                "powersave" scales clocks using the Energy
+                                Preference hint, so it's usually the one to pick.
+                            </div>
+                        </div>
+                    </UiControlCard>
                 </div>
             {/if}
 

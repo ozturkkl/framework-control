@@ -61,8 +61,8 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold, plus a charge/power history graph. Hidden on devices without a battery (e.g. Desktop), which always use the AC power profile.
 - **Power Controls**:
   - **Windows (RyzenAdj)**: TDP and thermal limit control for AMD Ryzen systems
-  - **Linux (Native)**: Uses kernel interfaces (AMD P-State EPP, cpufreq governor)
-  - Set energy preferences (AMD P-State) or governors/frequency limits (cpufreq)
+  - **Linux (Native)**: Uses kernel cpufreq interfaces (works with both `amd-pstate` and `intel_pstate`)
+  - Set energy preference (EPP), CPU governor, and frequency limits. With the `performance` governor the kernel locks EPP to `performance`; with `powersave`, EPP decides how aggressively the CPU boosts. See the kernel docs for [amd-pstate](https://docs.kernel.org/admin-guide/pm/amd-pstate.html) and [intel_pstate](https://docs.kernel.org/admin-guide/pm/intel_pstate.html) for details.
   - Separate AC/Battery profiles with background reapply and live power readout
 - **Updates & Shortcuts**: In-app update checks and optional auto-install, Start Menu/Desktop shortcut management, and `framework_tool` version selection from the Settings modal
 - **Themes**: DaisyUI theme picker persisted in config and applied across clients
@@ -86,7 +86,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Backend Service**: Rust (Tokio + Poem + poem-openapi)
   - Exposes HTTP API with OpenAPI generation
   - Executes Framework CLI (`framework_tool`) for all EC interactions
-  - Power management: RyzenAdj on Windows, native kernel interfaces (AMD P-State EPP, cpufreq) on Linux
+  - Power management: RyzenAdj on Windows, native kernel interfaces (cpufreq EPP and governor) on Linux
   - Applies persisted fan-control and power config at boot
 - **Frontend UI**: Svelte + TypeScript + Vite + Tailwind + DaisyUI
   - Responsive panel layout adapting to active fan mode

@@ -397,7 +397,7 @@ pub struct PowerProfile {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thermal_limit_c: Option<SettingU32>,
 
-    // Linux AMD P-State: Energy Performance Preference
+    // Linux: Energy Performance Preference
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epp_preference: Option<SettingString>,
 

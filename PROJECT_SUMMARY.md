@@ -4,7 +4,7 @@ This document captures the current state, architecture, and key technical detail
 
 ### Purpose
 
-Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. Power management uses RyzenAdj on Windows and native kernel interfaces (AMD P-State EPP, cpufreq) on Linux. API runs on loopback at a configured port (set via `FRAMEWORK_CONTROL_PORT`).
+Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control core platform features (fans, power, charging). Uses the official `framework_tool` CLI for EC interactions. Power management uses RyzenAdj on Windows and native kernel interfaces (cpufreq EPP and governor) on Linux. API runs on loopback at a configured port (set via `FRAMEWORK_CONTROL_PORT`).
 
 ### High-Level Architecture
 
@@ -42,7 +42,7 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
   - `service/src/types.rs`: API and config types; includes `PowerProfile` (with `SettingU32` for TDP/thermal/freq and `SettingString` for EPP/governor), `PowerControlInfo` (`PowerCapabilities` + `PowerState`), battery config, UI theme/layout, `telemetry` config, `TelemetrySample`, and `BatterySample`
   - `service/src/state.rs`: shared `AppState` - `framework_tool` lock, platform-specific power backend (`ryzenadj` on Windows via `#[cfg(target_os = "windows")]`, `linux_power` on Linux via `#[cfg(target_os = "linux")]`), `LiveConfig`, in‑memory `telemetry_samples` and `battery_samples`
 - Background tasks (`service/src/tasks`): `power` (platform-split: Windows uses RyzenAdj, Linux uses native interfaces; both driven by generic `Reconciler`), `fan_curve`, `fan_profiles` (AC/battery auto-switch), `battery`, `battery_history`, `auto_update`, `telemetry`
-  - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only - reads/writes sysfs for AMD P-State EPP, cpufreq governor, and frequency limits)
+  - CLI wrappers (`service/src/cli`): `framework_tool.rs`, `ryzen_adj.rs` (Windows only), `linux_power.rs` (Linux only - reads/writes sysfs for EPP, cpufreq governor, and frequency limits)
   - Utilities (`service/src/utils`): `github`, `download`, `wget`, `fs`, `reconciler` (generic drift-aware reconciler with quiet-window + cooldown logic), etc.
   - `service/src/static.rs`: static file serving for the UI
   - `service/src/shortcuts.rs`: Desktop shortcut creation for Windows (Edge/Chrome/Brave app mode + .url fallback) and Linux (simple .desktop entry using xdg-open)
