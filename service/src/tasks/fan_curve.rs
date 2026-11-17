@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use tokio::time::{sleep, Duration};
 use tracing::{debug, info, warn};
@@ -7,6 +8,10 @@ use tracing::{debug, info, warn};
 use crate::cli::FrameworkTool;
 use crate::config::LiveConfig;
 use crate::types::{CurveConfig, DashboardPanelId, FanControlMode};
+
+/// The EC drops back to auto fan control on sleep/hibernate, so held duties are resent periodically.
+/// Wall-clock time keeps advancing while suspended, so the first tick after a resume resends immediately.
+const RESEND_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Main fan control task that runs continuously based on config
 pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg: LiveConfig) {
@@ -19,9 +24,17 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
     let mut last_mode: Option<FanControlMode> = None;
     let mut last_per_fan_active = false;
     let mut fan_count: Option<u32> = None;
+    let mut last_resend = SystemTime::now();
 
     loop {
         let loop_started = std::time::Instant::now();
+        let resend_due = last_resend.elapsed().map_or(true, |e| e >= RESEND_INTERVAL);
+        if resend_due {
+            last_resend = SystemTime::now();
+            global.force_resend();
+            per_fan_curve_steppers.values_mut().for_each(CurveStepper::force_resend);
+            last_manual_duty.clear();
+        }
         let (config, fan_enabled) = {
             let cfg = cfg.read().await;
             (
@@ -157,6 +170,7 @@ struct CurveStepper {
     active_target: Option<u32>,
     transition_start_temp: i32,
     anchored: bool,
+    resend: bool,
 }
 
 impl CurveStepper {
@@ -166,6 +180,7 @@ impl CurveStepper {
             active_target: None,
             transition_start_temp: 0,
             anchored: false,
+            resend: false,
         }
     }
 
@@ -175,8 +190,14 @@ impl CurveStepper {
         self.anchored = false;
     }
 
+    /// Apply the next duty even if it equals the last applied one.
+    fn force_resend(&mut self) {
+        self.resend = true;
+    }
+
     fn note_applied(&mut self, duty: u32) {
         self.last_duty = Some(duty);
+        self.resend = false;
     }
 
     /// Advance the state machine for the given temperature and return the duty to apply, or `None` when the current duty should be held.
@@ -230,7 +251,7 @@ impl CurveStepper {
             None => tgt,
         };
 
-        if self.last_duty != Some(next) {
+        if self.last_duty != Some(next) || self.resend {
             Some(next)
         } else {
             None
@@ -440,6 +461,18 @@ mod tests {
         assert_eq!(first, Some(30));
         s.note_applied(30);
         // Same temperature holds (no redundant apply).
+        assert_eq!(s.next(50, &c), None);
+    }
+
+    #[test]
+    fn stepper_force_resend_reapplies_held_duty() {
+        let c = curve(vec![[40, 20], [60, 40]], 0, 100);
+        let mut s = CurveStepper::new();
+        s.note_applied(30);
+        assert_eq!(s.next(50, &c), None);
+        s.force_resend();
+        assert_eq!(s.next(50, &c), Some(30));
+        s.note_applied(30);
         assert_eq!(s.next(50, &c), None);
     }
 
