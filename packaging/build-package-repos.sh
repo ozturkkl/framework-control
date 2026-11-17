@@ -2,7 +2,7 @@
 # Usage: build-package-repos.sh <site-dir> <base-url>
 # Builds signed apt and dnf repos from the packages attached to recent GitHub releases.
 # stable: the newest stable releases. beta: the newest releases of any kind.
-# The signing key must already be in the default gpg keyring. GH_TOKEN and GITHUB_REPOSITORY must be set.
+# The signing key must already be in the default gpg keyring.
 set -Eeuo pipefail
 trap 'echo "build-package-repos.sh failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 
@@ -10,8 +10,6 @@ site_dir=$(realpath -m "$1")
 base_url=$2
 releases_per_channel=3
 package_asset=framework-control-service-x86_64
-
-: "${GH_TOKEN:?}" "${GITHUB_REPOSITORY:?}"
 
 releases_with_packages=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" --jq \
     "[.[] | select(.draft | not) | select(any(.assets[]; .name == \"$package_asset.deb\"))]")

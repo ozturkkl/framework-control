@@ -138,7 +138,6 @@ impl RyzenAdj {
 }
 
 async fn resolve_ryzenadj() -> Result<String, String> {
-    // Prefer the tools directory
     if let Some(dir) = crate::utils::fs::tools_dir() {
         let candidate = if cfg!(windows) {
             dir.join("ryzenadj/ryzenadj.exe")
@@ -175,7 +174,6 @@ async fn resolve_ryzenadj() -> Result<String, String> {
 
 /// Fallback: direct download of ryzenadj from GitHub Releases (Windows/Linux)
 pub async fn attempt_install_via_direct_download() -> Result<(), String> {
-    // Always download next to the service binary to avoid hardcoded system paths
     let base_dir = match crate::utils::fs::tools_dir() {
         Some(p) => p,
         None => return Err("could not resolve tools directory for direct download".into()),
