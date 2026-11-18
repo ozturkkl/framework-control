@@ -99,7 +99,7 @@ sudo dnf upgrade
 On Fedora Atomic (Silverblue, Kinoite, Bazzite), a package layered from a file never updates, so add the repository first and install by name:
 
 ```bash
-sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/rpm/stable/framework-control.repo -o /etc/yum.repos.d/framework-control.repo
+sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/rpm/stable/framework-control-stable.repo -o /etc/yum.repos.d/framework-control.repo
 sudo rpm-ostree install framework-control
 ```
 
@@ -238,7 +238,7 @@ This will add a desktop entry to `~/.local/share/applications/framework-control.
 
 ## Updates
 
-Framework Control includes an auto-update system:
+apt and dnf installs update through `apt upgrade` or `dnf upgrade`, so the in-app updater is turned off for them. Install script installs include an auto-update system:
 
 1. The service checks for updates automatically (configurable in Settings)
 2. When an update is available, you'll see a notification in the UI
@@ -279,6 +279,8 @@ sudo dnf remove framework-control
 ```
 
 This stops and disables the service and removes the downloaded `framework_tool` and the stable repository. If you added the beta repository, delete its file from `/etc/apt/sources.list.d/` or `/etc/yum.repos.d/` yourself.
+
+On Fedora Atomic, run `sudo rpm-ostree uninstall framework-control`, delete `/etc/yum.repos.d/framework-control.repo`, and reboot.
 
 ### NixOS installs
 

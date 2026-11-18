@@ -31,8 +31,8 @@ contents:
       mode: 0644
   # The packages set up the stable repo so a downloaded package keeps getting updates.
   # Plain files on deb so apt remove deletes the source together with its key.
-  - src: service/target/dist-linux/framework-control-archive-keyring.pgp
-    dst: /usr/share/keyrings/framework-control-archive-keyring.pgp
+  - src: service/target/dist-linux/framework-control-archive-keyring.gpg
+    dst: /usr/share/keyrings/framework-control-archive-keyring.gpg
     packager: deb
     file_info:
       mode: 0644

@@ -18,7 +18,7 @@ sed "s/{PORT}/$FRAMEWORK_CONTROL_PORT/" packaging/deb-rpm/framework-control.desk
 
 gnupg_home=$(mktemp -d)
 gpg --homedir "$gnupg_home" --batch --quiet --import "$PACKAGE_SIGNING_KEY_FILE"
-gpg --homedir "$gnupg_home" --batch --yes --export --output "$staging_dir/framework-control-archive-keyring.pgp"
+gpg --homedir "$gnupg_home" --batch --yes --export --output "$staging_dir/framework-control-archive-keyring.gpg"
 rm -r "$gnupg_home"
 
 packaging/deb-rpm/write-repo-file.sh deb stable "$PACKAGE_REPO_URL" > "$staging_dir/framework-control.sources"

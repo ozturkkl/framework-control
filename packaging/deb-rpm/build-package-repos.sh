@@ -25,22 +25,15 @@ release_tags() {
 }
 
 download_packages() {
-    local channel=$1 tag
+    local channel=$1 tags tag
+    tags=$(release_tags "$channel")
     mkdir -p "$site_dir/deb/$channel" "$site_dir/rpm/$channel"
-    for tag in $(release_tags "$channel"); do
+    for tag in $tags; do
         gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$package_asset.deb" \
             --output "$site_dir/deb/$channel/framework-control-$tag.deb"
         gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$package_asset.rpm" \
             --output "$site_dir/rpm/$channel/framework-control-$tag.rpm"
     done
-}
-
-# Beta gets its own file name so it can sit next to the stable file the packages install.
-repo_file_name() {
-    case "$1" in
-        stable) echo framework-control ;;
-        beta) echo framework-control-beta ;;
-    esac
 }
 
 write_apt_repo() {
@@ -61,7 +54,7 @@ write_apt_repo() {
     gpg --batch --yes --clearsign --output InRelease Release
     gpg --batch --yes --armor --detach-sign --output Release.gpg Release
 
-    "$script_dir/write-repo-file.sh" deb "$channel" "$base_url" > "$(repo_file_name "$channel").sources"
+    "$script_dir/write-repo-file.sh" deb "$channel" "$base_url" > "framework-control-$channel.sources"
 }
 
 write_dnf_repo() {
@@ -70,7 +63,7 @@ write_dnf_repo() {
     createrepo_c --quiet .
     gpg --batch --yes --armor --detach-sign --output repodata/repomd.xml.asc repodata/repomd.xml
 
-    "$script_dir/write-repo-file.sh" rpm "$channel" "$base_url" > "$(repo_file_name "$channel").repo"
+    "$script_dir/write-repo-file.sh" rpm "$channel" "$base_url" > "framework-control-$channel.repo"
 }
 
 mkdir -p "$site_dir"

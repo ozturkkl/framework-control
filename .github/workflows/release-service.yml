@@ -280,8 +280,8 @@ jobs:
         working-directory: .
         env:
           PACKAGE_VERSION: ${{ needs.read-version.outputs.version }}
-          # Beta builds reuse the version, so the run number keeps package upgrades moving.
-          PACKAGE_RELEASE: ${{ github.run_number }}
+          # Beta builds and re-runs reuse the version, so the run number and attempt keep package upgrades moving.
+          PACKAGE_RELEASE: ${{ github.run_number }}.${{ github.run_attempt }}
           PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
           PACKAGE_REPO_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/packages
           FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}

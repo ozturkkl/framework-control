@@ -15,7 +15,7 @@ case "$format" in
 Types: deb
 URIs: $base_url/deb/$channel/
 Suites: ./
-Signed-By: /usr/share/keyrings/framework-control-archive-keyring.pgp
+Signed-By: /usr/share/keyrings/framework-control-archive-keyring.gpg
 EOF
         ;;
     rpm)
