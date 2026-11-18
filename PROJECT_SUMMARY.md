@@ -77,11 +77,13 @@ Local service (Windows + Linux) + Svelte web UI to monitor telemetry and control
 - Windows: MSI assets in `service/wix/*` (built via `web/scripts/build-msi.mjs`). MSI injects env values into the service (allowed origins, port, update repo). Updates via `msiexec`.
 - Linux: 
   - Automated install script (`install-linux.sh` in repo root) and uninstall script (`uninstall-linux.sh`) download latest release tarball from GitHub
-  - Installs binary to `/usr/local/bin/framework-control` and systemd service to `/etc/systemd/system/`
+  - Installs binary to `/usr/local/bin/framework-control` and systemd service to `/etc/systemd/system/` (or a runit service in `/etc/sv/framework-control` on Void Linux)
   - Built via `web/scripts/build-linux.mjs` (static musl build in CI, creates tarball with binary + service file)
   - Config baked into binary at build time; runtime config stored at `/etc/framework-control/config.json`
   - Service runs as root (required for `framework_tool` EC access)
   - Updates via tarball download and service restart
+  - deb/rpm packages (`packaging/deb-rpm/`, built with nfpm in `release-service.yml`): install to `/usr/bin`, keep downloaded tools in `/var/lib/framework-control` (`FRAMEWORK_CONTROL_TOOLS_DIR`), disable in-app updates, and add the signed apt/dnf repos that `deploy-pages.yml` builds on GitHub Pages under `/packages` (stable and beta channels)
+  - AUR stable and beta PKGBUILDs in `packaging/aur` and `packaging/aur-beta`, published by `release-service.yml`
 - Shortcuts: created on demand via `/api/shortcuts/create`
   - Windows: Start Menu + Desktop (.lnk with app mode or .url fallback)
   - Linux: Desktop entry in applications menu (~/.local/share/applications/framework-control.desktop) using xdg-open

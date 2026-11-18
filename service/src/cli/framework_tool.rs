@@ -56,7 +56,9 @@ impl FrameworkTool {
         global_cache::cache_get_or_update("framework_tool.power", TTL, true, || async {
             // WORKAROUND: The cli exits 1 when no battery is connected (Desktop, battery-less laptop) after printing the status correctly.
             let out = self
-                .run_accepting_failure_if(&["--power", "-vv"], |stdout| stdout.contains("Battery is:"))
+                .run_accepting_failure_if(&["--power", "-vv"], |stdout| {
+                    parse_power(stdout).battery_present == Some(false)
+                })
                 .await?;
             Ok(parse_power(&out))
         })

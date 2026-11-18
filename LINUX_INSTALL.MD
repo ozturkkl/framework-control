@@ -58,7 +58,13 @@ paru -S framework-control-beta
 ### Debian / Ubuntu (apt)
 
 > [!WARNING]
-> If you installed Framework Control with the install script before, [uninstall it](#install-script-installs) first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's.
+> If you installed Framework Control with the install script before, remove its service and binary first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's. These commands keep your settings in `/etc/framework-control`, which the uninstall script would delete:
+>
+> ```bash
+> sudo systemctl disable --now framework-control
+> sudo rm /etc/systemd/system/framework-control.service /usr/local/bin/framework-control
+> sudo systemctl daemon-reload
+> ```
 
 Download and install the package from the latest release:
 
@@ -79,7 +85,13 @@ sudo apt update && sudo apt upgrade
 ### Fedora / RHEL (dnf)
 
 > [!WARNING]
-> If you installed Framework Control with the install script before, [uninstall it](#install-script-installs) first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's.
+> If you installed Framework Control with the install script before, remove its service and binary first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's. These commands keep your settings in `/etc/framework-control`, which the uninstall script would delete:
+>
+> ```bash
+> sudo systemctl disable --now framework-control
+> sudo rm /etc/systemd/system/framework-control.service /usr/local/bin/framework-control
+> sudo systemctl daemon-reload
+> ```
 
 Install the package from the latest release:
 

@@ -52,6 +52,10 @@ pub async fn run(
         };
 
         match cli.power().await {
+            Ok(info) if info.battery_present == Some(false) => {
+                info!("No battery present, stopping battery history task");
+                return;
+            }
             Ok(info) => {
                 let now_ms = unix_time_ms();
                 if let Some(sample) = sample_from(&info, now_ms) {

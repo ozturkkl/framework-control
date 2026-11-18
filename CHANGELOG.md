@@ -1,9 +1,11 @@
 ## 0.5.6 - Unreleased
 
+- **NEW: deb and rpm packages** (#88): Each release ships `framework-control-service-x86_64.deb` and `.rpm`. They install the systemd unit and desktop entry and add a signed apt or dnf repository hosted on GitHub Pages, so updates arrive through `apt upgrade` / `dnf upgrade` (in-app updates are off for these installs). A beta repository is available too. See `LINUX_INSTALL.MD`.
 - **NEW: Void Linux (runit) support** (#85): Install/uninstall scripts, Logs screen, and in-app updates now work on runit.
 - **Windows shortcut icon fix**: Updates no longer remove the shortcut icon and other app files. Missing icons are restored on service start.
 - **Snap `framework-tool` support** (#91): The service now finds the Snap package's `framework-tool` command.
 - **Framework Desktop and battery-less devices** (#93): Power controls work again instead of failing with a 502, and settings always use the plugged in profile. Battery UI (Battery panel, power profile switcher, fan profile auto-switch) is hidden.
+- **Power control explanations** (#92): Info tooltips on Energy Preference and CPU Governor explain how the two interact. EPP is no longer labeled AMD-only because it works with `intel_pstate` too.
 - **Fan control lost after sleep/hibernation**: The EC returns to auto fan control on suspend, and the service never resent an unchanged duty. Fan duty is now reapplied right after resume and every 30s.
 
 ## 0.5.5 - 2026-10-15

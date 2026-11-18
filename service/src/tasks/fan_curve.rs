@@ -10,7 +10,7 @@ use crate::config::LiveConfig;
 use crate::types::{CurveConfig, DashboardPanelId, FanControlMode};
 
 /// The EC drops back to auto fan control on sleep/hibernate, so held duties are resent periodically.
-/// Wall-clock time keeps advancing while suspended, so the first tick after a resume resends immediately.
+/// Wall-clock time keeps advancing while suspended, so a resume after a suspend longer than the interval resends on the first tick.
 const RESEND_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Main fan control task that runs continuously based on config

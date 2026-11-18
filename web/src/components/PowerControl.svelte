@@ -814,10 +814,18 @@
                                 }}
                                 class="pointer-events-none bg-base-100 px-2 py-1 rounded-box border surface-border shadow text-xs w-64 text-center"
                             >
-                                Kernel CPU frequency policy. "performance" keeps
-                                clocks high and ignores Energy Preference;
-                                "powersave" scales clocks using the Energy
-                                Preference hint, so it's usually the one to pick.
+                                {#if capabilities?.supports_epp}
+                                    Kernel CPU frequency policy. "performance"
+                                    keeps clocks high and ignores Energy
+                                    Preference; "powersave" scales clocks using
+                                    the Energy Preference hint, so it's usually
+                                    the one to pick.
+                                {:else}
+                                    Kernel CPU frequency policy. "schedutil"
+                                    scales clocks with load; "performance" keeps
+                                    them high and "powersave" pins them at the
+                                    minimum.
+                                {/if}
                             </div>
                         </div>
                     </UiControlCard>

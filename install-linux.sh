@@ -152,7 +152,6 @@ get_latest_prerelease_tag() {
 download_release() {
     local tmpdir download_url
     tmpdir=$(mktemp -d)
-    trap 'rm -rf "$tmpdir"' EXIT
 
     if [ "$INSTALL_BETA" = true ]; then
         local tag
@@ -220,7 +219,7 @@ install_systemd_service() {
     systemctl enable "$SERVICE_NAME"
 
     info "Starting service..."
-    if ! systemctl start "$SERVICE_NAME"; then
+    if ! systemctl restart "$SERVICE_NAME"; then
         error "Failed to start service"
         error "Check logs with: sudo journalctl -u $SERVICE_NAME -n 50"
         exit 1
@@ -250,8 +249,7 @@ EOF
     ln -sfn "$RUNIT_SV_DIR" "$RUNIT_LINK"
 
     # runsvdir picks up new links on its next scan (every 5s).
-    local attempt
-    for attempt in $(seq 1 15); do
+    for _ in $(seq 1 15); do
         if [ -p "$RUNIT_LINK/supervise/ok" ]; then
             break
         fi
@@ -263,7 +261,7 @@ EOF
     fi
 
     info "Starting service..."
-    sv up "$RUNIT_LINK"
+    sv restart "$RUNIT_LINK"
 }
 
 service_is_running() {
@@ -280,6 +278,11 @@ recent_service_logs() {
     else
         tail -n 20 "$RUNIT_LOG_DIR/current"
     fi
+}
+
+# sed instead of grep so a missing line yields an empty port rather than failing the pipeline.
+detect_port() {
+    recent_service_logs | sed -nE 's|.*listening on http://127\.0\.0\.1:([0-9]+).*|\1|p' | tail -1
 }
 
 logs_hint() {
@@ -306,7 +309,7 @@ verify_installation() {
 
     # Extract the actual port from service logs
     local detected_port
-    detected_port=$(recent_service_logs | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+    detected_port=$(detect_port)
 
     if [ -z "$detected_port" ]; then
         warn "Could not detect port from service logs"
@@ -327,7 +330,7 @@ verify_installation() {
 print_success() {
     # Extract the actual port from service logs
     local port
-    port=$(recent_service_logs | grep -oP 'listening on http://127\.0\.0\.1:\K\d+' | tail -1)
+    port=$(detect_port)
 
     local url="http://127.0.0.1:${port:-<configured-port>}"
 
@@ -364,8 +367,9 @@ main() {
     check_dependencies
     check_framework_tool
 
-    local tmpdir
+    # Global so the EXIT trap can still see it after main returns.
     tmpdir=$(download_release)
+    trap 'rm -rf "$tmpdir"' EXIT
 
     install_binary "$tmpdir"
 

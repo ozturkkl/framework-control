@@ -262,8 +262,8 @@
                         class={`w-4 h-4 ${isCharging ? "text-success" : "text-[var(--sensor-orange)]"}`}
                     />
                     <span class="tabular-nums text-xs"
-                        >{isCharging ? "+" : "-"}{presentWatts != null
-                            ? (Math.round(presentWatts * 100) / 100).toFixed(2)
+                        >{presentWatts != null
+                            ? `${isCharging ? "+" : "-"}${(Math.round(presentWatts * 100) / 100).toFixed(2)}`
                             : "-"} W</span
                     >
                     <span class="opacity-60"
