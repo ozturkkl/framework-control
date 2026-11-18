@@ -1,4 +1,4 @@
-## 0.5.6 - Unreleased
+## 0.5.6 - 2026-11-18
 
 - **NEW: deb and rpm packages** (#88): Each release ships `framework-control-service-x86_64.deb` and `.rpm`. They install the systemd unit and desktop entry and add a signed apt or dnf repository hosted on GitHub Pages, so updates arrive through `apt upgrade` / `dnf upgrade` (in-app updates are off for these installs). A beta repository is available too. See `LINUX_INSTALL.MD`.
 - **NEW: Void Linux (runit) support** (#85): Install/uninstall scripts, Logs screen, and in-app updates now work on runit.
