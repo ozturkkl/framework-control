@@ -57,30 +57,53 @@ paru -S framework-control-beta
 
 ### Debian / Ubuntu (apt)
 
-Add the signed apt repository, then install:
+> [!WARNING]
+> If you installed Framework Control with the install script before, [uninstall it](#install-script-installs) first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's.
+
+Download and install the package from the latest release:
 
 ```bash
-sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/framework-control.asc -o /etc/apt/keyrings/framework-control.asc
-sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/deb/stable/framework-control.sources -o /etc/apt/sources.list.d/framework-control.sources
-sudo apt update && sudo apt install framework-control
+wget https://github.com/ozturkkl/framework-control/releases/latest/download/framework-control-service-x86_64.deb
+sudo apt install ./framework-control-service-x86_64.deb
 ```
 
-The package installs `/usr/bin/framework-control`, the systemd unit and a desktop entry, and enables and starts the service. Updates arrive through `apt upgrade`; in-app updates are turned off. For betas, use `deb/beta/` instead of `deb/stable/` (the beta channel also receives stable releases).
+The package installs `/usr/bin/framework-control`, the systemd unit and a desktop entry, and enables and starts the service. It also adds the signed Framework Control apt repository (`/etc/apt/sources.list.d/framework-control.sources` with its key in `/usr/share/keyrings/`), so updates arrive through `apt upgrade`; in-app updates are turned off. Unattended upgrades only cover this repository if you add its origin (`framework-control`) to your unattended-upgrades configuration.
 
-If you used the install script before, run the uninstaller first (see [Uninstallation](#uninstallation)): its unit in `/etc/systemd/system` would otherwise take precedence over the package's.
+For betas, also add the beta repository next to the stable one (the beta channel also receives stable releases):
+
+```bash
+sudo wget -O /etc/apt/sources.list.d/framework-control-beta.sources https://ozturkkl.github.io/framework-control/packages/deb/beta/framework-control-beta.sources
+sudo apt update && sudo apt upgrade
+```
 
 ### Fedora / RHEL (dnf)
 
-Add the signed dnf repository, then install:
+> [!WARNING]
+> If you installed Framework Control with the install script before, [uninstall it](#install-script-installs) first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's.
+
+Install the package from the latest release:
+
+```bash
+sudo dnf install https://github.com/ozturkkl/framework-control/releases/latest/download/framework-control-service-x86_64.rpm
+```
+
+This works like the apt package above: it adds the signed repository as `/etc/yum.repos.d/framework-control.repo`, so updates arrive through `dnf upgrade`. The first update asks you to confirm importing the repository key; if you only update through GNOME Software, run `sudo dnf upgrade` once in a terminal to accept it.
+
+For betas, also add the beta repository:
+
+```bash
+sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/rpm/beta/framework-control-beta.repo -o /etc/yum.repos.d/framework-control-beta.repo
+sudo dnf upgrade
+```
+
+On Fedora Atomic (Silverblue, Kinoite, Bazzite), a package layered from a file never updates, so add the repository first and install by name:
 
 ```bash
 sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/rpm/stable/framework-control.repo -o /etc/yum.repos.d/framework-control.repo
-sudo dnf install framework-control
+sudo rpm-ostree install framework-control
 ```
 
-This works the same as the apt package above, including the beta channel (`rpm/beta/`) and the note about install script users. On Fedora Atomic (Silverblue, Kinoite, Bazzite), add the repo file the same way, then run `sudo rpm-ostree install framework-control`, reboot, and enable the service with `sudo systemctl enable --now framework-control`.
-
-Each release also attaches `framework-control-service-x86_64.deb` and `.rpm` for a one-off install without the repository.
+Then reboot and enable the service with `sudo systemctl enable --now framework-control`.
 
 ### NixOS
 
@@ -255,7 +278,7 @@ sudo apt remove framework-control
 sudo dnf remove framework-control
 ```
 
-This stops and disables the service and removes the downloaded `framework_tool`.
+This stops and disables the service and removes the downloaded `framework_tool` and the stable repository. If you added the beta repository, delete its file from `/etc/apt/sources.list.d/` or `/etc/yum.repos.d/` yourself.
 
 ### NixOS installs
 

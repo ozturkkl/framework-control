@@ -283,6 +283,7 @@ jobs:
           # Beta builds reuse the version, so the run number keeps package upgrades moving.
           PACKAGE_RELEASE: ${{ github.run_number }}
           PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
+          PACKAGE_REPO_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/packages
           FRAMEWORK_CONTROL_PORT: ${{ secrets.FRAMEWORK_CONTROL_PORT || vars.FRAMEWORK_CONTROL_PORT }}
         run: |
           set -euo pipefail

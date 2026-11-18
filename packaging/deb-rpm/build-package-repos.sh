@@ -7,6 +7,7 @@ set -Eeuo pipefail
 trap 'echo "build-package-repos.sh failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 
 site_dir=$(realpath -m "$1")
+script_dir=$(realpath "$(dirname "$0")")
 base_url=$2
 releases_per_channel=3
 package_asset=framework-control-service-x86_64
@@ -34,6 +35,14 @@ download_packages() {
     done
 }
 
+# Beta gets its own file name so it can sit next to the stable file the packages install.
+repo_file_name() {
+    case "$1" in
+        stable) echo framework-control ;;
+        beta) echo framework-control-beta ;;
+    esac
+}
+
 write_apt_repo() {
     local channel=$1
     cd "$site_dir/deb/$channel"
@@ -52,12 +61,7 @@ write_apt_repo() {
     gpg --batch --yes --clearsign --output InRelease Release
     gpg --batch --yes --armor --detach-sign --output Release.gpg Release
 
-    cat > framework-control.sources <<EOF
-Types: deb
-URIs: $base_url/deb/$channel/
-Suites: ./
-Signed-By: /etc/apt/keyrings/framework-control.asc
-EOF
+    "$script_dir/write-repo-file.sh" deb "$channel" "$base_url" > "$(repo_file_name "$channel").sources"
 }
 
 write_dnf_repo() {
@@ -66,15 +70,7 @@ write_dnf_repo() {
     createrepo_c --quiet .
     gpg --batch --yes --armor --detach-sign --output repodata/repomd.xml.asc repodata/repomd.xml
 
-    cat > framework-control.repo <<EOF
-[framework-control-$channel]
-name=Framework Control ($channel)
-baseurl=$base_url/rpm/$channel/
-enabled=1
-gpgcheck=1
-repo_gpgcheck=1
-gpgkey=$base_url/framework-control.asc
-EOF
+    "$script_dir/write-repo-file.sh" rpm "$channel" "$base_url" > "$(repo_file_name "$channel").repo"
 }
 
 mkdir -p "$site_dir"

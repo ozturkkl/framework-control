@@ -29,6 +29,24 @@ contents:
     dst: /usr/lib/systemd/system/framework-control.service
     file_info:
       mode: 0644
+  # The packages set up the stable repo so a downloaded package keeps getting updates.
+  # Plain files on deb so apt remove deletes the source together with its key.
+  - src: service/target/dist-linux/framework-control-archive-keyring.pgp
+    dst: /usr/share/keyrings/framework-control-archive-keyring.pgp
+    packager: deb
+    file_info:
+      mode: 0644
+  - src: service/target/dist-linux/framework-control.sources
+    dst: /etc/apt/sources.list.d/framework-control.sources
+    packager: deb
+    file_info:
+      mode: 0644
+  - src: service/target/dist-linux/framework-control.repo
+    dst: /etc/yum.repos.d/framework-control.repo
+    type: config|noreplace
+    packager: rpm
+    file_info:
+      mode: 0644
   - src: LICENSE
     dst: /usr/share/licenses/framework-control/LICENSE
     file_info:

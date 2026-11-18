@@ -6,6 +6,7 @@ on:
     paths:
       - "web/**"
       - "packaging/deb-rpm/build-package-repos.sh"
+      - "packaging/deb-rpm/write-repo-file.sh"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch: {}
 
