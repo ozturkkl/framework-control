@@ -6,7 +6,7 @@ use tracing::{debug, info, warn};
 /// Linux-native power management using kernel interfaces
 #[derive(Clone)]
 pub struct LinuxPower {
-    amd_pstate: Option<AmdPStateBackend>,
+    epp: Option<EppBackend>,
     cpufreq: Option<CpufreqBackend>,
 }
 
@@ -14,31 +14,31 @@ impl LinuxPower {
     pub async fn new() -> Result<Self, String> {
         info!("Detecting Linux power management capabilities...");
 
-        let amd_pstate = AmdPStateBackend::detect().await;
+        let epp = EppBackend::detect().await;
         let cpufreq = CpufreqBackend::detect().await;
 
         // Log what we found
-        if amd_pstate.is_some() {
-            info!("AMD P-State detected: EPP control available");
+        if epp.is_some() {
+            info!("EPP control available");
         }
         if cpufreq.is_some() {
             info!("cpufreq detected: governor and frequency control available");
         }
 
-        if amd_pstate.is_none() && cpufreq.is_none() {
+        if epp.is_none() && cpufreq.is_none() {
             warn!("No power management interfaces found");
         }
 
-        Ok(Self { amd_pstate, cpufreq })
+        Ok(Self { epp, cpufreq })
     }
 
     pub async fn get_capabilities(&self) -> PowerCapabilities {
         // Aggregate all available capabilities from all backends
         let mut caps = PowerCapabilities::default();
 
-        // AMD P-State capabilities (read dynamically as they change with governor)
-        if let Some(amd_pstate) = &self.amd_pstate {
-            caps.available_epp_preferences = amd_pstate.get_available_preferences().await;
+        // EPP capabilities (read dynamically as they change with governor)
+        if let Some(epp) = &self.epp {
+            caps.available_epp_preferences = epp.get_available_preferences().await;
             caps.supports_epp = caps.available_epp_preferences.is_some();
         }
 
@@ -59,9 +59,9 @@ impl LinuxPower {
     pub async fn get_state(&self) -> Result<PowerState, String> {
         let mut state = PowerState::default();
 
-        // Read AMD P-State state
-        if let Some(amd_pstate) = &self.amd_pstate {
-            state.epp_preference = amd_pstate.get_current_epp().await.ok();
+        // Read EPP state
+        if let Some(epp) = &self.epp {
+            state.epp_preference = epp.get_current_epp().await.ok();
         }
 
         // Read cpufreq state
@@ -92,8 +92,8 @@ impl LinuxPower {
     }
 
     pub async fn set_epp_preference(&self, preference: &str) -> Result<(), String> {
-        let amd_pstate = self.amd_pstate.as_ref().ok_or("AMD P-State backend not available")?;
-        amd_pstate.set_epp_preference(preference).await
+        let epp = self.epp.as_ref().ok_or("EPP backend not available")?;
+        epp.set_epp_preference(preference).await
     }
 
     /// Applies frequency limits, clamping against hardware range.
@@ -107,13 +107,13 @@ impl LinuxPower {
     }
 }
 
-// AMD P-State Backend (EPP control)
+// EPP Backend (amd-pstate, intel_pstate)
 #[derive(Clone)]
-struct AmdPStateBackend {
+struct EppBackend {
     cpu_paths: Vec<PathBuf>,
 }
 
-impl AmdPStateBackend {
+impl EppBackend {
     async fn detect() -> Option<Self> {
         let cpu0_path = Path::new("/sys/devices/system/cpu/cpu0/cpufreq");
         if !cpu0_path.exists() {
@@ -133,7 +133,7 @@ impl AmdPStateBackend {
 
         sort_cpu_paths(&mut cpu_paths);
 
-        debug!("Found AMD P-State with {} CPUs", cpu_paths.len());
+        debug!("Found EPP control with {} CPUs", cpu_paths.len());
 
         Some(Self { cpu_paths })
     }

@@ -40,7 +40,7 @@
     $: tMin = allTimes.length ? Math.min(...allTimes) : null;
     $: tMax = allTimes.length ? Math.max(...allTimes) : null;
 
-    // SVG and layout — viewBox tracks CSS pixels so labels stay ~10px
+    // SVG and layout - viewBox tracks CSS pixels so labels stay ~10px
     const padding = { left: 36, right: 12, top: 12, bottom: 22 };
     let svgWidth = 400;
     let svgHeight = 220;

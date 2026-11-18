@@ -17,7 +17,8 @@ https://github.com/user-attachments/assets/5d7c07c2-83cc-4b82-b685-df5f86318597
 
 **Linux install options** (see [`LINUX_INSTALL.MD`](LINUX_INSTALL.MD) for full details):
 
-- **Install script** (any distro): `curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash`
+- **Install script** (systemd distros and Void Linux): `curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/install-linux.sh | sudo bash`
+- **Debian / Ubuntu / Fedora**: `.deb` and `.rpm` packages from the [latest release](https://github.com/ozturkkl/framework-control/releases/latest) that add an apt or dnf repository for updates
 - **Arch Linux (AUR)**: `yay -S framework-control` ([stable](https://aur.archlinux.org/packages/framework-control) · [beta](https://aur.archlinux.org/packages/framework-control-beta))
 - **NixOS**: `services.framework-control.enable = true;` in your NixOS configuration
 
@@ -58,11 +59,11 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Clean Architecture**: Minimal always-on local service with REST API on loopback
 - **User-Friendly**: No terminal required - MSI installer for Windows with automatic service registration
 - **Native App Experience**: Start Menu/Desktop shortcuts open Chrome/Edge in app mode on Windows; Linux gets an application menu desktop entry (created on first run)
-- **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold, plus a charge/power history graph.
+- **Battery Controls**: View battery health/SoC, live charge/discharge power and estimated time remaining/ to target, with configurable max charge limit and optional charge-rate (C) limit + SoC threshold, plus a charge/power history graph. Hidden on devices without a battery (e.g. Desktop), which always use the AC power profile.
 - **Power Controls**:
   - **Windows (RyzenAdj)**: TDP and thermal limit control for AMD Ryzen systems
-  - **Linux (Native)**: Uses kernel interfaces (AMD P-State EPP, cpufreq governor)
-  - Set energy preferences (AMD P-State) or governors/frequency limits (cpufreq)
+  - **Linux (Native)**: Uses kernel cpufreq interfaces (works with both `amd-pstate` and `intel_pstate`)
+  - Set energy preference (EPP), CPU governor, and frequency limits. With the `performance` governor the kernel locks EPP to `performance`; with `powersave`, EPP decides how aggressively the CPU boosts. See the kernel docs for [amd-pstate](https://docs.kernel.org/admin-guide/pm/amd-pstate.html) and [intel_pstate](https://docs.kernel.org/admin-guide/pm/intel_pstate.html) for details.
   - Separate AC/Battery profiles with background reapply and live power readout
 - **Updates & Shortcuts**: In-app update checks and optional auto-install, Start Menu/Desktop shortcut management, and `framework_tool` version selection from the Settings modal
 - **Themes**: DaisyUI theme picker persisted in config and applied across clients
@@ -86,7 +87,7 @@ This software is provided "as is," without warranty of any kind, express or impl
 - **Backend Service**: Rust (Tokio + Poem + poem-openapi)
   - Exposes HTTP API with OpenAPI generation
   - Executes Framework CLI (`framework_tool`) for all EC interactions
-  - Power management: RyzenAdj on Windows, native kernel interfaces (AMD P-State EPP, cpufreq) on Linux
+  - Power management: RyzenAdj on Windows, native kernel interfaces (cpufreq EPP and governor) on Linux
   - Applies persisted fan-control and power config at boot
 - **Frontend UI**: Svelte + TypeScript + Vite + Tailwind + DaisyUI
   - Responsive panel layout adapting to active fan mode

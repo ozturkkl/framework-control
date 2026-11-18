@@ -113,7 +113,7 @@
     }
 
     function fmtMem(mb?: number) {
-        if (!mb) return "—";
+        if (!mb) return "-";
         const gb = Math.round(mb / 1024);
         return `${gb} GB`;
     }
@@ -226,7 +226,7 @@
                                 <a
                                     class="btn btn-error btn-xs mx-3 p-[.4rem] h-0 w-0 min-h-0 lg:w-auto lg:h-auto lg:py-1 lg:mx-2"
                                     href={platformInstallerUrl}
-                                    aria-label="framework_tool missing — Reinstall"
+                                    aria-label="framework_tool missing - Reinstall"
                                     bind:this={statusBtn}
                                     on:mouseenter={() =>
                                         (statusTipVisible = true)}
@@ -236,7 +236,7 @@
                                     on:blur={() => (statusTipVisible = false)}
                                 >
                                     <span class="hidden lg:inline"
-                                        >framework_tool missing — Reinstall</span
+                                        >framework_tool missing - Reinstall</span
                                     >
                                 </a>
                                 <button
@@ -263,7 +263,7 @@
                                 {#if cliPresent}
                                     Connected
                                 {:else}
-                                    framework_tool missing — Reinstall
+                                    framework_tool missing - Reinstall
                                 {/if}
                             </div>
                             <DashboardLayoutMenu {editing} on:toggleEdit />

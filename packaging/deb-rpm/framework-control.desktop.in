@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Framework Control
+Comment=Configure Framework Laptop battery, fans, and LEDs
+Exec=xdg-open http://127.0.0.1:{PORT}
+Icon=framework-control
+Terminal=false
+Type=Application
+Categories=Settings;System;

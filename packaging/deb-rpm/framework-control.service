@@ -1,0 +1,17 @@
+[Unit]
+Description=Framework Control Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/framework-control
+Restart=on-failure
+RestartSec=5
+PrivateTmp=yes
+StateDirectory=framework-control
+Environment=FRAMEWORK_CONTROL_TOOLS_DIR=/var/lib/framework-control
+# Overrides the repo baked into the release binary: the package manager owns updates.
+Environment=FRAMEWORK_CONTROL_UPDATE_REPO=
+
+[Install]
+WantedBy=multi-user.target

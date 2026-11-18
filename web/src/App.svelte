@@ -24,6 +24,7 @@
     import { gtSemver } from "./lib/semver";
     import { configStore, followConfig, patch } from "./lib/config";
     import { announcement } from "./lib/announcement";
+    import { batteryPresent, checkBatteryPresence } from "./lib/battery";
     import Icon from "@iconify/svelte";
 
     let healthy = false;
@@ -121,11 +122,16 @@
     let items: DashboardPanel[] = [];
 
     $: live = healthy && cliPresent;
-    $: disabledCount = layout.filter((panel) => !panel.enabled).length;
+    $: isHidden = (panel: DashboardPanel) =>
+        panel.id === "battery" && !$batteryPresent;
+    $: visibleLayout = layout.filter((panel) => !isHidden(panel));
+    $: disabledCount = visibleLayout.filter((panel) => !panel.enabled).length;
     $: if (!dragActive) {
-        items = (editing ? layout : layout.filter((panel) => panel.enabled)).map(
-            clonePanel,
-        );
+        items = (
+            editing
+                ? visibleLayout
+                : visibleLayout.filter((panel) => panel.enabled)
+        ).map(clonePanel);
     }
     $: dndOptions = {
         items,
@@ -162,6 +168,7 @@
             const res = await DefaultService.health();
             healthy = true;
             cliPresent = res.cli_present;
+            if (cliPresent) checkBatteryPresence();
         } catch {
             healthy = false;
             editing = false;
@@ -238,7 +245,9 @@
 
     function handleFinalize(event: CustomEvent<DndEvent<DashboardPanel>>) {
         dragActive = false;
-        if (editing) commitLayout(event.detail.items);
+        if (editing) {
+            commitLayout([...event.detail.items, ...layout.filter(isHidden)]);
+        }
     }
 
     function mapPanel(
@@ -264,7 +273,10 @@
         delta: -1 | 1,
     ): readonly [number, number] | null {
         const index = layout.findIndex((panel) => panel.id === id);
-        const other = index + delta;
+        let other = index + delta;
+        while (other >= 0 && other < layout.length && isHidden(layout[other])) {
+            other += delta;
+        }
         if (index < 0 || other < 0 || other >= layout.length) return null;
         return [index, other];
     }

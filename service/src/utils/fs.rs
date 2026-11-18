@@ -80,3 +80,11 @@ pub fn detect_user_home() -> Option<String> {
     // Fallback to HOME
     std::env::var("HOME").ok()
 }
+
+/// Where downloaded helper tools live: `FRAMEWORK_CONTROL_TOOLS_DIR`, or next to the service binary.
+pub fn tools_dir() -> Option<std::path::PathBuf> {
+    if let Ok(dir) = std::env::var("FRAMEWORK_CONTROL_TOOLS_DIR") {
+        return Some(dir.into());
+    }
+    std::env::current_exe().ok()?.parent().map(|dir| dir.to_path_buf())
+}

@@ -125,6 +125,14 @@ pub fn parse_charge_limit(stdout: &str) -> BatteryChargeLimitInfo {
     }
     info
 }
+fn parse_connected(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "connected" => Some(true),
+        "not connected" => Some(false),
+        _ => None,
+    }
+}
+
 pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
     let mut ac_present: Option<bool> = None;
     let mut battery_present: Option<bool> = None;
@@ -145,14 +153,12 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
 
     for line in stdout.lines() {
         let l = line.trim();
-        if l.starts_with("AC is:") {
-            ac_present =
-                Some(l.to_ascii_lowercase().contains("connected") && !l.to_ascii_lowercase().contains("not connected"));
+        if let Some(value) = l.strip_prefix("AC is:") {
+            ac_present = parse_connected(value);
             continue;
         }
-        if l.starts_with("Battery is:") {
-            battery_present =
-                Some(l.to_ascii_lowercase().contains("connected") && !l.to_ascii_lowercase().contains("not connected"));
+        if let Some(value) = l.strip_prefix("Battery is:") {
+            battery_present = parse_connected(value);
             continue;
         }
         if let Some(pos) = l.find("Battery LFCC:") {
@@ -271,6 +277,11 @@ pub fn parse_power(stdout: &str) -> PowerBatteryInfo {
             discharging = Some(true);
             continue;
         }
+    }
+
+    // Without a battery the machine must be on external power; the Desktop EC reports AC as not connected.
+    if battery_present == Some(false) {
+        ac_present = Some(true);
     }
 
     PowerBatteryInfo {
@@ -503,5 +514,17 @@ Battery Status
         assert_eq!(p.design_voltage_mv, Some(15480));
         assert_eq!(p.cycle_count, Some(58));
         assert_eq!(p.charging, Some(true));
+    }
+    #[test]
+    fn parse_power_without_battery_reports_ac() {
+        // Framework Desktop output (issue #93)
+        let s = r#"
+Battery Status
+  AC is:            not connected
+  Battery is:       not connected
+"#;
+        let p = parse_power(s);
+        assert_eq!(p.ac_present, Some(true));
+        assert_eq!(p.battery_present, Some(false));
     }
 }

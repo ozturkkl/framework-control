@@ -60,9 +60,9 @@ pub async fn archive_contains_any_suffix(url: &str, preferred_suffixes: &[&str])
     url.hash(&mut hasher);
     let h = hasher.finish();
 
-    let executable_path = std::env::current_exe().map_err(|e| format!("get current executable path failed: {e}"))?;
-    let executable_dir = executable_path.parent().unwrap_or(std::path::Path::new("."));
-    let tmp_root = executable_dir.join("fc_zip_peek");
+    let tmp_root = crate::utils::fs::tools_dir()
+        .ok_or_else(|| "could not resolve tools directory for archive peek".to_string())?
+        .join("fc_zip_peek");
     let _ = std::fs::create_dir_all(&tmp_root);
     let tmp_dir = tmp_root.join(format!("{}", h));
     // Clean any previous contents for this URL

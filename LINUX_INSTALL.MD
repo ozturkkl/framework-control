@@ -1,10 +1,10 @@
 # Linux Installation Guide
 
-Framework Control on Linux runs as a systemd service and requires the official Framework CLI (`framework_tool`) to communicate with the embedded controller.
+Framework Control on Linux runs as a systemd service (or a runit service on Void Linux) and requires the official Framework CLI (`framework_tool`) to communicate with the embedded controller.
 
 ## Install Options
 
-### Install script (all distributions)
+### Install script (systemd distributions and Void Linux)
 
 Run the automated installer as root:
 
@@ -21,7 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/ins
 This will:
 - Download the latest release from GitHub (stable by default, or beta with `--beta`)
 - Install the binary to `/usr/local/bin/framework-control`
-- Install and enable the systemd service
+- Install and enable the systemd service (or the runit service on Void Linux)
 - Start the service automatically
 - Verify the installation
 
@@ -29,7 +29,7 @@ After installation, access the web UI at the address shown in the installer outp
 
 ### Arch Linux (AUR)
 
-An [AUR package](https://aur.archlinux.org/packages/framework-control) is available. It builds from source and installs the systemd unit and desktop entry. `framework_tool` is optional at install time — the service downloads it automatically on first run if it is not already on `PATH` (you can also install the official `framework-system` package beforehand).
+An [AUR package](https://aur.archlinux.org/packages/framework-control) is available. It builds from source and installs the systemd unit and desktop entry. `framework_tool` is optional at install time - the service downloads it automatically on first run if it is not already on `PATH` (you can also install the official `framework-system` package beforehand).
 
 With an AUR helper:
 
@@ -47,13 +47,75 @@ yay -S framework-control
 paru -S framework-control
 ```
 
-A [beta/pre-release package](https://aur.archlinux.org/packages/framework-control-beta) is also published automatically when a GitHub prerelease is built (typically on version PRs). It conflicts with the stable package — install one or the other:
+A [beta/pre-release package](https://aur.archlinux.org/packages/framework-control-beta) is also published automatically when a GitHub prerelease is built (typically on version PRs). It conflicts with the stable package - install one or the other:
 
 ```bash
 yay -S framework-control-beta
 # or
 paru -S framework-control-beta
 ```
+
+### Debian / Ubuntu (apt)
+
+> [!WARNING]
+> If you installed Framework Control with the install script before, remove its service and binary first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's. These commands keep your settings in `/etc/framework-control`, which the uninstall script would delete:
+>
+> ```bash
+> sudo systemctl disable --now framework-control
+> sudo rm /etc/systemd/system/framework-control.service /usr/local/bin/framework-control
+> sudo systemctl daemon-reload
+> ```
+
+Download and install the package from the latest release:
+
+```bash
+wget https://github.com/ozturkkl/framework-control/releases/latest/download/framework-control-service-x86_64.deb
+sudo apt install ./framework-control-service-x86_64.deb
+```
+
+The package installs `/usr/bin/framework-control`, the systemd unit and a desktop entry, and enables and starts the service. It also adds the signed Framework Control apt repository (`/etc/apt/sources.list.d/framework-control.sources` with its key in `/usr/share/keyrings/`), so updates arrive through `apt upgrade`; in-app updates are turned off. Unattended upgrades only cover this repository if you add its origin (`framework-control`) to your unattended-upgrades configuration.
+
+For betas, also add the beta repository next to the stable one (the beta channel also receives stable releases):
+
+```bash
+sudo wget -O /etc/apt/sources.list.d/framework-control-beta.sources https://ozturkkl.github.io/framework-control/packages/deb/beta/framework-control-beta.sources
+sudo apt update && sudo apt upgrade
+```
+
+### Fedora / RHEL (dnf)
+
+> [!WARNING]
+> If you installed Framework Control with the install script before, remove its service and binary first. Its unit in `/etc/systemd/system` would otherwise take precedence over the package's. These commands keep your settings in `/etc/framework-control`, which the uninstall script would delete:
+>
+> ```bash
+> sudo systemctl disable --now framework-control
+> sudo rm /etc/systemd/system/framework-control.service /usr/local/bin/framework-control
+> sudo systemctl daemon-reload
+> ```
+
+Install the package from the latest release:
+
+```bash
+sudo dnf install https://github.com/ozturkkl/framework-control/releases/latest/download/framework-control-service-x86_64.rpm
+```
+
+This works like the apt package above: it adds the signed repository as `/etc/yum.repos.d/framework-control.repo`, so updates arrive through `dnf upgrade`. The first update asks you to confirm importing the repository key; if you only update through GNOME Software, run `sudo dnf upgrade` once in a terminal to accept it.
+
+For betas, also add the beta repository:
+
+```bash
+sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/rpm/beta/framework-control-beta.repo -o /etc/yum.repos.d/framework-control-beta.repo
+sudo dnf upgrade
+```
+
+On Fedora Atomic (Silverblue, Kinoite, Bazzite), a package layered from a file never updates, so add the repository first and install by name:
+
+```bash
+sudo curl -fsSL https://ozturkkl.github.io/framework-control/packages/rpm/stable/framework-control-stable.repo -o /etc/yum.repos.d/framework-control.repo
+sudo rpm-ostree install framework-control
+```
+
+Then reboot and enable the service with `sudo systemctl enable --now framework-control`.
 
 ### NixOS
 
@@ -85,7 +147,7 @@ framework_tool --versions
 
 ### 2. System Requirements
 
-- **systemd**: Required for service management
+- **systemd** or **runit** (Void Linux): Required for service management
 - **curl**: For downloading releases
 - **tar**: For extracting the release tarball
 - **Root access**: The service must run with elevated permissions
@@ -166,6 +228,16 @@ sudo systemctl stop framework-control.service
 sudo systemctl disable framework-control.service
 ```
 
+### Void Linux (runit)
+
+```bash
+sudo sv status framework-control                    # check status
+sudo tail -f /var/log/framework-control/current     # view logs
+sudo sv restart framework-control                   # restart
+sudo sv down framework-control                      # stop
+sudo rm /var/service/framework-control              # disable auto-start
+```
+
 ## Desktop Integration
 
 After the service is running, you can create a desktop shortcut from within the web UI:
@@ -178,7 +250,7 @@ This will add a desktop entry to `~/.local/share/applications/framework-control.
 
 ## Updates
 
-Framework Control includes an auto-update system:
+apt and dnf installs update through `apt upgrade` or `dnf upgrade`, so the in-app updater is turned off for them. Install script installs include an auto-update system:
 
 1. The service checks for updates automatically (configurable in Settings)
 2. When an update is available, you'll see a notification in the UI
@@ -197,7 +269,7 @@ Run the automated uninstaller as root:
 curl -fsSL https://raw.githubusercontent.com/ozturkkl/framework-control/main/uninstall-linux.sh | sudo bash
 ```
 
-This stops and disables the service, then removes the binary, systemd unit,
+This stops and disables the service, then removes the binary, systemd unit (or runit service and logs),
 config directory, desktop entry, and icon assets.
 
 ### AUR installs
@@ -209,6 +281,18 @@ sudo pacman -R framework-control-beta
 ```
 
 The package hooks stop and disable the systemd service before removal.
+
+### apt and dnf installs
+
+```bash
+sudo apt remove framework-control
+# or
+sudo dnf remove framework-control
+```
+
+This stops and disables the service and removes the downloaded `framework_tool` and the stable repository. If you added the beta repository, delete its file from `/etc/apt/sources.list.d/` or `/etc/yum.repos.d/` yourself.
+
+On Fedora Atomic, run `sudo rpm-ostree uninstall framework-control`, delete `/etc/yum.repos.d/framework-control.repo`, and reboot.
 
 ### NixOS installs
 
@@ -277,7 +361,7 @@ If it continues to fail, check the service logs.
 
 ### Immutable Distributions (Fedora Silverblue, Bazzite, etc.)
 
-The install script uses `/usr/local/bin` which is typically writable on immutable systems. If you encounter issues, you may need to use `rpm-ostree` or your distribution's preferred method for adding system binaries.
+On Fedora Atomic variants, prefer the [dnf repository](#fedora--rhel-dnf) with `rpm-ostree`. The install script uses `/usr/local/bin`, which is typically writable on immutable systems.
 
 ## Security Notes
 

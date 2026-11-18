@@ -76,6 +76,13 @@ fn extract_icon() -> Result<PathBuf, String> {
     Err("Icon not embedded (embed-ui feature disabled)".to_string())
 }
 
+#[cfg(all(target_os = "windows", feature = "embed-ui"))]
+pub fn restore_icon() {
+    if let Err(e) = extract_icon() {
+        warn!("Failed to restore shortcut icon: {}", e);
+    }
+}
+
 #[cfg(all(target_os = "linux", feature = "embed-ui"))]
 fn extract_icon() -> Result<PathBuf, String> {
     let user_home =

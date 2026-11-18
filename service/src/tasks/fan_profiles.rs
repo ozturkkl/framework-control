@@ -34,6 +34,10 @@ pub async fn run(cli_lock: Arc<tokio::sync::RwLock<Option<FrameworkTool>>>, cfg:
         let Ok(power) = cli.power().await else {
             continue;
         };
+        // The UI hides auto-switch without a battery, so a stale setting must not apply.
+        if power.battery_present == Some(false) {
+            continue;
+        }
         let Some(ac_present) = power.ac_present else {
             continue;
         };

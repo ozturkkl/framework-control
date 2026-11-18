@@ -50,6 +50,8 @@ async fn main() {
 
     // Check if installer requested shortcut creation on first run
     shortcuts::create_shortcuts_if_installer_requested().await;
+    #[cfg(all(target_os = "windows", feature = "embed-ui"))]
+    shortcuts::restore_icon();
 
     let state = state::AppState::initialize().await;
 

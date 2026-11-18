@@ -2,13 +2,16 @@
 set -Eeuo pipefail
 
 # Framework Control - Linux Uninstallation Script
-# Removes the systemd service, binary, config, and desktop integration
+# Removes the systemd or runit service, binary, config, and desktop integration
 
 BINARY_NAME="framework-control"
 SERVICE_NAME="framework-control.service"
 INSTALL_DIR="/usr/local/bin"
 SERVICE_DIR="/etc/systemd/system"
 CONFIG_DIR="/etc/framework-control"
+RUNIT_SV_DIR="/etc/sv/framework-control"
+RUNIT_LINK="/var/service/framework-control"
+RUNIT_LOG_DIR="/var/log/framework-control"
 
 # Color output
 RED='\033[0;31m'
@@ -66,6 +69,37 @@ detect_user_home() {
 }
 
 remove_service() {
+    if [ -d /run/systemd/system ]; then
+        remove_systemd_service
+    elif [ -d /run/runit ] && [ -d /var/service ]; then
+        remove_runit_service
+    else
+        error "Unsupported init system. Framework Control supports systemd and runit (Void Linux)."
+        exit 1
+    fi
+}
+
+remove_runit_service() {
+    if [ -L "$RUNIT_LINK" ]; then
+        info "Stopping service..."
+        sv down "$RUNIT_LINK"
+
+        info "Disabling service..."
+        rm -f "$RUNIT_LINK"
+    fi
+
+    if [ -d "$RUNIT_SV_DIR" ]; then
+        info "Removing service directory..."
+        rm -rf "$RUNIT_SV_DIR"
+    fi
+
+    if [ -d "$RUNIT_LOG_DIR" ]; then
+        info "Removing log directory..."
+        rm -rf "$RUNIT_LOG_DIR"
+    fi
+}
+
+remove_systemd_service() {
     if [ ! -f "$SERVICE_DIR/$SERVICE_NAME" ] && ! systemctl list-unit-files "$SERVICE_NAME" >/dev/null 2>&1; then
         info "Service not installed, skipping"
         return

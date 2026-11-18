@@ -78,7 +78,7 @@
             />
 
         <MajorUpgrade
-            Schedule='afterInstallInitialize'
+            Schedule='afterInstallExecute'
             AllowSameVersionUpgrades='yes'
             DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
 
@@ -181,13 +181,10 @@
                       are tracked as MSI component files, so they'd otherwise be left behind.
                       (see scripts/create_shortcuts.ps1, src/shortcuts.rs, config.rs)
 
-                      `NOT UPGRADINGPRODUCTCODE` restricts this to a real uninstall. In-app updates
-                      run `msiexec /i ... ADDLOCAL=Binaries` (see src/update.rs); MajorUpgrade
-                      removes the old product first, and this guard prevents that pass from wiping
-                      the user's shortcuts, settings, and logs on every update.
+                      The fixed GUID plus MajorUpgrade afterInstallExecute keeps this from running
+                      on updates: the new product claims the component before the old one is removed.
                     -->
                     <Component Id='RuntimeDataCleanup' Guid='B6F3C2A1-8D45-4E9C-A3B7-1F0E5D2C7A84'>
-                        <Condition>NOT UPGRADINGPRODUCTCODE</Condition>
                         <!-- Directory key path (avoids registry ICEs), same approach as UninstallShortcut -->
                         <CreateFolder/>
 

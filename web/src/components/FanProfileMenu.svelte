@@ -2,6 +2,7 @@
     import Icon from "@iconify/svelte";
     import { tick } from "svelte";
     import { tooltip } from "../lib/tooltip";
+    import { batteryPresent } from "../lib/battery";
     import type {
         FanControlConfig,
         FanControlPatch,
@@ -40,7 +41,8 @@
     $: profiles = fan?.profiles ?? [];
     $: active = profiles.find((p) => p.id === fan?.active_profile);
     $: auto = fan?.auto_switch ?? {};
-    $: sourcesFor = (id: string) => SOURCES.filter((s) => auto[s.key] === id);
+    $: sources = $batteryPresent ? SOURCES : [];
+    $: sourcesFor = (id: string) => sources.filter((s) => auto[s.key] === id);
     $: activeSources = active ? sourcesFor(active.id) : [];
 
     function close() {
@@ -352,28 +354,35 @@
                 </div>
             {/each}
 
-            <div class="border-t surface-border mt-1 pt-2 px-1 flex flex-col gap-1.5">
-                <div class="text-xs opacity-60">Switch automatically</div>
-                {#each SOURCES as s (s.key)}
-                    <label class="flex items-center justify-between gap-2">
-                        <span class="inline-flex items-center gap-1.5 text-xs">
-                            <Icon icon={s.icon} class="w-3.5 h-3.5 opacity-70" />
-                            {s.label}
-                        </span>
-                        <select
-                            class="select select-xs select-bordered w-32"
-                            value={auto[s.key] ?? ""}
-                            on:change={(e) =>
-                                setAuto(s.key, e.currentTarget.value)}
-                        >
-                            <option value="">Don't switch</option>
-                            {#each profiles as p (p.id)}
-                                <option value={p.id}>{p.name}</option>
-                            {/each}
-                        </select>
-                    </label>
-                {/each}
-            </div>
+            {#if sources.length}
+                <div
+                    class="border-t surface-border mt-1 pt-2 px-1 flex flex-col gap-1.5"
+                >
+                    <div class="text-xs opacity-60">Switch automatically</div>
+                    {#each sources as s (s.key)}
+                        <label class="flex items-center justify-between gap-2">
+                            <span class="inline-flex items-center gap-1.5 text-xs">
+                                <Icon
+                                    icon={s.icon}
+                                    class="w-3.5 h-3.5 opacity-70"
+                                />
+                                {s.label}
+                            </span>
+                            <select
+                                class="select select-xs select-bordered w-32"
+                                value={auto[s.key] ?? ""}
+                                on:change={(e) =>
+                                    setAuto(s.key, e.currentTarget.value)}
+                            >
+                                <option value="">Don't switch</option>
+                                {#each profiles as p (p.id)}
+                                    <option value={p.id}>{p.name}</option>
+                                {/each}
+                            </select>
+                        </label>
+                    {/each}
+                </div>
+            {/if}
         </div>
         <div
             use:tooltip={{
